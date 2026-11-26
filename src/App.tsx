@@ -251,9 +251,22 @@ export default function App() {
 
   const handleLogout = useCallback(async () => {
     if (authToken) {
+      const pending = pendingWorkspaceFlushRef.current;
+      if (pending) {
+        pendingWorkspaceFlushRef.current = null;
+        await authApi.saveWorkspace(authToken, pending, { keepalive: true }).catch(() => {});
+      }
       await authApi.logout(authToken).catch(() => {});
     }
     clearStoredToken();
+    skipNextWorkspaceSyncRef.current = true;
+    setTransactions([]);
+    setBudgets([]);
+    setGoals([]);
+    setCurrency('MZN');
+    setIsBalanceHidden(false);
+    setAlertSettings(DEFAULT_ALERT_SETTINGS);
+    setReadAlertSignatures([]);
     setAuthToken(null);
     setCurrentUser(null);
     setNotificationsOpen(false);

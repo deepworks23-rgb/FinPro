@@ -257,7 +257,11 @@ async function verifySessionToken(
 
 async function sanitizeUser(user: StoredUser) {
   let avatarDataUrl = user.avatarDataUrl;
-  if (user.avatarS3Key && isStorageConfigured()) {
+  if (
+    user.avatarS3Key &&
+    user.avatarS3Key.startsWith(`avatars/${user.id}/`) &&
+    isStorageConfigured()
+  ) {
     try {
       avatarDataUrl = await getPresignedObjectUrl(user.avatarS3Key, 3600);
     } catch (err) {
@@ -339,6 +343,9 @@ export function createApiApp(): express.Express {
   app.use(
     '/api',
     asyncHandler(async (_req, res, next) => {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Vary', 'Authorization');
       if (!isDatabaseConfigured()) {
         res.status(503).json({
           error: 'Banco de dados Neon não configurado no servidor (variável DATABASE_URL em falta).',
@@ -855,10 +862,8 @@ export function createApiApp(): express.Express {
         return;
       }
 
-      const countRes = await pool.query('SELECT COUNT(*)::int AS total FROM support_tickets');
-      const nextNum = Number(countRes.rows[0]?.total ?? 0) + 1;
-      const suffix = crypto.randomBytes(2).toString('hex').toUpperCase();
-      const code = `FT-${new Date().getFullYear()}-${String(1000 + nextNum)}-${suffix}`;
+      const suffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+      const code = `FT-${new Date().getFullYear()}-${suffix}`;
       const id = `sup_${crypto.randomUUID()}`;
       const nowIso = new Date().toISOString();
 
