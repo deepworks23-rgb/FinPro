@@ -2,18 +2,45 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Pool } from 'pg';
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is required.');
+let cachedPool: Pool | null = null;
+let initPromise: Promise<void> | null = null;
+
+/**
+ * Returns true when DATABASE_URL is configured in the environment.
+ */
+export function isDatabaseConfigured(): boolean {
+  return Boolean(process.env.DATABASE_URL);
 }
 
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+/**
+ * Returns a lazily initialized Postgres pool using DATABASE_URL.
+ */
+export function getPool(): Pool {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is required.');
+  }
+  if (!cachedPool) {
+    cachedPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+    });
+  }
+  return cachedPool;
+}
+
+function resolveMigrationsDir(): string {
+  const cwdDir = path.resolve(process.cwd(), 'migrations');
+  if (fs.existsSync(cwdDir)) return cwdDir;
+  return path.resolve(import.meta.dirname, 'migrations');
+}
 
 /**
  * Applies pending timestamped SQL migrations from `migrations/` using a direct (unpooled) connection when available.
  */
 export async function initDb(): Promise<void> {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is required.');
+  }
+
   const migrationPool = new Pool({
     connectionString: process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL,
   });
@@ -26,7 +53,7 @@ export async function initDb(): Promise<void> {
       );
     `);
 
-    const migrationsDir = path.resolve(process.cwd(), 'migrations');
+    const migrationsDir = resolveMigrationsDir();
     if (!fs.existsSync(migrationsDir)) {
       return;
     }
@@ -61,4 +88,17 @@ export async function initDb(): Promise<void> {
   } finally {
     await migrationPool.end();
   }
+}
+
+/**
+ * Ensures database migrations are initialized once per process, resetting on failure so cold starts can retry.
+ */
+export function ensureDbInitialized(): Promise<void> {
+  if (!initPromise) {
+    initPromise = initDb().catch((err) => {
+      initPromise = null;
+      throw err;
+    });
+  }
+  return initPromise;
 }
