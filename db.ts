@@ -28,9 +28,7 @@ export function getPool(): Pool {
 }
 
 function resolveMigrationsDir(): string {
-  const cwdDir = path.resolve(process.cwd(), 'migrations');
-  if (fs.existsSync(cwdDir)) return cwdDir;
-  return path.resolve(import.meta.dirname, 'migrations');
+  return path.resolve(process.cwd(), 'migrations');
 }
 
 /**
