@@ -153,28 +153,31 @@ export function ProfileModal({
       role="dialog"
     >
       <div className="w-full max-w-md bg-surface-container-lowest rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl space-y-5">
-        <div className="flex items-center justify-between border-b border-surface-container pb-3">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-3 border-b border-surface-container pb-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <img
               alt={userName}
-              className="w-12 h-12 rounded-full object-cover ring-2 ring-primary/20"
+              className="w-11 h-11 rounded-full object-cover ring-2 ring-primary/20 shrink-0"
               src={ASSETS.avatar}
             />
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h3 className="font-headline-sm text-headline-sm text-on-surface" id="profileTitle">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <h3
+                  className="text-[16px] font-bold text-on-surface truncate"
+                  id="profileTitle"
+                >
                   {userName}
                 </h3>
-                <span className="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-[10px] uppercase font-bold">
+                <span className="px-2 py-0.5 rounded-md bg-secondary-container text-on-secondary-container text-[10px] uppercase font-bold shrink-0">
                   PRO
                 </span>
               </div>
-              <p className="font-body-sm text-body-sm text-on-surface-variant">{userEmail}</p>
+              <p className="text-[12px] text-on-surface-variant truncate">{userEmail}</p>
             </div>
           </div>
           <button
             aria-label="Fechar perfil"
-            className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface cursor-pointer"
+            className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface cursor-pointer shrink-0"
             onClick={onClose}
             type="button"
           >
@@ -191,7 +194,7 @@ export function ProfileModal({
           </label>
           <div className="flex gap-2">
             <input
-              className="flex-1 h-11 px-3 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="flex-1 min-w-0 h-11 px-3 rounded-xl bg-surface-container-low text-on-surface text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/30"
               id="profileNameInput"
               onChange={(e) => setNameInput(e.target.value)}
               placeholder="Seu nome"
@@ -199,7 +202,7 @@ export function ProfileModal({
               value={nameInput}
             />
             <button
-              className="px-4 h-11 rounded-xl bg-primary text-on-primary font-label-sm text-label-sm hover:bg-primary-container transition-colors cursor-pointer"
+              className="px-4 h-11 rounded-xl bg-primary text-on-primary text-[13px] font-semibold hover:bg-primary-container transition-colors cursor-pointer shrink-0 whitespace-nowrap"
               type="submit"
             >
               Salvar

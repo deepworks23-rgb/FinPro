@@ -161,28 +161,28 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
   return (
     <div className="flex flex-col w-full px-margin space-y-space-lg pb-space-xl">
       {/* Top Action & Period Control Filter */}
-      <section className="flex flex-col space-y-space-md pt-2">
-        <div className="flex items-center justify-between gap-space-sm">
-          <div className="flex flex-col min-w-0">
-            <span className="font-headline-sm text-headline-sm text-on-surface truncate">
+      <section className="flex flex-col space-y-3 pt-2">
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center justify-between gap-2">
+            <h1 className="text-[15.5px] leading-snug font-bold text-on-surface whitespace-nowrap">
               Relatórios de Desempenho
-            </span>
-            <span className="font-body-sm text-body-sm text-on-surface-variant">
-              Análise contábil e exportação consolidada
-            </span>
+            </h1>
+            <button
+              className="flex items-center justify-center gap-1 px-2.5 py-1.5 bg-primary text-on-primary rounded-xl shadow-md hover:bg-primary-container active:scale-95 transition-all cursor-pointer shrink-0 whitespace-nowrap"
+              onClick={() => triggerDownload(true)}
+              type="button"
+            >
+              <span className="material-symbols-outlined text-[15px]">download</span>
+              <span className="text-[11.5px] font-semibold">Exportar CSV</span>
+            </button>
           </div>
-          <button
-            className="flex items-center justify-center gap-1.5 px-3 py-2 bg-primary text-on-primary rounded-xl shadow-md hover:bg-primary-container active:scale-95 transition-all cursor-pointer shrink-0"
-            onClick={() => triggerDownload(true)}
-            type="button"
-          >
-            <span className="material-symbols-outlined text-[18px]">download</span>
-            <span className="font-label-sm text-label-sm whitespace-nowrap">Exportar CSV</span>
-          </button>
+          <span className="text-[12px] text-on-surface-variant">
+            Análise contábil e exportação consolidada
+          </span>
         </div>
 
         {/* Period Selectors Horizontal Scroll */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           {periodChips.map((chip) => {
             const active = period === chip.id;
             return (
@@ -191,8 +191,8 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
                 aria-pressed={active}
                 className={
                   active
-                    ? 'px-4 py-2 rounded-full font-label-sm text-label-sm bg-primary text-on-primary shadow-sm transition-colors whitespace-nowrap cursor-pointer'
-                    : 'px-4 py-2 rounded-full font-label-sm text-label-sm bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-colors whitespace-nowrap cursor-pointer'
+                    ? 'px-3 py-1.5 rounded-lg text-[11.5px] font-semibold bg-primary text-on-primary shadow-sm transition-colors whitespace-nowrap shrink-0 cursor-pointer'
+                    : 'px-3 py-1.5 rounded-lg text-[11.5px] font-semibold bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-colors whitespace-nowrap shrink-0 cursor-pointer'
                 }
                 onClick={() => setPeriod(chip.id)}
                 type="button"
@@ -205,31 +205,31 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
 
         {/* Interactive Custom Range Picker */}
         {period === 'custom' && (
-          <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-surface-container-lowest shadow-sm">
-            <div className="flex flex-col gap-1">
+          <div className="flex gap-2 p-3 rounded-xl bg-surface-container-lowest shadow-sm">
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
               <label
-                className="font-label-sm text-[11px] text-on-surface-variant"
+                className="text-[11px] font-semibold text-on-surface-variant"
                 htmlFor="reportCustomStart"
               >
                 De
               </label>
               <input
-                className="h-9 px-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-sm text-body-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full h-9 px-2 rounded-lg bg-surface-container-low text-on-surface text-[12px] focus:outline-none focus:ring-2 focus:ring-primary/20"
                 id="reportCustomStart"
                 onChange={(e) => setCustomStart(e.target.value)}
                 type="date"
                 value={customStart}
               />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
               <label
-                className="font-label-sm text-[11px] text-on-surface-variant"
+                className="text-[11px] font-semibold text-on-surface-variant"
                 htmlFor="reportCustomEnd"
               >
                 Até
               </label>
               <input
-                className="h-9 px-2.5 rounded-lg bg-surface-container-low text-on-surface font-body-sm text-body-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full h-9 px-2 rounded-lg bg-surface-container-low text-on-surface text-[12px] focus:outline-none focus:ring-2 focus:ring-primary/20"
                 id="reportCustomEnd"
                 onChange={(e) => setCustomEnd(e.target.value)}
                 type="date"
@@ -241,120 +241,120 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
       </section>
 
       {/* Executive Summary Bento Cards */}
-      <section className="space-y-space-sm">
-        <div className="flex items-center justify-between">
-          <span className="font-label-md text-label-md text-on-surface">Resumo Executivo</span>
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">
+      <section className="space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[15px] font-bold text-on-surface">Resumo Executivo</span>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary-container text-on-secondary-container text-[11px] font-bold whitespace-nowrap shrink-0">
             <span className="material-symbols-outlined text-[14px]">trending_up</span>
             {metrics.trendBadge}
           </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-space-sm">
-          <div className="col-span-2 p-space-md rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between relative overflow-hidden">
+        <div className="flex flex-col gap-2.5">
+          <div className="p-4 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between relative overflow-hidden">
             <div className="absolute right-0 top-0 w-32 h-32 bg-secondary/5 rounded-full blur-2xl pointer-events-none" />
-            <div className="flex items-start justify-between">
-              <div className="space-y-0.5">
-                <span className="font-body-sm text-body-sm text-on-surface-variant">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-0.5 min-w-0 flex-1">
+                <span className="text-[12px] text-on-surface-variant font-medium block">
                   Economia Total Líquida
                 </span>
-                <div className="font-currency-lead text-currency-lead text-on-surface flex items-baseline gap-1.5">
+                <div className="text-[26px] leading-[32px] sm:text-[30px] font-bold text-on-surface flex items-baseline gap-1.5 tabular-nums break-words flex-wrap">
                   {convertedSavings < 0 && <span>-</span>}
                   {cfg.position === 'left' && (
-                    <span className="font-body-sm text-body-sm text-secondary font-semibold">
-                      {cfg.symbol}
-                    </span>
+                    <span className="text-[15px] text-secondary font-semibold">{cfg.symbol}</span>
                   )}
                   <span>{formatNumberBR(Math.abs(convertedSavings))}</span>
                   {cfg.position === 'right' && (
-                    <span className="font-body-sm text-body-sm text-secondary font-semibold">
-                      {cfg.symbol}
-                    </span>
+                    <span className="text-[15px] text-secondary font-semibold">{cfg.symbol}</span>
                   )}
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-[20px]">savings</span>
               </div>
             </div>
-            <div className="mt-space-md pt-space-sm border-t border-surface-container flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm">
+            <div className="mt-3 pt-2.5 border-t border-surface-container flex items-center justify-between gap-2 text-on-surface-variant text-[12px]">
               <span>Taxa média de poupança</span>
-              <span className="font-label-sm text-label-sm text-secondary font-bold">
+              <span className="text-secondary font-bold tabular-nums whitespace-nowrap">
                 {metrics.savingsRate}
               </span>
             </div>
           </div>
 
-          <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="font-body-sm text-body-sm text-on-surface-variant">Maior Gasto</span>
-              <div className="w-7 h-7 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed-variant flex items-center justify-center">
-                <span className="material-symbols-outlined text-[16px]">home</span>
+          <div className="flex gap-2.5">
+            <div className="flex-1 min-w-0 p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-2">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[11px] text-on-surface-variant font-medium truncate">
+                  Maior Gasto
+                </span>
+                <div className="w-7 h-7 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed-variant flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[15px]">home</span>
+                </div>
+              </div>
+              <div className="min-w-0">
+                <span className="text-[13px] font-semibold text-on-surface block truncate">
+                  {metrics.topExpenseTitle}
+                </span>
+                <span className="text-[15px] leading-snug text-tertiary font-bold tabular-nums block break-words">
+                  {formatMoney(metrics.topExpenseAmount, currency)}
+                </span>
+                <span className="text-[11px] text-on-surface-variant block mt-0.5 truncate">
+                  {metrics.topExpenseShare}
+                </span>
               </div>
             </div>
-            <div className="mt-2">
-              <span className="font-label-md text-label-md text-on-surface block truncate">
-                {metrics.topExpenseTitle}
-              </span>
-              <span className="font-currency-standard text-currency-standard text-tertiary font-bold">
-                {formatMoney(metrics.topExpenseAmount, currency)}
-              </span>
-              <span className="font-body-sm text-[11px] text-on-surface-variant block mt-0.5">
-                {metrics.topExpenseShare}
-              </span>
-            </div>
-          </div>
 
-          <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="font-body-sm text-body-sm text-on-surface-variant">
-                Média Diária
-              </span>
-              <div className="w-7 h-7 rounded-lg bg-primary-fixed text-on-primary-fixed flex items-center justify-center">
-                <span className="material-symbols-outlined text-[16px]">calendar_today</span>
+            <div className="flex-1 min-w-0 p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-2">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[11px] text-on-surface-variant font-medium truncate">
+                  Média Diária
+                </span>
+                <div className="w-7 h-7 rounded-lg bg-primary-fixed text-on-primary-fixed flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[15px]">calendar_today</span>
+                </div>
               </div>
-            </div>
-            <div className="mt-2">
-              <span className="font-label-md text-label-md text-on-surface block truncate">
-                Saída por Dia
-              </span>
-              <span className="font-currency-standard text-currency-standard text-on-surface font-bold">
-                {formatMoney(metrics.dailyAvg, currency)}
-              </span>
-              <span className="font-body-sm text-[11px] text-secondary font-medium block mt-0.5">
-                {metrics.dailyDelta}
-              </span>
+              <div className="min-w-0">
+                <span className="text-[13px] font-semibold text-on-surface block truncate">
+                  Saída por Dia
+                </span>
+                <span className="text-[15px] leading-snug text-on-surface font-bold tabular-nums block break-words">
+                  {formatMoney(metrics.dailyAvg, currency)}
+                </span>
+                <span className="text-[11px] text-secondary font-medium block mt-0.5 truncate">
+                  {metrics.dailyDelta}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Interactive Cash Flow Chart (Income vs Expense) */}
-      <section className="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm space-y-space-md">
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="font-headline-sm text-headline-sm text-on-surface block">
+      <section className="p-4 rounded-2xl bg-surface-container-lowest shadow-sm space-y-3.5">
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[16px] font-bold text-on-surface truncate">
               Evolução Mensal
             </span>
-            <span className="font-body-sm text-body-sm text-on-surface-variant">
-              Receitas vs. Despesas (Últimos 6 meses)
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-secondary" />
-              <span className="font-label-sm text-[11px] text-on-surface-variant">Entrada</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-tertiary-container" />
-              <span className="font-label-sm text-[11px] text-on-surface-variant">Saída</span>
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="flex items-center gap-1 whitespace-nowrap">
+                <span className="w-2 h-2 rounded-full bg-secondary shrink-0" />
+                <span className="text-[11px] font-semibold text-on-surface-variant">Entrada</span>
+              </div>
+              <div className="flex items-center gap-1 whitespace-nowrap">
+                <span className="w-2 h-2 rounded-full bg-tertiary-container shrink-0" />
+                <span className="text-[11px] font-semibold text-on-surface-variant">Saída</span>
+              </div>
             </div>
           </div>
+          <span className="text-[12px] text-on-surface-variant">
+            Receitas vs. Despesas (Últimos 6 meses)
+          </span>
         </div>
 
         <div className="relative w-full">
           <div
-            className={`absolute -top-7 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-inverse-surface text-inverse-on-surface font-label-sm text-label-sm shadow-md transition-all duration-200 pointer-events-none whitespace-nowrap ${
+            className={`absolute -top-7 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-inverse-surface text-inverse-on-surface text-[11px] font-semibold shadow-md transition-all duration-200 pointer-events-none whitespace-nowrap ${
               tooltipText ? 'opacity-100' : 'opacity-0'
             }`}
           >
@@ -399,8 +399,14 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
 
             {monthlySeries.map((m, idx) => {
               const xBase = 16 + idx * 52;
-              const incH = Math.max(Math.round((m.income / maxSeriesValue) * 100), m.income > 0 ? 4 : 0);
-              const expH = Math.max(Math.round((m.expense / maxSeriesValue) * 100), m.expense > 0 ? 4 : 0);
+              const incH = Math.max(
+                Math.round((m.income / maxSeriesValue) * 100),
+                m.income > 0 ? 4 : 0
+              );
+              const expH = Math.max(
+                Math.round((m.expense / maxSeriesValue) * 100),
+                m.expense > 0 ? 4 : 0
+              );
               const tip = `${m.label}: +${formatMoney(m.income, currency)} | -${formatMoney(m.expense, currency)} (${m.savePct} poupados)`;
 
               return (
@@ -445,12 +451,14 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
           </svg>
         </div>
 
-        <div className="p-space-sm rounded-xl bg-surface-container flex items-center justify-between text-on-surface">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-[20px]">insights</span>
-            <span className="font-body-sm text-body-sm">{metrics.highlightMonthText}</span>
+        <div className="p-2.5 rounded-xl bg-surface-container flex items-center justify-between gap-2 flex-wrap text-on-surface">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="material-symbols-outlined text-primary text-[18px] shrink-0">
+              insights
+            </span>
+            <span className="text-[12px] font-medium truncate">{metrics.highlightMonthText}</span>
           </div>
-          <span className="font-label-md text-label-md text-secondary">
+          <span className="text-[12px] font-bold text-secondary tabular-nums whitespace-nowrap">
             {metrics.netSavings < 0 ? '-' : ''}
             {formatMoney(metrics.netSavings, currency)} ({metrics.savingsRate})
           </span>
@@ -458,13 +466,13 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
       </section>
 
       {/* Expense Breakdown by Category */}
-      <section className="space-y-space-sm">
-        <div className="flex items-center justify-between">
-          <span className="font-headline-sm text-headline-sm text-on-surface">
+      <section className="space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[16px] font-bold text-on-surface truncate">
             Despesas por Categoria
           </span>
           <button
-            className="font-label-sm text-label-sm text-primary cursor-pointer hover:underline"
+            className="text-[12px] font-semibold text-primary cursor-pointer hover:underline whitespace-nowrap shrink-0"
             onClick={() => onNavigate('transacoes')}
             type="button"
           >
@@ -472,9 +480,9 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
           </button>
         </div>
 
-        <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm space-y-space-md">
+        <div className="p-4 rounded-2xl bg-surface-container-lowest shadow-sm space-y-3">
           {expenseCategories.length === 0 ? (
-            <p className="font-body-sm text-body-sm text-on-surface-variant text-center py-4">
+            <p className="text-[12px] text-on-surface-variant text-center py-4">
               Nenhuma despesa registrada no período selecionado.
             </p>
           ) : (
@@ -482,29 +490,29 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
               const style = CATEGORY_STYLE_META[cat.name] ?? CATEGORY_STYLE_META.Outros;
               return (
                 <div key={cat.name} className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <div
-                        className={`w-8 h-8 rounded-lg ${style.bg} ${style.color} flex items-center justify-center`}
+                        className={`w-8 h-8 rounded-lg ${style.bg} ${style.color} flex items-center justify-center shrink-0`}
                       >
                         <span className="material-symbols-outlined text-[18px]">
                           {style.icon}
                         </span>
                       </div>
-                      <div>
-                        <span className="font-label-md text-label-md text-on-surface block leading-tight">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[13px] font-semibold text-on-surface block leading-tight truncate">
                           {cat.name}
                         </span>
-                        <span className="font-body-sm text-[11px] text-on-surface-variant font-medium">
+                        <span className="text-[11px] text-on-surface-variant font-medium">
                           {cat.percentage}% do período
                         </span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className="font-currency-standard text-currency-standard text-on-surface block leading-tight">
+                    <div className="text-right shrink-0">
+                      <span className="text-[14px] font-bold text-on-surface tabular-nums block leading-tight whitespace-nowrap">
                         {formatMoney(cat.amount, currency)}
                       </span>
-                      <span className="font-body-sm text-[11px] text-on-surface-variant font-medium">
+                      <span className="text-[11px] text-on-surface-variant font-medium tabular-nums">
                         {cat.percentage}% do total
                       </span>
                     </div>
@@ -523,42 +531,42 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
       </section>
 
       {/* Income Sources Breakdown */}
-      <section className="space-y-space-sm">
-        <div className="flex items-center justify-between">
-          <span className="font-headline-sm text-headline-sm text-on-surface">
-            Fontes de Receita
-          </span>
-          <span className="font-label-sm text-label-sm text-secondary font-bold">
+      <section className="space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[16px] font-bold text-on-surface truncate">Fontes de Receita</span>
+          <span className="text-[12px] text-secondary font-bold tabular-nums whitespace-nowrap shrink-0">
             {formatMoney(metrics.incomeTotal, currency)} Total
           </span>
         </div>
 
         {incomeSources.length === 0 ? (
-          <div className="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm text-center">
-            <p className="font-body-sm text-body-sm text-on-surface-variant">
+          <div className="p-4 rounded-2xl bg-surface-container-lowest shadow-sm text-center">
+            <p className="text-[12px] text-on-surface-variant">
               Nenhuma receita registrada no período selecionado.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-space-sm">
+          <div className="grid grid-cols-2 gap-2.5">
             {incomeSources.map((src) => (
               <div
                 key={src.title}
-                className="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between"
+                className="min-w-0 p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-2"
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-body-sm text-[11px] text-on-surface-variant uppercase tracking-wider font-semibold">
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="text-[11px] text-on-surface-variant uppercase tracking-wider font-semibold truncate">
                     {src.title}
                   </span>
-                  <span className={`w-6 h-6 rounded-md ${src.badge} flex items-center justify-center`}>
+                  <span
+                    className={`w-6 h-6 rounded-md ${src.badge} flex items-center justify-center shrink-0`}
+                  >
                     <span className="material-symbols-outlined text-[14px]">{src.icon}</span>
                   </span>
                 </div>
-                <div className="mt-3">
-                  <span className="font-currency-standard text-currency-standard text-on-surface font-bold">
+                <div className="min-w-0">
+                  <span className="text-[15px] leading-snug text-on-surface font-bold tabular-nums block break-words">
                     {formatMoney(src.amount, currency)}
                   </span>
-                  <span className="font-body-sm text-[11px] text-on-surface-variant block">
+                  <span className="text-[11px] text-on-surface-variant block truncate">
                     {src.share}
                   </span>
                 </div>
@@ -569,43 +577,43 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
       </section>
 
       {/* Complete Export Control Panel */}
-      <section className="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm space-y-space-md">
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="font-headline-sm text-headline-sm text-on-surface block">
+      <section className="p-4 rounded-2xl bg-surface-container-lowest shadow-sm space-y-3.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <span className="text-[16px] font-bold text-on-surface block truncate">
               Central de Exportação
             </span>
-            <span className="font-body-sm text-body-sm text-on-surface-variant">
+            <span className="text-[12px] text-on-surface-variant block truncate">
               Baixe os registros contábeis originais
             </span>
           </div>
-          <div className="w-9 h-9 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center">
+          <div className="w-9 h-9 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-[20px]">file_download</span>
           </div>
         </div>
 
         <div className="space-y-3">
           <div>
-            <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1.5">
+            <label className="text-[12px] font-semibold text-on-surface-variant block mb-1.5">
               Formato do Arquivo
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex gap-2">
               <button
                 className={
                   exportFormat === 'csv'
-                    ? 'flex items-center gap-2 p-2.5 rounded-xl bg-primary text-on-primary text-left transition-colors cursor-pointer'
-                    : 'flex items-center gap-2 p-2.5 rounded-xl bg-surface-container text-on-surface-variant text-left transition-colors cursor-pointer'
+                    ? 'flex-1 min-w-0 flex items-center gap-2 p-2.5 rounded-xl bg-primary text-on-primary text-left transition-colors cursor-pointer'
+                    : 'flex-1 min-w-0 flex items-center gap-2 p-2.5 rounded-xl bg-surface-container text-on-surface-variant text-left transition-colors cursor-pointer'
                 }
                 onClick={() => setExportFormat('csv')}
                 type="button"
               >
-                <span className="material-symbols-outlined text-[20px]">table_view</span>
-                <div>
-                  <span className="font-label-sm text-label-sm block leading-tight">
+                <span className="material-symbols-outlined text-[19px] shrink-0">table_view</span>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[12px] font-semibold block leading-tight truncate">
                     Planilha CSV
                   </span>
                   <span
-                    className={`font-body-sm text-[10px] leading-tight ${
+                    className={`text-[10px] leading-tight block truncate ${
                       exportFormat === 'csv' ? 'text-on-primary-container' : 'text-on-surface-variant'
                     }`}
                   >
@@ -617,19 +625,21 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
               <button
                 className={
                   exportFormat === 'pdf'
-                    ? 'flex items-center gap-2 p-2.5 rounded-xl bg-primary text-on-primary text-left transition-colors cursor-pointer'
-                    : 'flex items-center gap-2 p-2.5 rounded-xl bg-surface-container text-on-surface-variant text-left transition-colors cursor-pointer'
+                    ? 'flex-1 min-w-0 flex items-center gap-2 p-2.5 rounded-xl bg-primary text-on-primary text-left transition-colors cursor-pointer'
+                    : 'flex-1 min-w-0 flex items-center gap-2 p-2.5 rounded-xl bg-surface-container text-on-surface-variant text-left transition-colors cursor-pointer'
                 }
                 onClick={() => setExportFormat('pdf')}
                 type="button"
               >
-                <span className="material-symbols-outlined text-[20px]">picture_as_pdf</span>
-                <div>
-                  <span className="font-label-sm text-label-sm block leading-tight">
+                <span className="material-symbols-outlined text-[19px] shrink-0">
+                  picture_as_pdf
+                </span>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[12px] font-semibold block leading-tight truncate">
                     Resumo PDF
                   </span>
                   <span
-                    className={`font-body-sm text-[10px] leading-tight ${
+                    className={`text-[10px] leading-tight block truncate ${
                       exportFormat === 'pdf' ? 'text-on-primary-container' : 'text-on-surface-variant'
                     }`}
                   >
@@ -641,48 +651,54 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
           </div>
 
           <div>
-            <label className="font-label-sm text-label-sm text-on-surface-variant block mb-1.5">
+            <label className="text-[12px] font-semibold text-on-surface-variant block mb-1.5">
               Tipos Inclusos
             </label>
             <div className="flex items-center gap-2">
-              <label className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-surface-container-low cursor-pointer">
+              <label className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-surface-container-low cursor-pointer">
                 <input
                   checked={includeIncome}
-                  className="w-4 h-4 rounded accent-primary"
+                  className="w-4 h-4 rounded accent-primary shrink-0"
                   onChange={(e) => setIncludeIncome(e.target.checked)}
                   type="checkbox"
                 />
-                <span className="font-label-sm text-label-sm text-on-surface">Receitas</span>
+                <span className="text-[12px] font-semibold text-on-surface whitespace-nowrap">
+                  Receitas
+                </span>
               </label>
-              <label className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-surface-container-low cursor-pointer">
+              <label className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-surface-container-low cursor-pointer">
                 <input
                   checked={includeExpense}
-                  className="w-4 h-4 rounded accent-primary"
+                  className="w-4 h-4 rounded accent-primary shrink-0"
                   onChange={(e) => setIncludeExpense(e.target.checked)}
                   type="checkbox"
                 />
-                <span className="font-label-sm text-label-sm text-on-surface">Despesas</span>
+                <span className="text-[12px] font-semibold text-on-surface whitespace-nowrap">
+                  Despesas
+                </span>
               </label>
-              <label className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-surface-container-low cursor-pointer">
+              <label className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-surface-container-low cursor-pointer">
                 <input
                   checked={includeInvestments}
-                  className="w-4 h-4 rounded accent-primary"
+                  className="w-4 h-4 rounded accent-primary shrink-0"
                   onChange={(e) => setIncludeInvestments(e.target.checked)}
                   type="checkbox"
                 />
-                <span className="font-label-sm text-label-sm text-on-surface">Aportes</span>
+                <span className="text-[12px] font-semibold text-on-surface whitespace-nowrap">
+                  Aportes
+                </span>
               </label>
             </div>
           </div>
         </div>
 
-        <div className="pt-2">
+        <div className="pt-1">
           <button
-            className="w-full py-3.5 px-4 bg-primary text-on-primary rounded-xl font-label-md text-label-md flex items-center justify-center gap-2 shadow-lg shadow-primary/25 active:scale-[0.98] transition-all cursor-pointer"
+            className="w-full py-3 px-4 bg-primary text-on-primary rounded-xl text-[13px] font-semibold flex items-center justify-center gap-2 shadow-lg shadow-primary/25 active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap"
             onClick={() => triggerDownload(false)}
             type="button"
           >
-            <span className="material-symbols-outlined text-[22px]">download_for_offline</span>
+            <span className="material-symbols-outlined text-[20px]">download_for_offline</span>
             <span>
               {exportFormat === 'pdf'
                 ? 'Gerar e Baixar Resumo (.pdf)'

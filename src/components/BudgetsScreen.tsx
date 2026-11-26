@@ -149,49 +149,47 @@ export function BudgetsScreen({
   return (
     <div className="flex flex-col w-full px-margin space-y-space-lg pb-space-xl">
       {/* Status Chip & Header Subtitle */}
-      <div className="flex items-center justify-between pt-space-xs">
-        <div>
-          <span className="font-headline-sm text-headline-sm text-on-surface">
+      <div className="flex items-center justify-between gap-2 pt-space-xs">
+        <div className="min-w-0 flex-1">
+          <span className="text-[16px] font-bold text-on-surface block truncate">
             Planejamento Ativo
           </span>
-          <p className="font-body-sm text-body-sm text-on-surface-variant">
-            {cycleInfo.cycleLabel}
-          </p>
+          <p className="text-[12px] text-on-surface-variant truncate">{cycleInfo.cycleLabel}</p>
         </div>
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm shadow-sm">
-          <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-secondary-fixed text-on-secondary-fixed text-[11px] font-bold shadow-sm whitespace-nowrap shrink-0">
+          <span className="material-symbols-outlined text-[14px]">schedule</span>
           {cycleInfo.daysRemainingLabel}
         </span>
       </div>
 
       {/* 1. Card Resumo do Orçamento Geral */}
-      <div className="relative overflow-hidden bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm">
+      <div className="relative overflow-hidden bg-surface-container-lowest rounded-2xl p-4 shadow-sm">
         <div className="absolute -right-10 -top-10 w-36 h-36 bg-primary-fixed/40 rounded-full blur-2xl pointer-events-none" />
-        <div className="flex items-start justify-between relative z-10">
-          <div>
-            <p className="font-label-md text-label-md text-on-surface-variant">
+        <div className="flex items-start justify-between gap-3 relative z-10">
+          <div className="min-w-0 flex-1">
+            <p className="text-[12px] font-semibold text-on-surface-variant">
               Orçamento Mensal Total
             </p>
-            <h2 className="font-display-hero-mobile text-display-hero-mobile text-on-surface mt-1">
+            <h2 className="text-[26px] leading-[32px] sm:text-[30px] font-bold text-on-surface mt-0.5 tabular-nums tracking-tight break-words">
               {formatMoney(totals.totalLimit, currency)}
             </h2>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-primary shadow-sm">
-            <span className="material-symbols-outlined text-[26px]">account_balance_wallet</span>
+          <div className="w-11 h-11 rounded-xl bg-surface-container flex items-center justify-center text-primary shadow-sm shrink-0">
+            <span className="material-symbols-outlined text-[24px]">account_balance_wallet</span>
           </div>
         </div>
 
         {/* Progresso Geral */}
-        <div className="mt-space-md space-y-2">
-          <div className="flex justify-between items-center font-label-sm text-label-sm">
-            <span className="text-on-surface font-semibold">
+        <div className="mt-4 space-y-1.5">
+          <div className="flex justify-between items-center gap-2 text-[12px]">
+            <span className="text-on-surface font-semibold whitespace-nowrap">
               Consumo do Mês ({totals.percentage}%)
             </span>
-            <span className="text-on-surface-variant">
+            <span className="text-on-surface-variant tabular-nums whitespace-nowrap">
               Meta: {formatMoney(totals.totalLimit, currency)}
             </span>
           </div>
-          <div className="w-full h-3 rounded-full bg-surface-container-high overflow-hidden p-0.5">
+          <div className="w-full h-2.5 rounded-full bg-surface-container-high overflow-hidden p-0.5">
             <div
               className="h-full rounded-full bg-gradient-to-r from-secondary via-primary to-tertiary-container transition-all duration-700 ease-out"
               style={{ width: `${totals.percentage}%` }}
@@ -200,135 +198,149 @@ export function BudgetsScreen({
         </div>
 
         {/* Indicadores de Saldo */}
-        <div className="grid grid-cols-2 gap-space-sm mt-space-md pt-space-sm border-t border-surface-container">
-          <div className="p-space-sm rounded-xl bg-surface-container-low">
-            <div className="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm">
-              <span className="material-symbols-outlined text-[16px] text-tertiary">arrow_upward</span>
-              Gasto Total
+        <div className="flex gap-2.5 mt-4 pt-3 border-t border-surface-container">
+          <div className="flex-1 min-w-0 p-2.5 rounded-xl bg-surface-container-low flex flex-col gap-0.5">
+            <div className="flex items-center gap-1 text-on-surface-variant text-[11px] font-semibold">
+              <span className="material-symbols-outlined text-[15px] text-tertiary shrink-0">
+                arrow_upward
+              </span>
+              <span className="whitespace-nowrap">Gasto Total</span>
             </div>
-            <p className="font-currency-standard text-currency-standard text-tertiary font-bold mt-0.5">
+            <p className="text-[15px] leading-snug text-tertiary font-bold tabular-nums break-words">
               {formatMoney(totals.totalSpent, currency)}
             </p>
           </div>
-          <div className="p-space-sm rounded-xl bg-surface-container-low">
-            <div className="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm">
-              <span className="material-symbols-outlined text-[16px] text-secondary">savings</span>
-              Disponível
+          <div className="flex-1 min-w-0 p-2.5 rounded-xl bg-surface-container-low flex flex-col gap-0.5">
+            <div className="flex items-center gap-1 text-on-surface-variant text-[11px] font-semibold">
+              <span className="material-symbols-outlined text-[15px] text-secondary shrink-0">
+                savings
+              </span>
+              <span className="whitespace-nowrap">Disponível</span>
             </div>
-            <p className="font-currency-standard text-currency-standard text-secondary font-bold mt-0.5">
+            <p className="text-[15px] leading-snug text-secondary font-bold tabular-nums break-words">
               {formatMoney(totals.available, currency)}
             </p>
           </div>
         </div>
 
         <button
-          className="w-full mt-space-md py-3 px-4 rounded-xl bg-primary text-on-primary font-label-md text-label-md flex items-center justify-center gap-2 shadow-md shadow-primary/20 active:scale-[0.98] transition-transform cursor-pointer"
+          className="w-full mt-3.5 py-2.5 px-4 rounded-xl bg-primary text-on-primary text-[13px] font-semibold flex items-center justify-center gap-2 shadow-md shadow-primary/20 active:scale-[0.98] transition-transform cursor-pointer whitespace-nowrap"
           onClick={openNewBudgetModal}
           type="button"
         >
-          <span className="material-symbols-outlined text-[20px]">add_circle</span>
+          <span className="material-symbols-outlined text-[19px]">add_circle</span>
           Novo Orçamento por Categoria
         </button>
       </div>
 
       {/* 2. Legenda de Regras de Cores Visuais */}
-      <div className="bg-surface-container-low rounded-xl p-space-md space-y-space-sm">
-        <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider block font-bold">
+      <div className="bg-surface-container-low rounded-xl p-3.5 space-y-2">
+        <span className="text-[11px] text-on-surface-variant uppercase tracking-wider block font-bold">
           Diretrizes de Consumo
         </span>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="flex items-center gap-1.5 p-2 rounded-lg bg-surface-container-lowest">
-            <span className="w-2.5 h-2.5 rounded-full bg-secondary shrink-0" />
-            <div className="leading-none">
-              <p className="font-label-sm text-[11px] font-bold text-on-surface">&lt; 70%</p>
-              <span className="font-body-sm text-[10px] text-on-surface-variant">No controle</span>
+        <div className="flex gap-2">
+          <div className="flex-1 min-w-0 flex items-center gap-1.5 p-2 rounded-lg bg-surface-container-lowest">
+            <span className="w-2 h-2 rounded-full bg-secondary shrink-0" />
+            <div className="leading-tight min-w-0">
+              <p className="text-[11px] font-bold text-on-surface whitespace-nowrap">&lt; 70%</p>
+              <span className="text-[10px] text-on-surface-variant block truncate">
+                No controle
+              </span>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 p-2 rounded-lg bg-surface-container-lowest">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
-            <div className="leading-none">
-              <p className="font-label-sm text-[11px] font-bold text-on-surface">70% - 90%</p>
-              <span className="font-body-sm text-[10px] text-on-surface-variant">Atenção</span>
+          <div className="flex-1 min-w-0 flex items-center gap-1.5 p-2 rounded-lg bg-surface-container-lowest">
+            <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+            <div className="leading-tight min-w-0">
+              <p className="text-[11px] font-bold text-on-surface whitespace-nowrap">70% - 90%</p>
+              <span className="text-[10px] text-on-surface-variant block truncate">Atenção</span>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 p-2 rounded-lg bg-surface-container-lowest">
-            <span className="w-2.5 h-2.5 rounded-full bg-tertiary-container shrink-0" />
-            <div className="leading-none">
-              <p className="font-label-sm text-[11px] font-bold text-on-surface">&gt; 90%</p>
-              <span className="font-body-sm text-[10px] text-on-surface-variant">Alerta crítico</span>
+          <div className="flex-1 min-w-0 flex items-center gap-1.5 p-2 rounded-lg bg-surface-container-lowest">
+            <span className="w-2 h-2 rounded-full bg-tertiary-container shrink-0" />
+            <div className="leading-tight min-w-0">
+              <p className="text-[11px] font-bold text-on-surface whitespace-nowrap">&gt; 90%</p>
+              <span className="text-[10px] text-on-surface-variant block truncate">
+                Alerta crítico
+              </span>
             </div>
           </div>
         </div>
       </div>
 
       {/* 3. Lista de Cards de Orçamento por Categoria */}
-      <div className="space-y-space-sm">
-        <div className="flex items-center justify-between">
-          <h3 className="font-headline-sm text-headline-sm text-on-surface">
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-[16px] font-bold text-on-surface truncate">
             Categorias em Monitoramento
           </h3>
-          <span className="font-body-sm text-body-sm text-on-surface-variant">
+          <span className="text-[12px] text-on-surface-variant whitespace-nowrap shrink-0">
             {budgets.length} ativas
           </span>
         </div>
 
-        <div className="space-y-3" data-testid="budgets-list">
+        <div className="space-y-2.5" data-testid="budgets-list">
           {budgets.map((b) => {
             const info = evaluateBudgetStatus(b.spent, b.limit, currency);
             return (
               <div
                 key={b.id}
-                className={`bg-surface-container-lowest rounded-2xl p-space-md shadow-sm space-y-3 ${
-                  b.isCustom ? 'border-l-4 border-primary' : ''
+                className={`bg-surface-container-lowest rounded-2xl p-3.5 shadow-sm flex flex-col gap-2.5 ${
+                  b.isCustom ? 'ring-1 ring-primary/25' : ''
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <div
-                      className={`w-11 h-11 rounded-xl ${b.iconBg} flex items-center justify-center ${b.iconColor} shrink-0`}
+                      className={`w-10 h-10 rounded-xl ${b.iconBg} flex items-center justify-center ${b.iconColor} shrink-0`}
                     >
-                      <span className="material-symbols-outlined text-[24px]">{b.icon}</span>
+                      <span className="material-symbols-outlined text-[21px]">{b.icon}</span>
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="font-label-md text-label-md text-on-surface truncate">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-[14px] leading-snug font-semibold text-on-surface truncate">
                         {b.category}
                       </h4>
-                      <p className="font-body-sm text-body-sm text-on-surface-variant">
+                      <p className="text-[11px] text-on-surface-variant tabular-nums">
                         Limite: {formatMoney(b.limit, currency)}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold text-right ${info.tagBg}`}
-                    >
-                      {info.tagText}
-                    </span>
+
+                  <div className="flex items-center gap-0.5 shrink-0 -mr-1">
                     <button
                       aria-label={`Editar orçamento ${b.category}`}
-                      className="w-7 h-7 rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container flex items-center justify-center transition-colors cursor-pointer"
+                      className="w-8 h-8 rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container flex items-center justify-center transition-colors cursor-pointer"
                       onClick={() => openEditBudgetModal(b)}
                       type="button"
                     >
-                      <span className="material-symbols-outlined text-[16px]">edit</span>
+                      <span className="material-symbols-outlined text-[17px]">edit</span>
                     </button>
                     <button
                       aria-label={`Remover orçamento ${b.category}`}
-                      className="w-7 h-7 rounded-full text-on-surface-variant hover:text-tertiary hover:bg-surface-container flex items-center justify-center transition-colors cursor-pointer"
+                      className="w-8 h-8 rounded-full text-on-surface-variant hover:text-tertiary hover:bg-surface-container flex items-center justify-center transition-colors cursor-pointer"
                       onClick={() => onDeleteBudget(b.id)}
                       type="button"
                     >
-                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                      <span className="material-symbols-outlined text-[17px]">delete</span>
                     </button>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <div className="flex justify-between font-label-sm text-label-sm">
-                    <span className={`${info.amountColor} font-bold`}>
+                  <div className="flex items-baseline justify-between gap-2 text-[12px]">
+                    <span className={`${info.amountColor} font-bold tabular-nums whitespace-nowrap`}>
                       {formatMoney(b.spent, currency)}
                     </span>
-                    <span className="text-on-surface-variant font-medium">{info.percentage}%</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className={`${info.amountColor} text-[11px] font-semibold truncate`}>
+                        {info.tagText}
+                      </span>
+                      <span aria-hidden="true" className="text-on-surface-variant/50 text-[11px]">
+                        ·
+                      </span>
+                      <span className="text-on-surface-variant font-semibold tabular-nums shrink-0">
+                        {info.percentage}%
+                      </span>
+                    </div>
                   </div>
                   <div className="w-full h-2 rounded-full bg-surface-container overflow-hidden">
                     <div
@@ -344,19 +356,17 @@ export function BudgetsScreen({
       </div>
 
       {/* 4. Seção de Metas Financeiras */}
-      <div className="space-y-space-sm pt-space-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-headline-sm text-headline-sm text-on-surface">
-              Metas Financeiras
-            </h3>
-            <p className="font-body-sm text-body-sm text-on-surface-variant">
+      <div className="space-y-2.5 pt-space-xs">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[16px] font-bold text-on-surface truncate">Metas Financeiras</h3>
+            <p className="text-[12px] text-on-surface-variant truncate">
               Objetivos de médio e longo prazo
             </p>
           </div>
           <button
             aria-label="Adicionar Nova Meta Financeira"
-            className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-transform cursor-pointer"
+            className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-transform cursor-pointer shrink-0"
             onClick={() => setIsGoalModalOpen(true)}
             type="button"
           >
@@ -364,43 +374,47 @@ export function BudgetsScreen({
           </button>
         </div>
 
-        <div className="space-y-3" data-testid="goals-list">
+        <div className="space-y-2.5" data-testid="goals-list">
           {goals.map((goal) => {
             const pct = Math.min(Math.round((goal.current / goal.target) * 100), 100);
             return (
               <div
                 key={goal.id}
-                className="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm relative overflow-hidden"
+                className="bg-surface-container-lowest rounded-2xl p-3.5 shadow-sm flex flex-col gap-2.5"
               >
                 <div className="flex items-center gap-3">
                   <img
                     alt={goal.title}
-                    className="w-12 h-12 rounded-xl object-cover shrink-0"
+                    className="w-11 h-11 rounded-xl object-cover shrink-0"
                     src={goal.imageUrl}
                   />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <h4 className="font-label-md text-label-md text-on-surface truncate">
+                  <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <h4 className="text-[14px] leading-snug font-semibold text-on-surface truncate flex-1 min-w-0">
                         {goal.title}
                       </h4>
-                      <span className={`font-label-sm text-label-sm font-bold ${goal.accentColor}`}>
+                      <span
+                        className={`text-[13px] font-bold tabular-nums shrink-0 ${goal.accentColor}`}
+                      >
                         {pct}%
                       </span>
                     </div>
-                    <p className="font-body-sm text-body-sm text-on-surface-variant">
+                    <p className="text-[12px] text-on-surface-variant tabular-nums">
                       {formatMoney(goal.current, currency)} de {formatMoney(goal.target, currency)}
                     </p>
                   </div>
                 </div>
-                <div className="w-full h-2.5 rounded-full bg-surface-container overflow-hidden mt-3">
+
+                <div className="w-full h-2 rounded-full bg-surface-container overflow-hidden">
                   <div
                     className={`h-full rounded-full ${goal.barColor} transition-all duration-500`}
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <div className="flex items-center justify-end gap-2 mt-2.5">
+
+                <div className="flex items-center justify-end gap-2">
                   <button
-                    className="px-2.5 py-1 rounded-lg bg-primary-fixed text-primary font-label-sm text-[11px] font-semibold hover:opacity-85 cursor-pointer"
+                    className="px-3 py-1 rounded-lg bg-primary-fixed text-primary text-[11px] font-semibold hover:opacity-85 cursor-pointer whitespace-nowrap"
                     onClick={() => {
                       setContributingGoal(goal);
                       setContributionInput('');
@@ -411,7 +425,7 @@ export function BudgetsScreen({
                   </button>
                   <button
                     aria-label={`Remover meta ${goal.title}`}
-                    className="w-7 h-7 rounded-lg bg-surface-container text-on-surface-variant hover:text-tertiary flex items-center justify-center cursor-pointer"
+                    className="w-7 h-7 rounded-lg bg-surface-container text-on-surface-variant hover:text-tertiary flex items-center justify-center cursor-pointer shrink-0"
                     onClick={() => onDeleteGoal(goal.id)}
                     type="button"
                   >
@@ -436,26 +450,26 @@ export function BudgetsScreen({
           role="dialog"
         >
           <div className="w-full max-w-md bg-surface-container-lowest rounded-t-3xl sm:rounded-2xl p-space-lg shadow-xl space-y-space-md">
-            <div className="flex items-center justify-between border-b border-surface-container pb-space-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center text-primary">
+            <div className="flex items-center justify-between gap-2 border-b border-surface-container pb-space-sm">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <div className="w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center text-primary shrink-0">
                   <span className="material-symbols-outlined text-[20px]">tune</span>
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <h3
-                    className="font-headline-sm text-headline-sm text-on-surface"
+                    className="text-[16px] font-bold text-on-surface truncate"
                     id="budgetModalTitle"
                   >
                     {editingBudget ? `Editar: ${editingBudget.category}` : 'Configurar Orçamento'}
                   </h3>
-                  <p className="font-body-sm text-body-sm text-on-surface-variant">
+                  <p className="text-[12px] text-on-surface-variant truncate">
                     Ajuste os tetos da categoria
                   </p>
                 </div>
               </div>
               <button
                 aria-label="Fechar modal de orçamento"
-                className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface cursor-pointer"
+                className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface cursor-pointer shrink-0"
                 onClick={() => setIsBudgetModalOpen(false)}
                 type="button"
               >
@@ -620,8 +634,8 @@ export function BudgetsScreen({
                   value={goalTitle}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
+              <div className="flex gap-3">
+                <div className="flex-1 min-w-0 space-y-1">
                   <label
                     className="font-label-sm text-label-sm text-on-surface"
                     htmlFor="goalCurrent"
@@ -640,7 +654,7 @@ export function BudgetsScreen({
                     value={goalCurrent}
                   />
                 </div>
-                <div className="space-y-1">
+                <div className="flex-1 min-w-0 space-y-1">
                   <label
                     className="font-label-sm text-label-sm text-on-surface"
                     htmlFor="goalTarget"
@@ -692,16 +706,16 @@ export function BudgetsScreen({
           role="dialog"
         >
           <div className="w-full max-w-md bg-surface-container-lowest rounded-t-3xl sm:rounded-2xl p-space-lg shadow-xl space-y-space-md">
-            <div className="flex items-center justify-between border-b border-surface-container pb-space-sm">
+            <div className="flex items-center justify-between gap-2 border-b border-surface-container pb-space-sm">
               <h3
-                className="font-headline-sm text-headline-sm text-on-surface"
+                className="text-[16px] font-bold text-on-surface truncate min-w-0 flex-1"
                 id="contributeGoalTitle"
               >
                 Aportar: {contributingGoal.title}
               </h3>
               <button
                 aria-label="Fechar modal de aporte"
-                className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant cursor-pointer"
+                className="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant cursor-pointer shrink-0"
                 onClick={() => setContributingGoal(null)}
                 type="button"
               >

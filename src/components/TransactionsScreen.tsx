@@ -93,18 +93,18 @@ export function TransactionsScreen({
     <div className="flex flex-col w-full pb-10">
       {/* Top Balance Quick View & Month Selector */}
       <section className="px-margin pt-space-sm pb-space-md">
-        <div className="bg-surface-container-lowest rounded-xl p-space-md shadow-sm">
-          <div className="flex items-center justify-between pb-space-sm mb-space-sm border-b border-surface-container/60">
-            <div className="flex items-center gap-space-xs">
-              <span className="material-symbols-outlined text-primary text-[20px]">
+        <div className="bg-surface-container-lowest rounded-2xl p-3.5 shadow-sm">
+          <div className="flex items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-surface-container/60">
+            <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+              <span className="material-symbols-outlined text-primary text-[19px] shrink-0">
                 calendar_month
               </span>
-              <span className="font-headline-sm text-headline-sm text-on-surface">
+              <span className="text-[16px] leading-tight font-bold text-on-surface whitespace-nowrap">
                 {monthYearLabel}
               </span>
               {!isCurrentMonth && (
                 <button
-                  className="ml-1 px-2 py-0.5 rounded-full bg-primary-fixed text-primary font-label-sm text-[10px] font-bold hover:opacity-80 cursor-pointer"
+                  className="ml-0.5 px-2 py-0.5 rounded-md bg-primary-fixed text-primary font-label-sm text-[11px] font-bold hover:opacity-80 cursor-pointer whitespace-nowrap shrink-0"
                   onClick={handleResetToCurrentMonth}
                   type="button"
                 >
@@ -112,7 +112,7 @@ export function TransactionsScreen({
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-1 bg-surface-container-low px-space-xs py-1 rounded-full">
+            <div className="flex items-center gap-1 bg-surface-container-low px-1.5 py-1 rounded-full shrink-0">
               <button
                 aria-label="Mês Anterior"
                 className="w-7 h-7 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container transition-colors cursor-pointer"
@@ -121,7 +121,7 @@ export function TransactionsScreen({
               >
                 <span className="material-symbols-outlined text-[18px]">chevron_left</span>
               </button>
-              <span className="font-label-sm text-label-sm text-on-surface px-1">
+              <span className="font-label-sm text-[12px] text-on-surface px-1 whitespace-nowrap">
                 {shortMonth}
               </span>
               <button
@@ -135,29 +135,33 @@ export function TransactionsScreen({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-space-sm">
-            <div className="bg-secondary/5 rounded-xl p-3 flex flex-col">
-              <div className="flex items-center gap-1 text-secondary mb-1">
-                <span className="material-symbols-outlined text-[18px]">arrow_downward_alt</span>
-                <span className="font-label-sm text-label-sm font-semibold">Entradas</span>
+          <div className="flex gap-2.5">
+            <div className="flex-1 min-w-0 bg-secondary/5 rounded-xl p-3 flex flex-col justify-between gap-0.5">
+              <div className="flex items-center gap-1 text-secondary">
+                <span className="material-symbols-outlined text-[16px] shrink-0">
+                  arrow_downward_alt
+                </span>
+                <span className="text-[12px] font-semibold whitespace-nowrap">Entradas</span>
               </div>
-              <span className="font-headline-sm text-headline-sm text-secondary font-bold tracking-tight">
+              <span className="text-[15px] leading-snug text-secondary font-bold tabular-nums tracking-tight break-words">
                 +{formatMoney(summary.totalIncome, currency)}
               </span>
-              <span className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              <span className="text-[11px] text-on-surface-variant">
                 {summary.incomeCount} recebidas
               </span>
             </div>
 
-            <div className="bg-tertiary-container/10 rounded-xl p-3 flex flex-col">
-              <div className="flex items-center gap-1 text-tertiary mb-1">
-                <span className="material-symbols-outlined text-[18px]">arrow_upward_alt</span>
-                <span className="font-label-sm text-label-sm font-semibold">Saídas</span>
+            <div className="flex-1 min-w-0 bg-tertiary-container/10 rounded-xl p-3 flex flex-col justify-between gap-0.5">
+              <div className="flex items-center gap-1 text-tertiary">
+                <span className="material-symbols-outlined text-[16px] shrink-0">
+                  arrow_upward_alt
+                </span>
+                <span className="text-[12px] font-semibold whitespace-nowrap">Saídas</span>
               </div>
-              <span className="font-headline-sm text-headline-sm text-tertiary font-bold tracking-tight">
+              <span className="text-[15px] leading-snug text-tertiary font-bold tabular-nums tracking-tight break-words">
                 -{formatMoney(summary.totalExpense, currency)}
               </span>
-              <span className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              <span className="text-[11px] text-on-surface-variant">
                 {summary.expenseCount} registradas
               </span>
             </div>
@@ -168,7 +172,7 @@ export function TransactionsScreen({
       {/* Action Bar & Search Filter */}
       <section className="px-margin flex flex-col gap-space-sm">
         <div className="flex items-center gap-space-sm">
-          <div className="relative flex-1">
+          <div className="relative flex-1 min-w-0">
             <label className="sr-only" htmlFor="searchTransactionsInput">
               Buscar por descrição
             </label>
@@ -176,7 +180,7 @@ export function TransactionsScreen({
               <span className="material-symbols-outlined text-[20px]">search</span>
             </span>
             <input
-              className="w-full h-12 pl-10 pr-10 bg-surface-container-lowest text-on-surface placeholder:text-on-surface-variant/60 rounded-xl font-body-md text-body-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full h-11 pl-10 pr-10 bg-surface-container-lowest text-on-surface placeholder:text-on-surface-variant/60 rounded-xl font-body-md text-[14px] shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               id="searchTransactionsInput"
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por descrição..."
@@ -195,17 +199,17 @@ export function TransactionsScreen({
             )}
           </div>
           <button
-            className="h-12 px-4 rounded-xl bg-primary text-on-primary font-label-md text-label-md flex items-center justify-center gap-1 shadow-md shadow-primary/20 active:scale-95 transition-all shrink-0 cursor-pointer"
+            className="h-11 px-3.5 rounded-xl bg-primary text-on-primary font-label-md text-[13px] flex items-center justify-center gap-1 shadow-md shadow-primary/20 active:scale-95 transition-all shrink-0 cursor-pointer whitespace-nowrap"
             onClick={onOpenNew}
             type="button"
           >
-            <span className="material-symbols-outlined text-[20px]">add</span>
+            <span className="material-symbols-outlined text-[19px]">add</span>
             <span>Nova</span>
           </button>
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+        {/* Filter Controls */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
           {FILTER_PILLS.map((pill) => {
             const isActive = activeFilter === pill.id;
             return (
@@ -214,8 +218,8 @@ export function TransactionsScreen({
                 aria-pressed={isActive}
                 className={
                   isActive
-                    ? 'px-3.5 py-1.5 rounded-full font-label-sm text-label-sm bg-primary text-on-primary transition-colors shrink-0 shadow-sm cursor-pointer'
-                    : 'px-3.5 py-1.5 rounded-full font-label-sm text-label-sm bg-surface-container-lowest text-on-surface-variant hover:text-on-surface transition-colors shrink-0 shadow-sm cursor-pointer'
+                    ? 'px-3 py-1.5 rounded-lg font-label-sm text-[12px] bg-primary text-on-primary transition-colors shrink-0 shadow-sm cursor-pointer whitespace-nowrap'
+                    : 'px-3 py-1.5 rounded-lg font-label-sm text-[12px] bg-surface-container-lowest text-on-surface-variant hover:text-on-surface transition-colors shrink-0 shadow-sm cursor-pointer whitespace-nowrap'
                 }
                 onClick={() => setActiveFilter(pill.id)}
                 type="button"
@@ -230,19 +234,19 @@ export function TransactionsScreen({
       {/* Transactions Stream Grouped or Empty State */}
       {grouped.length === 0 ? (
         <section className="px-margin py-10 flex flex-col items-center text-center">
-          <div className="w-24 h-24 rounded-full bg-primary-fixed flex items-center justify-center mb-space-md shadow-inner text-primary">
-            <span className="material-symbols-outlined text-[48px]">savings</span>
+          <div className="w-20 h-20 rounded-full bg-primary-fixed flex items-center justify-center mb-space-md shadow-inner text-primary">
+            <span className="material-symbols-outlined text-[40px]">savings</span>
           </div>
-          <h3 className="font-headline-sm text-headline-sm text-on-surface mb-1">
+          <h3 className="text-[16px] font-bold text-on-surface mb-1">
             Nenhuma movimentação encontrada
           </h3>
-          <p className="font-body-md text-body-md text-on-surface-variant max-w-xs mb-space-lg">
+          <p className="text-[13px] text-on-surface-variant max-w-xs mb-space-lg">
             Não há transações para {monthYearLabel} com os filtros ativos.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             {!isCurrentMonth && (
               <button
-                className="h-12 px-space-md rounded-xl bg-surface-container text-on-surface font-label-md text-label-md flex items-center justify-center gap-1.5 cursor-pointer"
+                className="h-11 px-4 rounded-xl bg-surface-container text-on-surface text-[13px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                 onClick={handleResetToCurrentMonth}
                 type="button"
               >
@@ -250,11 +254,11 @@ export function TransactionsScreen({
               </button>
             )}
             <button
-              className="h-12 px-space-lg rounded-xl bg-primary text-on-primary font-label-md text-label-md flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-95 transition-all cursor-pointer"
+              className="h-11 px-5 rounded-xl bg-primary text-on-primary text-[13px] font-semibold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
               onClick={onOpenNew}
               type="button"
             >
-              <span className="material-symbols-outlined text-[20px]">add_circle</span>
+              <span className="material-symbols-outlined text-[19px]">add_circle</span>
               <span>Adicionar Transação</span>
             </button>
           </div>
@@ -265,12 +269,12 @@ export function TransactionsScreen({
           data-testid="transactions-groups"
         >
           {grouped.map((group) => (
-            <div key={group.label} className="flex flex-col gap-2">
+            <div key={group.label} className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between px-1">
-                <span className="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">
+                <span className="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">
                   {group.label}
                 </span>
-                <span className="font-body-sm text-body-sm text-on-surface-variant/80">
+                <span className="text-[11px] text-on-surface-variant/80">
                   {group.items.length} transaç{group.items.length > 1 ? 'ões' : 'ão'}
                 </span>
               </div>
@@ -284,67 +288,70 @@ export function TransactionsScreen({
                   return (
                     <div
                       key={tx.id}
-                      className="p-space-md flex items-center justify-between gap-space-sm hover:bg-surface-container/30 transition-colors"
+                      className="p-3.5 flex items-start gap-3 hover:bg-surface-container/30 transition-colors"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className={`w-11 h-11 rounded-2xl ${meta.bg} ${meta.color} flex items-center justify-center shrink-0`}
-                        >
-                          <span className="material-symbols-outlined text-[22px]">{meta.icon}</span>
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-headline-sm text-label-md text-on-surface truncate font-semibold">
-                            {tx.description}
-                          </span>
-                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                            <span className="px-2 py-0.5 rounded-md bg-surface-container text-on-surface-variant font-label-sm text-[11px] leading-tight">
-                              {tx.account}
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded-md font-label-sm text-[11px] leading-tight ${
-                                isPending
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-secondary/10 text-secondary'
-                              }`}
-                            >
-                              {isPending ? 'Pendente' : 'Recebido / Pago'}
-                            </span>
-                          </div>
-                        </div>
+                      <div
+                        className={`w-10 h-10 rounded-xl ${meta.bg} ${meta.color} flex items-center justify-center shrink-0 mt-0.5`}
+                      >
+                        <span className="material-symbols-outlined text-[20px]">{meta.icon}</span>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="flex flex-col items-end">
+                      <div className="flex-1 min-w-0 flex flex-col gap-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-[14px] leading-snug text-on-surface font-semibold truncate min-w-0 flex-1">
+                            {tx.description}
+                          </span>
                           <span
-                            className={`font-headline-sm text-headline-sm font-bold ${
+                            className={`text-[14px] leading-snug font-bold tabular-nums whitespace-nowrap shrink-0 ${
                               isIncome ? 'text-secondary' : 'text-tertiary'
                             }`}
                           >
                             {isIncome ? '+' : '-'}
                             {formatMoney(tx.amount, currency)}
                           </span>
-                          <span className="font-body-sm text-body-sm text-on-surface-variant/70">
-                            {tx.category}
-                          </span>
                         </div>
 
-                        <div className="flex items-center gap-1">
-                          <button
-                            aria-label={`Editar ${tx.description}`}
-                            className="w-8 h-8 rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container flex items-center justify-center transition-colors cursor-pointer"
-                            onClick={() => onEditTransaction(tx)}
-                            type="button"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">edit</span>
-                          </button>
-                          <button
-                            aria-label={`Excluir ${tx.description}`}
-                            className="w-8 h-8 rounded-full text-on-surface-variant hover:text-tertiary hover:bg-surface-container flex items-center justify-center transition-colors cursor-pointer"
-                            onClick={() => setPendingDeleteTx(tx)}
-                            type="button"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">delete</span>
-                          </button>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 text-[11px] text-on-surface-variant min-w-0 truncate">
+                            <span className="truncate">{tx.account}</span>
+                            <span aria-hidden="true" className="shrink-0">
+                              ·
+                            </span>
+                            <span className="shrink-0">{tx.category}</span>
+                            <span aria-hidden="true" className="shrink-0">
+                              ·
+                            </span>
+                            <span
+                              className={`shrink-0 font-semibold ${
+                                isPending
+                                  ? 'text-amber-700'
+                                  : isIncome
+                                    ? 'text-secondary'
+                                    : 'text-on-surface-variant'
+                              }`}
+                            >
+                              {isPending ? 'Pendente' : isIncome ? 'Recebido' : 'Pago'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-0.5 shrink-0 -mr-1">
+                            <button
+                              aria-label={`Editar ${tx.description}`}
+                              className="w-8 h-8 rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container flex items-center justify-center transition-colors cursor-pointer"
+                              onClick={() => onEditTransaction(tx)}
+                              type="button"
+                            >
+                              <span className="material-symbols-outlined text-[17px]">edit</span>
+                            </button>
+                            <button
+                              aria-label={`Excluir ${tx.description}`}
+                              className="w-8 h-8 rounded-full text-on-surface-variant hover:text-tertiary hover:bg-surface-container flex items-center justify-center transition-colors cursor-pointer"
+                              onClick={() => setPendingDeleteTx(tx)}
+                              type="button"
+                            >
+                              <span className="material-symbols-outlined text-[17px]">delete</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -123,24 +123,23 @@ export function DashboardScreen({
   return (
     <div className="flex flex-col w-full px-margin space-y-space-lg pb-10">
       {/* Acolhimento & Seletor de Moeda */}
-      <section className="flex items-center justify-between pt-2">
-        <div className="flex flex-col">
-          <div className="flex items-center gap-1.5 text-on-surface-variant font-label-sm text-label-sm">
-            <span className="inline-block w-2 h-2 rounded-full bg-secondary animate-pulse" />
-            <span>{topDateLabel}</span>
-          </div>
-          <h1 className="font-headline-md text-headline-md text-on-surface tracking-tight mt-0.5">
+      <section className="flex items-center justify-between gap-3 pt-2">
+        <div className="flex flex-col min-w-0 flex-1">
+          <span className="text-[12px] text-on-surface-variant font-medium truncate">
+            {topDateLabel}
+          </span>
+          <h1 className="text-[20px] leading-tight font-bold text-on-surface tracking-tight mt-0.5 truncate">
             Olá, {firstName} 👋
           </h1>
         </div>
 
-        {/* Moeda Dropdown Pill */}
-        <div className="relative">
+        {/* Seletor de Moeda */}
+        <div className="relative shrink-0">
           <label className="sr-only" htmlFor="currency-selector">
             Selecionar moeda
           </label>
           <select
-            className="appearance-none bg-surface-container-high text-on-surface font-label-sm text-label-sm pl-3 pr-7 py-1.5 rounded-full shadow-sm focus:outline-none focus:bg-surface-container-highest transition-colors cursor-pointer"
+            className="appearance-none bg-surface-container-high text-on-surface text-[12px] font-semibold pl-3 pr-7 py-1.5 rounded-full shadow-sm focus:outline-none focus:bg-surface-container-highest transition-colors cursor-pointer"
             id="currency-selector"
             onChange={(e) => {
               const next = e.target.value as CurrencyCode;
@@ -152,22 +151,22 @@ export function DashboardScreen({
             <option value="MZN">MZN (MT)</option>
             <option value="USD">USD ($)</option>
           </select>
-          <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant">
+          <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[17px] text-on-surface-variant">
             expand_more
           </span>
         </div>
       </section>
 
       {/* Card Principal de Saldo Total */}
-      <section className="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm relative overflow-hidden">
+      <section className="bg-surface-container-lowest rounded-2xl p-4 shadow-sm relative overflow-hidden flex flex-col gap-3">
         <div className="absolute -right-12 -top-12 w-36 h-36 bg-primary-fixed/30 rounded-full blur-2xl pointer-events-none" />
-        <div className="flex items-center justify-between mb-1 relative z-10">
-          <span className="font-label-sm text-label-sm text-on-surface-variant">
+        <div className="flex items-center justify-between gap-2 relative z-10">
+          <span className="text-[12px] font-semibold text-on-surface-variant">
             Saldo Total Líquido
           </span>
           <button
             aria-label={isBalanceHidden ? 'Mostrar Saldo' : 'Ocultar Saldo'}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors cursor-pointer shrink-0"
             onClick={onToggleHideBalance}
             type="button"
           >
@@ -177,125 +176,134 @@ export function DashboardScreen({
           </button>
         </div>
 
-        <div className="flex items-baseline gap-2 mb-4 relative z-10 flex-wrap">
+        <div className="flex items-center justify-between gap-2 relative z-10 flex-wrap">
           <span
-            className="font-display-hero-mobile text-display-hero-mobile text-on-surface tracking-tight font-bold"
+            className="text-[26px] leading-[32px] sm:text-[30px] text-on-surface tracking-tight font-bold tabular-nums break-words"
             data-testid="total-balance"
           >
             {isBalanceHidden
               ? '••••••••'
               : `${summary.netBalance < 0 ? '-' : ''}${formatMoney(summary.netBalance, currency)}`}
           </span>
-          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-[11px]">
+          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-secondary-container text-on-secondary-container text-[11px] font-bold whitespace-nowrap shrink-0">
             <span className="material-symbols-outlined text-[14px]">arrow_upward</span> +4.2%
           </span>
         </div>
 
-        {/* Grid 3 Mini-Cards de Resumo */}
-        <div className="grid grid-cols-3 gap-space-xs pt-2">
-          <div className="bg-surface-container-low p-2.5 rounded-xl flex flex-col justify-between min-w-0">
-            <div className="flex items-center gap-1 text-secondary font-label-sm text-[11px] mb-1">
-              <span className="material-symbols-outlined text-[15px]">trending_up</span>
-              <span>Entradas</span>
+        {/* Flex Cards de Resumo (Entradas, Saídas e Economia) */}
+        <div className="flex flex-col gap-2 pt-1 relative z-10">
+          <div className="flex gap-2">
+            <div className="flex-1 min-w-0 bg-surface-container-low p-3 rounded-xl flex flex-col justify-between gap-0.5">
+              <div className="flex items-center gap-1 text-secondary text-[11px] font-semibold">
+                <span className="material-symbols-outlined text-[15px] shrink-0">trending_up</span>
+                <span className="whitespace-nowrap">Entradas</span>
+              </div>
+              <span
+                className="text-[15px] leading-snug tracking-tight text-secondary font-bold tabular-nums break-words"
+                data-testid="income-amount"
+              >
+                {formatSigned(summary.totalIncome, '+')}
+              </span>
+              <span className="text-[10.5px] text-on-surface-variant">
+                {summary.incomeCount} no extrato
+              </span>
             </div>
-            <span
-              className="font-currency-standard text-[13px] leading-[18px] tracking-tight text-secondary font-bold whitespace-nowrap"
-              data-testid="income-amount"
-            >
-              {formatSigned(summary.totalIncome, '+')}
-            </span>
-            <span className="font-body-sm text-[10px] text-on-surface-variant mt-0.5">
-              {summary.incomeCount} no extrato
-            </span>
+
+            <div className="flex-1 min-w-0 bg-surface-container-low p-3 rounded-xl flex flex-col justify-between gap-0.5">
+              <div className="flex items-center gap-1 text-tertiary text-[11px] font-semibold">
+                <span className="material-symbols-outlined text-[15px] shrink-0">
+                  trending_down
+                </span>
+                <span className="whitespace-nowrap">Saídas</span>
+              </div>
+              <span
+                className="text-[15px] leading-snug tracking-tight text-tertiary font-bold tabular-nums break-words"
+                data-testid="expense-amount"
+              >
+                {formatSigned(summary.totalExpense, '-')}
+              </span>
+              <span className="text-[10.5px] text-on-surface-variant">
+                {summary.expenseCount} lançamentos
+              </span>
+            </div>
           </div>
 
-          <div className="bg-surface-container-low p-2.5 rounded-xl flex flex-col justify-between min-w-0">
-            <div className="flex items-center gap-1 text-tertiary font-label-sm text-[11px] mb-1">
-              <span className="material-symbols-outlined text-[15px]">trending_down</span>
-              <span>Saídas</span>
+          <div className="bg-primary-fixed/40 px-3 py-2 rounded-xl flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-primary text-[12px] font-semibold min-w-0">
+              <span className="material-symbols-outlined text-[16px] shrink-0">savings</span>
+              <span className="whitespace-nowrap">Economia do mês</span>
             </div>
-            <span
-              className="font-currency-standard text-[13px] leading-[18px] tracking-tight text-tertiary font-bold whitespace-nowrap"
-              data-testid="expense-amount"
-            >
-              {formatSigned(summary.totalExpense, '-')}
-            </span>
-            <span className="font-body-sm text-[10px] text-on-surface-variant mt-0.5">
-              {summary.expenseCount} lançamentos
-            </span>
-          </div>
-
-          <div className="bg-primary-fixed/40 p-2.5 rounded-xl flex flex-col justify-between min-w-0">
-            <div className="flex items-center gap-1 text-primary font-label-sm text-[11px] mb-1">
-              <span className="material-symbols-outlined text-[15px]">savings</span>
-              <span>Economia</span>
+            <div className="flex items-center gap-1.5 text-[12px] shrink-0 whitespace-nowrap">
+              <span className="font-bold text-primary tabular-nums">{summary.savingRate}%</span>
+              <span aria-hidden="true" className="text-primary/50">
+                ·
+              </span>
+              <span className="text-primary/90 font-medium">{savingNote}</span>
             </div>
-            <span className="font-currency-standard text-[14px] leading-[18px] text-primary truncate font-bold">
-              {summary.savingRate}%
-            </span>
-            <span className="font-body-sm text-[10px] text-primary/80 mt-0.5 truncate">
-              {savingNote}
-            </span>
           </div>
         </div>
       </section>
 
       {/* Ações Rápidas */}
       <section className="flex flex-col space-y-2">
-        <div className="flex items-center justify-between">
-          <h2 className="font-headline-sm text-headline-sm text-on-surface">Ações Rápidas</h2>
-          <span className="font-label-sm text-[11px] text-on-surface-variant">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-[16px] font-bold text-on-surface">Ações Rápidas</h2>
+          <span className="text-[11px] text-on-surface-variant whitespace-nowrap">
             Atalhos dinâmicos
           </span>
         </div>
-        <div className="grid grid-cols-4 gap-space-xs">
+        <div className="grid grid-cols-4 gap-2">
           <button
-            className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface-container-lowest hover:bg-surface-container active:scale-95 shadow-sm transition-all group cursor-pointer"
+            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-surface-container-lowest hover:bg-surface-container active:scale-95 shadow-sm transition-all group cursor-pointer min-w-0"
             onClick={() => onOpenNewTransaction('income')}
             type="button"
           >
-            <div className="w-10 h-10 rounded-full bg-secondary-container/60 text-secondary flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-              <span className="material-symbols-outlined text-[20px]">add_circle</span>
+            <div className="w-9 h-9 rounded-full bg-secondary-container/60 text-secondary flex items-center justify-center mb-1 group-hover:scale-110 transition-transform shrink-0">
+              <span className="material-symbols-outlined text-[19px]">add_circle</span>
             </div>
-            <span className="font-label-sm text-[11px] text-on-surface text-center">+ Receita</span>
+            <span className="text-[10.5px] font-semibold text-on-surface text-center whitespace-nowrap">
+              + Receita
+            </span>
           </button>
 
           <button
-            className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface-container-lowest hover:bg-surface-container active:scale-95 shadow-sm transition-all group cursor-pointer"
+            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-surface-container-lowest hover:bg-surface-container active:scale-95 shadow-sm transition-all group cursor-pointer min-w-0"
             onClick={() => onOpenNewTransaction('expense')}
             type="button"
           >
-            <div className="w-10 h-10 rounded-full bg-tertiary-fixed/70 text-tertiary flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-              <span className="material-symbols-outlined text-[20px]">remove_circle</span>
+            <div className="w-9 h-9 rounded-full bg-tertiary-fixed/70 text-tertiary flex items-center justify-center mb-1 group-hover:scale-110 transition-transform shrink-0">
+              <span className="material-symbols-outlined text-[19px]">remove_circle</span>
             </div>
-            <span className="font-label-sm text-[11px] text-on-surface text-center">- Despesa</span>
+            <span className="text-[10.5px] font-semibold text-on-surface text-center whitespace-nowrap">
+              - Despesa
+            </span>
           </button>
 
           <button
-            className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface-container-lowest hover:bg-surface-container active:scale-95 shadow-sm transition-all group cursor-pointer"
+            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-surface-container-lowest hover:bg-surface-container active:scale-95 shadow-sm transition-all group cursor-pointer min-w-0"
             onClick={() => {
               onNavigate('orcamentos');
               onNotify('Metas orçamentárias sincronizadas!');
             }}
             type="button"
           >
-            <div className="w-10 h-10 rounded-full bg-primary-fixed text-primary flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-              <span className="material-symbols-outlined text-[20px]">flag</span>
+            <div className="w-9 h-9 rounded-full bg-primary-fixed text-primary flex items-center justify-center mb-1 group-hover:scale-110 transition-transform shrink-0">
+              <span className="material-symbols-outlined text-[19px]">flag</span>
             </div>
-            <span className="font-label-sm text-[11px] text-on-surface text-center">
+            <span className="text-[10.5px] font-semibold text-on-surface text-center whitespace-nowrap">
               Definir Meta
             </span>
           </button>
 
           <button
-            className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-surface-container-lowest hover:bg-surface-container active:scale-95 shadow-sm transition-all group cursor-pointer"
+            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-surface-container-lowest hover:bg-surface-container active:scale-95 shadow-sm transition-all group cursor-pointer min-w-0"
             onClick={onExportCSV}
             type="button"
           >
-            <div className="w-10 h-10 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-              <span className="material-symbols-outlined text-[20px]">download</span>
+            <div className="w-9 h-9 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center mb-1 group-hover:scale-110 transition-transform shrink-0">
+              <span className="material-symbols-outlined text-[19px]">download</span>
             </div>
-            <span className="font-label-sm text-[11px] text-on-surface text-center">
+            <span className="text-[10.5px] font-semibold text-on-surface text-center whitespace-nowrap">
               Extrato CSV
             </span>
           </button>
@@ -303,22 +311,20 @@ export function DashboardScreen({
       </section>
 
       {/* Gráfico de Fluxo de Caixa (Últimos 6 Meses) */}
-      <section className="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm flex flex-col space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-headline-sm text-headline-sm text-on-surface">Fluxo de Caixa</h3>
-            <p className="font-body-sm text-body-sm text-on-surface-variant">
-              Últimos 6 meses de movimentação
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 font-label-sm text-[11px] text-on-surface-variant">
-              <span className="w-2.5 h-2.5 rounded-full bg-secondary" /> Entradas
-            </div>
-            <div className="flex items-center gap-1 font-label-sm text-[11px] text-on-surface-variant">
-              <span className="w-2.5 h-2.5 rounded-full bg-error" /> Saídas
+      <section className="bg-surface-container-lowest rounded-2xl p-4 shadow-sm flex flex-col space-y-3">
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-[16px] font-bold text-on-surface truncate">Fluxo de Caixa</h3>
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-on-surface-variant whitespace-nowrap">
+                <span className="w-2 h-2 rounded-full bg-secondary shrink-0" /> Entradas
+              </div>
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-on-surface-variant whitespace-nowrap">
+                <span className="w-2 h-2 rounded-full bg-error shrink-0" /> Saídas
+              </div>
             </div>
           </div>
+          <p className="text-[12px] text-on-surface-variant">Últimos 6 meses de movimentação</p>
         </div>
 
         <div className="relative w-full h-44 flex flex-col justify-end pt-4 pb-1">
@@ -357,8 +363,14 @@ export function DashboardScreen({
 
             {cashFlowSeries.map((m, idx) => {
               const xBase = 15 + idx * 53;
-              const incHeight = Math.max(Math.round((m.income / maxFlowValue) * 90), m.income > 0 ? 4 : 0);
-              const expHeight = Math.max(Math.round((m.expense / maxFlowValue) * 90), m.expense > 0 ? 4 : 0);
+              const incHeight = Math.max(
+                Math.round((m.income / maxFlowValue) * 90),
+                m.income > 0 ? 4 : 0
+              );
+              const expHeight = Math.max(
+                Math.round((m.expense / maxFlowValue) * 90),
+                m.expense > 0 ? 4 : 0
+              );
               const tip = `${m.month}/${m.year}: Entradas ${formatMoney(m.income, currency)} | Saídas ${formatMoney(m.expense, currency)}`;
 
               return (
@@ -406,28 +418,28 @@ export function DashboardScreen({
       </section>
 
       {/* Despesas por Categoria (Mês Atual) */}
-      <section className="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm flex flex-col space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-headline-sm text-headline-sm text-on-surface">
+      <section className="bg-surface-container-lowest rounded-2xl p-4 shadow-sm flex flex-col space-y-3.5">
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-[16px] font-bold text-on-surface truncate">
               Despesas por Categoria
             </h3>
-            <p className="font-body-sm text-body-sm text-on-surface-variant">
-              Distribuição percentual deste mês
-            </p>
+            <span className="text-[11px] font-semibold text-on-surface-variant whitespace-nowrap shrink-0">
+              {cycleInfo.monthYearLabel}
+            </span>
           </div>
-          <span className="inline-flex px-2 py-0.5 rounded-full bg-surface-container font-label-sm text-[11px] text-on-surface-variant">
-            {cycleInfo.monthYearLabel}
-          </span>
+          <p className="text-[12px] text-on-surface-variant">
+            Distribuição percentual deste mês
+          </p>
         </div>
 
         {donutSegments.length === 0 ? (
-          <p className="font-body-sm text-body-sm text-on-surface-variant text-center py-4">
+          <p className="text-[12px] text-on-surface-variant text-center py-4">
             Nenhuma despesa registrada para calcular a distribuição.
           </p>
         ) : (
-          <div className="flex items-center justify-center gap-6">
-            <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
+          <div className="flex items-center justify-between gap-4">
+            <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center shrink-0">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
                 <circle cx="50" cy="50" fill="transparent" r="38" stroke="#f2f3ff" strokeWidth="12" />
                 {donutSegments.map((seg) => (
@@ -445,10 +457,10 @@ export function DashboardScreen({
                 ))}
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="font-body-sm text-[10px] text-on-surface-variant font-medium leading-none">
+                <span className="text-[10px] text-on-surface-variant font-medium leading-none">
                   Total
                 </span>
-                <span className="font-headline-sm text-[16px] text-on-surface font-bold mt-0.5">
+                <span className="text-[15px] text-on-surface font-bold mt-0.5 tabular-nums">
                   100%
                 </span>
               </div>
@@ -456,12 +468,15 @@ export function DashboardScreen({
 
             <div className="flex flex-col space-y-1.5 flex-1 min-w-0">
               {donutSegments.map((item) => (
-                <div key={item.name} className="flex items-center justify-between text-body-sm">
-                  <div className="flex items-center gap-1.5 min-w-0 truncate">
+                <div
+                  key={item.name}
+                  className="flex items-center justify-between gap-2 text-[12px]"
+                >
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
                     <span className={`w-2.5 h-2.5 rounded-full ${item.dotClass} shrink-0`} />
                     <span className="text-on-surface truncate">{item.name}</span>
                   </div>
-                  <span className="font-semibold text-on-surface shrink-0 ml-1">
+                  <span className="font-bold text-on-surface shrink-0 tabular-nums">
                     {item.percentage}%
                   </span>
                 </div>
@@ -472,21 +487,19 @@ export function DashboardScreen({
       </section>
 
       {/* Últimas Transações */}
-      <section className="flex flex-col space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h3 className="font-headline-sm text-headline-sm text-on-surface">
-              Últimas Transações
-            </h3>
+      <section className="flex flex-col space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="text-[16px] font-bold text-on-surface truncate">Últimas Transações</h3>
             <span
-              className="px-2 py-0.5 rounded-full bg-surface-container font-label-sm text-[11px] text-on-surface-variant font-bold"
+              className="text-[12px] text-on-surface-variant font-semibold tabular-nums shrink-0"
               data-testid="trans-count-badge"
             >
-              {transactions.length}
+              ({transactions.length})
             </span>
           </div>
           <button
-            className="font-label-sm text-label-sm text-primary hover:underline cursor-pointer"
+            className="text-[12px] font-semibold text-primary hover:underline cursor-pointer whitespace-nowrap shrink-0"
             onClick={() => onNavigate('transacoes')}
             type="button"
           >
@@ -500,15 +513,13 @@ export function DashboardScreen({
               <span className="material-symbols-outlined text-[32px]">receipt_long</span>
             </div>
             <div className="flex flex-col">
-              <h4 className="font-headline-sm text-headline-sm text-on-surface">
-                Nenhuma transação ainda
-              </h4>
-              <p className="font-body-sm text-body-sm text-on-surface-variant max-w-xs mt-1">
+              <h4 className="text-[16px] font-bold text-on-surface">Nenhuma transação ainda</h4>
+              <p className="text-[12px] text-on-surface-variant max-w-xs mt-1">
                 Registre suas despesas ou receitas para manter sua vida financeira nos trilhos.
               </p>
             </div>
             <button
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary text-on-primary font-label-sm text-label-sm hover:bg-primary-container active:scale-95 transition-all shadow-md shadow-primary/20 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary text-on-primary text-[12px] font-semibold hover:bg-primary-container active:scale-95 transition-all shadow-md shadow-primary/20 cursor-pointer whitespace-nowrap"
               onClick={() => onOpenNewTransaction('income')}
               type="button"
             >
@@ -517,7 +528,10 @@ export function DashboardScreen({
             </button>
           </div>
         ) : (
-          <div className="flex flex-col space-y-2" data-testid="dashboard-transactions-list">
+          <div
+            className="bg-surface-container-lowest rounded-2xl shadow-sm divide-y divide-surface-container/60 overflow-hidden"
+            data-testid="dashboard-transactions-list"
+          >
             {sortedRecentTransactions.map((item) => {
               const isIncome = item.type === 'income';
               const catConfig = CATEGORY_STYLE_META[item.category] ?? CATEGORY_STYLE_META.Outros;
@@ -535,51 +549,54 @@ export function DashboardScreen({
               return (
                 <button
                   key={item.id}
-                  className="w-full text-left flex items-center justify-between p-3 bg-surface-container-lowest rounded-2xl shadow-sm hover:bg-surface-container-low transition-colors cursor-pointer"
+                  className="w-full text-left flex items-start gap-3 p-3.5 hover:bg-surface-container-low/60 transition-colors cursor-pointer"
                   onClick={() => onEditTransaction(item)}
                   type="button"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`w-11 h-11 rounded-full ${catConfig.bg} ${catConfig.color} flex items-center justify-center shrink-0`}
-                    >
-                      <span className="material-symbols-outlined text-[20px]">
-                        {catConfig.icon}
-                      </span>
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-label-md text-label-md text-on-surface font-semibold truncate">
-                        {item.description}
-                      </span>
-                      <div className="flex items-center gap-1.5 text-body-sm text-[11px] text-on-surface-variant min-w-0">
-                        <span className="shrink-0">{dateDisplay}</span>
-                        <span>•</span>
-                        <span className="truncate">{item.account}</span>
-                      </div>
-                    </div>
+                  <div
+                    className={`w-10 h-10 rounded-full ${catConfig.bg} ${catConfig.color} flex items-center justify-center shrink-0 mt-0.5`}
+                  >
+                    <span className="material-symbols-outlined text-[20px]">
+                      {catConfig.icon}
+                    </span>
                   </div>
 
-                  <div className="flex flex-col items-end shrink-0 pl-2">
-                    <span
-                      className={`font-currency-standard text-currency-standard font-bold ${
-                        isIncome ? 'text-secondary' : 'text-on-surface'
-                      }`}
-                    >
-                      {isBalanceHidden
-                        ? '••••'
-                        : `${sign}${formatMoney(item.amount, currency)}`}
-                    </span>
-                    <span
-                      className={`inline-flex items-center px-1.5 py-0.5 text-[10px] rounded-full font-label-sm mt-0.5 ${
-                        item.status === 'pending'
-                          ? 'bg-amber-100 text-amber-800'
-                          : isIncome
-                            ? 'bg-secondary-container text-on-secondary-container'
-                            : 'bg-surface-container text-on-surface-variant'
-                      }`}
-                    >
-                      {statusLabel}
-                    </span>
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-[14px] leading-snug text-on-surface font-semibold truncate flex-1 min-w-0">
+                        {item.description}
+                      </span>
+                      <span
+                        className={`text-[14px] leading-snug font-bold tabular-nums whitespace-nowrap shrink-0 ${
+                          isIncome ? 'text-secondary' : 'text-on-surface'
+                        }`}
+                      >
+                        {isBalanceHidden
+                          ? '••••'
+                          : `${sign}${formatMoney(item.amount, currency)}`}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 text-[11px]">
+                      <div className="flex items-center gap-1.5 text-on-surface-variant min-w-0 truncate">
+                        <span className="shrink-0">{dateDisplay}</span>
+                        <span aria-hidden="true" className="shrink-0">
+                          ·
+                        </span>
+                        <span className="truncate">{item.account}</span>
+                      </div>
+                      <span
+                        className={`shrink-0 font-semibold ${
+                          item.status === 'pending'
+                            ? 'text-amber-700'
+                            : isIncome
+                              ? 'text-secondary'
+                              : 'text-on-surface-variant'
+                        }`}
+                      >
+                        {statusLabel}
+                      </span>
+                    </div>
                   </div>
                 </button>
               );

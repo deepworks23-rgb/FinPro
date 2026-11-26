@@ -71,7 +71,7 @@ export function LoginScreen({ initialEmail = '', onAuthenticated }: LoginScreenP
               </span>
             </div>
             <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-secondary flex items-center justify-center">
-              <span className="w-2 h-2 rounded-full bg-surface-container-lowest animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-surface-container-lowest" />
             </div>
           </div>
 

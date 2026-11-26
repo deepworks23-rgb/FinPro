@@ -187,12 +187,12 @@ export function TransactionModal({
             >
               Valor da Operação
             </label>
-            <div className="flex items-center justify-center text-primary">
+            <div className="flex items-center justify-center text-primary w-full">
               {cfg.position === 'left' && (
-                <span className="font-headline-sm text-headline-sm mr-1 font-bold">{symbol}</span>
+                <span className="text-[18px] mr-1.5 font-bold shrink-0">{symbol}</span>
               )}
               <input
-                className="font-currency-lead text-currency-lead text-center bg-transparent text-on-surface font-bold focus:outline-none w-44 tracking-tight"
+                className="text-[28px] leading-[34px] text-center bg-transparent text-on-surface font-bold tabular-nums focus:outline-none w-full max-w-[220px] tracking-tight"
                 id="txAmountInput"
                 inputMode="decimal"
                 onChange={(e) => setAmountStr(maskCurrencyDigits(e.target.value))}
@@ -202,7 +202,7 @@ export function TransactionModal({
                 value={amountStr}
               />
               {cfg.position === 'right' && (
-                <span className="font-headline-sm text-headline-sm ml-1 font-bold">{symbol}</span>
+                <span className="text-[18px] ml-1.5 font-bold shrink-0">{symbol}</span>
               )}
             </div>
           </div>
@@ -215,7 +215,7 @@ export function TransactionModal({
               Descrição / Estabelecimento
             </label>
             <input
-              className="h-12 px-3 bg-surface-container-low text-on-surface rounded-xl font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="h-11 px-3 bg-surface-container-low text-on-surface rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/30"
               id="txDescInput"
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Ex: Supermercado Pão de Açúcar"
@@ -225,8 +225,8 @@ export function TransactionModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-space-sm">
-            <div className="flex flex-col gap-1">
+          <div className="flex gap-2.5">
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
               <label
                 className="font-label-sm text-label-sm text-on-surface-variant"
                 htmlFor="txCategorySelect"
@@ -234,7 +234,7 @@ export function TransactionModal({
                 Categoria
               </label>
               <select
-                className="h-12 px-3 bg-surface-container-low text-on-surface rounded-xl font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
                 id="txCategorySelect"
                 onChange={(e) => setCategory(e.target.value)}
                 value={category}
@@ -246,7 +246,7 @@ export function TransactionModal({
                 ))}
               </select>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
               <label
                 className="font-label-sm text-label-sm text-on-surface-variant"
                 htmlFor="txDateInput"
@@ -254,7 +254,7 @@ export function TransactionModal({
                 Data
               </label>
               <input
-                className="h-12 px-3 bg-surface-container-low text-on-surface rounded-xl font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
                 id="txDateInput"
                 onChange={(e) => setDate(e.target.value)}
                 required
@@ -264,8 +264,8 @@ export function TransactionModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-space-sm">
-            <div className="flex flex-col gap-1">
+          <div className="flex gap-2.5">
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
               <label
                 className="font-label-sm text-label-sm text-on-surface-variant"
                 htmlFor="txAccountSelect"
@@ -273,7 +273,7 @@ export function TransactionModal({
                 Conta / Origem
               </label>
               <select
-                className="h-12 px-3 bg-surface-container-low text-on-surface rounded-xl font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
                 id="txAccountSelect"
                 onChange={(e) => setAccount(e.target.value)}
                 value={account}
@@ -285,7 +285,7 @@ export function TransactionModal({
                 ))}
               </select>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
               <label
                 className="font-label-sm text-label-sm text-on-surface-variant"
                 htmlFor="txStatusSelect"
@@ -293,7 +293,7 @@ export function TransactionModal({
                 Status
               </label>
               <select
-                className="h-12 px-3 bg-surface-container-low text-on-surface rounded-xl font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
                 id="txStatusSelect"
                 onChange={(e) => setStatus(e.target.value as TransactionStatus)}
                 value={status}
