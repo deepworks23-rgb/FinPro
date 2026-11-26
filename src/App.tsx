@@ -560,7 +560,7 @@ export default function App() {
   const activeScreen: AppScreen = isAuthenticated ? screen : 'login';
 
   return (
-    <div className="min-h-screen w-full bg-surface-container-low/40 flex flex-col md:flex-row text-on-surface">
+    <div className="min-h-screen md:h-screen md:overflow-hidden w-full bg-surface-container-low/40 flex flex-col md:flex-row text-on-surface">
       {/* Desktop Permanent Sidebar */}
       {isAuthenticated && currentUser && (
         <Sidebar
@@ -581,7 +581,7 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen relative bg-surface">
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen md:min-h-0 md:h-screen md:overflow-hidden relative bg-surface">
         {/* Mobile Fixed Top Header */}
         {isAuthenticated && currentUser && (
           <Header
@@ -633,10 +633,10 @@ export default function App() {
         )}
 
         <main
-          className={`flex-1 w-full max-w-7xl mx-auto flex flex-col ${
+          className={`flex-1 w-full max-w-[440px] md:max-w-7xl mx-auto flex flex-col md:overflow-y-auto ${
             activeScreen === 'login'
               ? 'p-0 justify-center items-center'
-              : 'pt-18 md:pt-6 px-4 sm:px-6 lg:px-8 pb-24 md:pb-12'
+              : 'pt-18 md:pt-6 px-3 md:px-6 lg:px-8 pb-24 md:pb-8'
           }`}
         >
           {isRestoringSession ? (

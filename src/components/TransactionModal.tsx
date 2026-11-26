@@ -311,14 +311,14 @@ export function TransactionModal({
       }}
       role="dialog"
     >
-      <div className="w-full max-w-md bg-surface-container-lowest rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl flex flex-col max-h-[92dvh] overflow-y-auto">
+      <div className="w-full max-w-md md:max-w-4xl bg-surface-container-lowest rounded-t-3xl md:rounded-3xl p-5 md:p-6 shadow-2xl flex flex-col max-h-[92dvh] md:max-h-[85vh]">
         <div
           className="w-12 h-1.5 rounded-full bg-outline-variant/60 mx-auto mb-2.5 sm:hidden cursor-pointer shrink-0"
           onClick={onClose}
         />
 
         {/* Modal Header */}
-        <div className="flex items-center justify-between gap-2 pb-3 border-b border-surface-container">
+        <div className="flex items-center justify-between gap-2 pb-3 border-b border-surface-container shrink-0">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <div
               className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
@@ -352,377 +352,385 @@ export function TransactionModal({
           </button>
         </div>
 
-        <form className="flex flex-col gap-3.5 mt-3.5" onSubmit={handleSubmit}>
-          {/* 1. Tipo da Operação */}
-          <div className="grid grid-cols-2 p-1 bg-surface-container-low rounded-xl gap-1">
-            <button
-              className={
-                type === 'expense'
-                  ? 'h-10 rounded-lg flex items-center justify-center gap-1.5 text-[13px] font-semibold bg-tertiary-container text-on-tertiary shadow-sm transition-all cursor-pointer'
-                  : 'h-10 rounded-lg flex items-center justify-center gap-1.5 text-[13px] font-semibold text-on-surface-variant hover:text-on-surface transition-all cursor-pointer'
-              }
-              onClick={() => handleTypeSwitch('expense')}
-              type="button"
-            >
-              <AppIcon name="trending_down" className="text-[18px]" />
-              <span>Despesa</span>
-            </button>
-            <button
-              className={
-                type === 'income'
-                  ? 'h-10 rounded-lg flex items-center justify-center gap-1.5 text-[13px] font-semibold bg-secondary text-on-secondary shadow-sm transition-all cursor-pointer'
-                  : 'h-10 rounded-lg flex items-center justify-center gap-1.5 text-[13px] font-semibold text-on-surface-variant hover:text-on-surface transition-all cursor-pointer'
-              }
-              onClick={() => handleTypeSwitch('income')}
-              type="button"
-            >
-              <AppIcon name="trending_up" className="text-[18px]" />
-              <span>Receita</span>
-            </button>
-          </div>
-
-          {/* 2. Modelos Rápidos Dinâmicos */}
-          {!editingTransaction && (
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold text-on-surface-variant">
-                Preenchimento rápido ({type === 'expense' ? 'despesas comuns' : 'entradas comuns'})
-              </span>
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-                {templates.map((tpl) => (
-                  <button
-                    key={tpl.label}
-                    className="px-2.5 py-1 rounded-lg bg-surface-container hover:bg-primary-fixed hover:text-primary text-[11px] font-semibold text-on-surface-variant transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-                    onClick={() => applyTemplate(tpl)}
-                    type="button"
-                  >
-                    + {tpl.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 3. Valor da Operação + Conversão em Tempo Real */}
-          <div className="flex flex-col items-center justify-center bg-surface-container-low/70 py-3.5 px-3 rounded-2xl">
-            <label
-              className="text-[11px] font-semibold text-on-surface-variant mb-1"
-              htmlFor="txAmountInput"
-            >
-              Valor da Operação ({currency})
-            </label>
-            <div className="flex items-center justify-center text-primary w-full">
-              {cfg.position === 'left' && (
-                <span className="text-[18px] mr-1.5 font-bold shrink-0">{symbol}</span>
-              )}
-              <input
-                className="text-[28px] leading-[34px] text-center bg-transparent text-on-surface font-bold tabular-nums focus:outline-none w-full max-w-[220px] tracking-tight"
-                id="txAmountInput"
-                inputMode="decimal"
-                onChange={(e) => setAmountStr(maskCurrencyDigits(e.target.value))}
-                placeholder="0,00"
-                required
-                type="text"
-                value={amountStr}
-              />
-              {cfg.position === 'right' && (
-                <span className="text-[18px] ml-1.5 font-bold shrink-0">{symbol}</span>
-              )}
-            </div>
-            {amountInBase > 0 && (
-              <span className="text-[11px] font-medium text-on-surface-variant mt-1 tabular-nums">
-                Equivalente em tempo real: ≈ {formatMoney(amountInBase, otherCurrency)}
-              </span>
-            )}
-          </div>
-
-          {/* 4. Impacto Dinâmico no Orçamento (apenas Despesa com orçamento ativo) */}
-          {budgetImpact && (
-            <div className="p-2.5 rounded-xl bg-surface-container-low flex flex-col gap-1.5">
-              <div className="flex items-center justify-between gap-2 text-[11px]">
-                <span className="font-semibold text-on-surface">
-                  Orçamento: {budgetImpact.budgetName}
-                </span>
-                <span
-                  className={`font-bold tabular-nums ${
-                    budgetImpact.exceeded
-                      ? 'text-tertiary'
-                      : budgetImpact.pct >= 80
-                        ? 'text-amber-700'
-                        : 'text-secondary'
-                  }`}
+        <form className="flex flex-col flex-1 min-h-0 mt-3.5" onSubmit={handleSubmit}>
+          {/* Form Fields: 1 Column on Mobile, 2 Columns on Desktop */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 overflow-y-auto pr-0 md:pr-1 flex-1">
+            {/* Coluna 1: Dados Financeiros & Descritivos */}
+            <div className="flex flex-col gap-3.5">
+              {/* 1. Tipo da Operação */}
+              <div className="grid grid-cols-2 p-1 bg-surface-container-low rounded-xl gap-1">
+                <button
+                  className={
+                    type === 'expense'
+                      ? 'h-10 rounded-lg flex items-center justify-center gap-1.5 text-[13px] font-semibold bg-tertiary-container text-on-tertiary shadow-sm transition-all cursor-pointer'
+                      : 'h-10 rounded-lg flex items-center justify-center gap-1.5 text-[13px] font-semibold text-on-surface-variant hover:text-on-surface transition-all cursor-pointer'
+                  }
+                  onClick={() => handleTypeSwitch('expense')}
+                  type="button"
                 >
-                  {formatMoney(budgetImpact.projectedSpent, currency)} /{' '}
-                  {formatMoney(budgetImpact.limit, currency)} ({budgetImpact.pct}%)
-                </span>
+                  <AppIcon name="trending_down" className="text-[18px]" />
+                  <span>Despesa</span>
+                </button>
+                <button
+                  className={
+                    type === 'income'
+                      ? 'h-10 rounded-lg flex items-center justify-center gap-1.5 text-[13px] font-semibold bg-secondary text-on-secondary shadow-sm transition-all cursor-pointer'
+                      : 'h-10 rounded-lg flex items-center justify-center gap-1.5 text-[13px] font-semibold text-on-surface-variant hover:text-on-surface transition-all cursor-pointer'
+                  }
+                  onClick={() => handleTypeSwitch('income')}
+                  type="button"
+                >
+                  <AppIcon name="trending_up" className="text-[18px]" />
+                  <span>Receita</span>
+                </button>
               </div>
-              <div className="w-full h-1.5 rounded-full bg-surface-container-high overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ${
-                    budgetImpact.exceeded
-                      ? 'bg-tertiary-container'
-                      : budgetImpact.pct >= 80
-                        ? 'bg-amber-500'
-                        : 'bg-secondary'
-                  }`}
-                  style={{ width: `${Math.min(budgetImpact.pct, 100)}%` }}
-                />
-              </div>
-              {status === 'pending' && (
-                <span className="text-[10.5px] text-on-surface-variant">
-                  Como está Pendente, só entra no orçamento quando marcar como Pago.
-                </span>
+
+              {/* 2. Modelos Rápidos Dinâmicos */}
+              {!editingTransaction && (
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] font-semibold text-on-surface-variant">
+                    Preenchimento rápido ({type === 'expense' ? 'despesas comuns' : 'entradas comuns'})
+                  </span>
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                    {templates.map((tpl) => (
+                      <button
+                        key={tpl.label}
+                        className="px-2.5 py-1 rounded-lg bg-surface-container hover:bg-primary-fixed hover:text-primary text-[11px] font-semibold text-on-surface-variant transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                        onClick={() => applyTemplate(tpl)}
+                        type="button"
+                      >
+                        + {tpl.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
-            </div>
-          )}
 
-          {/* 5. Descrição */}
-          <div className="flex flex-col gap-1">
-            <label
-              className="text-[11.5px] font-semibold text-on-surface-variant"
-              htmlFor="txDescInput"
-            >
-              Descrição / Estabelecimento
-            </label>
-            <input
-              className="h-11 px-3 bg-surface-container-low text-on-surface rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/30"
-              id="txDescInput"
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={
-                type === 'income'
-                  ? 'Ex: Salário Mensal / Transferência Cliente'
-                  : 'Ex: Supermercado Shoprite / Energia Credelec'
-              }
-              required
-              type="text"
-              value={description}
-            />
-          </div>
+              {/* 3. Valor da Operação + Conversão em Tempo Real */}
+              <div className="flex flex-col items-center justify-center bg-surface-container-low/70 py-3.5 px-3 rounded-2xl">
+                <label
+                  className="text-[11px] font-semibold text-on-surface-variant mb-1"
+                  htmlFor="txAmountInput"
+                >
+                  Valor da Operação ({currency})
+                </label>
+                <div className="flex items-center justify-center text-primary w-full">
+                  {cfg.position === 'left' && (
+                    <span className="text-[18px] mr-1.5 font-bold shrink-0">{symbol}</span>
+                  )}
+                  <input
+                    className="text-[28px] leading-[34px] text-center bg-transparent text-on-surface font-bold tabular-nums focus:outline-none w-full max-w-[220px] tracking-tight"
+                    id="txAmountInput"
+                    inputMode="decimal"
+                    onChange={(e) => setAmountStr(maskCurrencyDigits(e.target.value))}
+                    placeholder="0,00"
+                    required
+                    type="text"
+                    value={amountStr}
+                  />
+                  {cfg.position === 'right' && (
+                    <span className="text-[18px] ml-1.5 font-bold shrink-0">{symbol}</span>
+                  )}
+                </div>
+                {amountInBase > 0 && (
+                  <span className="text-[11px] font-medium text-on-surface-variant mt-1 tabular-nums">
+                    Equivalente em tempo real: ≈ {formatMoney(amountInBase, otherCurrency)}
+                  </span>
+                )}
+              </div>
 
-          {/* 6. Categoria & Conta / Carteira */}
-          <div className="flex gap-2.5">
-            <div className="flex-1 min-w-0 flex flex-col gap-1">
-              <label
-                className="text-[11.5px] font-semibold text-on-surface-variant"
-                htmlFor="txCategorySelect"
-              >
-                Categoria
-              </label>
-              <select
-                className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
-                id="txCategorySelect"
-                onChange={(e) => setCategory(e.target.value)}
-                value={category}
-              >
-                {categoryOptions.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex-1 min-w-0 flex flex-col gap-1">
-              <label
-                className="text-[11.5px] font-semibold text-on-surface-variant"
-                htmlFor="txAccountSelect"
-              >
-                Conta / Carteira
-              </label>
-              <select
-                className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
-                id="txAccountSelect"
-                onChange={(e) => handleAccountChange(e.target.value)}
-                value={account}
-              >
-                {MOZAMBIQUE_ACCOUNTS.map((acc) => (
-                  <option key={acc} value={acc}>
-                    {acc}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* 7. Status Interativo (Segmented Switch) */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[11.5px] font-semibold text-on-surface-variant">
-              Status do Lançamento
-            </span>
-            <div className="grid grid-cols-2 p-1 bg-surface-container-low rounded-xl gap-1">
-              <button
-                className={
-                  status === 'completed'
-                    ? 'h-9 rounded-lg flex items-center justify-center gap-1.5 text-[12.5px] font-semibold bg-secondary-container text-on-secondary-container shadow-xs transition-all cursor-pointer'
-                    : 'h-9 rounded-lg flex items-center justify-center gap-1.5 text-[12.5px] font-semibold text-on-surface-variant hover:text-on-surface transition-all cursor-pointer'
-                }
-                onClick={() => setStatus('completed')}
-                type="button"
-              >
-                <AppIcon name="check_circle" className="text-[16px]" />
-                <span>{type === 'income' ? 'Recebido' : 'Pago'}</span>
-              </button>
-              <button
-                className={
-                  status === 'pending'
-                    ? 'h-9 rounded-lg flex items-center justify-center gap-1.5 text-[12.5px] font-semibold bg-amber-100 text-amber-900 shadow-xs transition-all cursor-pointer'
-                    : 'h-9 rounded-lg flex items-center justify-center gap-1.5 text-[12.5px] font-semibold text-on-surface-variant hover:text-on-surface transition-all cursor-pointer'
-                }
-                onClick={() => setStatus('pending')}
-                type="button"
-              >
-                <AppIcon name="schedule" className="text-[16px]" />
-                <span>{type === 'income' ? 'A Receber' : 'Pendente'}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* 8. Campo Condicional: Previsão / Vencimento quando Pendente */}
-          {status === 'pending' && (
-            <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80 flex flex-col gap-1">
-              <label
-                className="text-[11.5px] font-semibold text-amber-900 flex items-center gap-1"
-                htmlFor="txDueDateInput"
-              >
-                <AppIcon name="event" className="text-[15px]" />
-                {type === 'income' ? 'Previsão de Recebimento' : 'Data de Vencimento'}
-              </label>
-              <input
-                className="w-full h-10 px-2.5 bg-surface-container-lowest text-on-surface rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-amber-400/40"
-                id="txDueDateInput"
-                onChange={(e) => setDueDate(e.target.value)}
-                type="date"
-                value={dueDate}
-              />
-            </div>
-          )}
-
-          {/* 9. Data & Hora */}
-          <div className="flex gap-2.5">
-            <div className="flex-1 min-w-0 flex flex-col gap-1">
-              <label
-                className="text-[11.5px] font-semibold text-on-surface-variant"
-                htmlFor="txDateInput"
-              >
-                Data
-              </label>
-              <input
-                className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
-                id="txDateInput"
-                onChange={(e) => setDate(e.target.value)}
-                required
-                type="date"
-                value={date}
-              />
-            </div>
-            <div className="w-28 shrink-0 flex flex-col gap-1">
-              <label
-                className="text-[11.5px] font-semibold text-on-surface-variant"
-                htmlFor="txTimeInput"
-              >
-                Hora
-              </label>
-              <input
-                className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
-                id="txTimeInput"
-                onChange={(e) => setTime(e.target.value)}
-                type="time"
-                value={time}
-              />
-            </div>
-          </div>
-
-          {/* 10. Método de Pagamento & Recorrência */}
-          <div className="flex gap-2.5">
-            <div className="flex-1 min-w-0 flex flex-col gap-1">
-              <label
-                className="text-[11.5px] font-semibold text-on-surface-variant"
-                htmlFor="txMethodSelect"
-              >
-                Método
-              </label>
-              <select
-                className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[12.5px] focus:outline-none focus:ring-2 focus:ring-primary/30"
-                id="txMethodSelect"
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                value={paymentMethod}
-              >
-                {PAYMENT_METHODS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex-1 min-w-0 flex flex-col gap-1">
-              <label
-                className="text-[11.5px] font-semibold text-on-surface-variant"
-                htmlFor="txRecurrenceSelect"
-              >
-                Frequência
-              </label>
-              <select
-                className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[12.5px] focus:outline-none focus:ring-2 focus:ring-primary/30"
-                id="txRecurrenceSelect"
-                onChange={(e) => setRecurrence(e.target.value as TransactionRecurrence)}
-                value={recurrence}
-              >
-                <option value="none">Única</option>
-                <option value="weekly">Semanal</option>
-                <option value="monthly">Mensal</option>
-                <option value="yearly">Anual</option>
-              </select>
-            </div>
-          </div>
-
-          {/* 11. Referência Dinâmica (adaptada a Carteira Móvel vs Banco) & Observações */}
-          <div className="flex flex-col gap-2.5">
-            {account !== 'Numerário' && (
+              {/* 4. Descrição */}
               <div className="flex flex-col gap-1">
                 <label
                   className="text-[11.5px] font-semibold text-on-surface-variant"
-                  htmlFor="txRefInput"
+                  htmlFor="txDescInput"
                 >
-                  {isMobileWallet(account)
-                    ? `Nº Telefone (+258) / Código ${account} (opcional)`
-                    : 'Nº Comprovativo / Referência (opcional)'}
+                  Descrição / Estabelecimento
+                </label>
+                <input
+                  className="h-11 px-3 bg-surface-container-low text-on-surface rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  id="txDescInput"
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={
+                    type === 'income'
+                      ? 'Ex: Salário Mensal / Transferência Cliente'
+                      : 'Ex: Supermercado Shoprite / Energia Credelec'
+                  }
+                  required
+                  type="text"
+                  value={description}
+                />
+              </div>
+
+              {/* 5. Categoria & Conta / Carteira */}
+              <div className="flex gap-2.5">
+                <div className="flex-1 min-w-0 flex flex-col gap-1">
+                  <label
+                    className="text-[11.5px] font-semibold text-on-surface-variant"
+                    htmlFor="txCategorySelect"
+                  >
+                    Categoria
+                  </label>
+                  <select
+                    className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    id="txCategorySelect"
+                    onChange={(e) => setCategory(e.target.value)}
+                    value={category}
+                  >
+                    {categoryOptions.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1 min-w-0 flex flex-col gap-1">
+                  <label
+                    className="text-[11.5px] font-semibold text-on-surface-variant"
+                    htmlFor="txAccountSelect"
+                  >
+                    Conta / Carteira
+                  </label>
+                  <select
+                    className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    id="txAccountSelect"
+                    onChange={(e) => handleAccountChange(e.target.value)}
+                    value={account}
+                  >
+                    {MOZAMBIQUE_ACCOUNTS.map((acc) => (
+                      <option key={acc} value={acc}>
+                        {acc}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* 6. Observações */}
+              <div className="flex flex-col gap-1">
+                <label
+                  className="text-[11.5px] font-semibold text-on-surface-variant"
+                  htmlFor="txNotesInput"
+                >
+                  Observações (opcional)
                 </label>
                 <input
                   className="h-10 px-3 bg-surface-container-low text-on-surface rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  id="txRefInput"
-                  onChange={(e) => setReference(e.target.value)}
-                  placeholder={
-                    isMobileWallet(account) ? 'Ex: 84 123 4567 ou MP9281' : 'Ex: TRF-2026-084'
-                  }
+                  id="txNotesInput"
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Ex: Factura nº 204, compra do mês..."
                   type="text"
-                  value={reference}
+                  value={notes}
                 />
               </div>
-            )}
+            </div>
 
-            <div className="flex flex-col gap-1">
-              <label
-                className="text-[11.5px] font-semibold text-on-surface-variant"
-                htmlFor="txNotesInput"
-              >
-                Observações (opcional)
-              </label>
-              <input
-                className="h-10 px-3 bg-surface-container-low text-on-surface rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
-                id="txNotesInput"
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Ex: Factura nº 204, compra do mês..."
-                type="text"
-                value={notes}
-              />
+            {/* Coluna 2: Status, Agendamento & Liquidação */}
+            <div className="flex flex-col gap-3.5">
+              {/* 7. Status Interativo (Segmented Switch) */}
+              <div className="flex flex-col gap-1">
+                <span className="text-[11.5px] font-semibold text-on-surface-variant">
+                  Status do Lançamento
+                </span>
+                <div className="grid grid-cols-2 p-1 bg-surface-container-low rounded-xl gap-1">
+                  <button
+                    className={
+                      status === 'completed'
+                        ? 'h-9 rounded-lg flex items-center justify-center gap-1.5 text-[12.5px] font-semibold bg-secondary-container text-on-secondary-container shadow-xs transition-all cursor-pointer'
+                        : 'h-9 rounded-lg flex items-center justify-center gap-1.5 text-[12.5px] font-semibold text-on-surface-variant hover:text-on-surface transition-all cursor-pointer'
+                    }
+                    onClick={() => setStatus('completed')}
+                    type="button"
+                  >
+                    <AppIcon name="check_circle" className="text-[16px]" />
+                    <span>{type === 'income' ? 'Recebido' : 'Pago'}</span>
+                  </button>
+                  <button
+                    className={
+                      status === 'pending'
+                        ? 'h-9 rounded-lg flex items-center justify-center gap-1.5 text-[12.5px] font-semibold bg-amber-100 text-amber-900 shadow-xs transition-all cursor-pointer'
+                        : 'h-9 rounded-lg flex items-center justify-center gap-1.5 text-[12.5px] font-semibold text-on-surface-variant hover:text-on-surface transition-all cursor-pointer'
+                    }
+                    onClick={() => setStatus('pending')}
+                    type="button"
+                  >
+                    <AppIcon name="schedule" className="text-[16px]" />
+                    <span>{type === 'income' ? 'A Receber' : 'Pendente'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 8. Campo Condicional: Previsão / Vencimento quando Pendente */}
+              {status === 'pending' && (
+                <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200/80 flex flex-col gap-1">
+                  <label
+                    className="text-[11.5px] font-semibold text-amber-900 flex items-center gap-1"
+                    htmlFor="txDueDateInput"
+                  >
+                    <AppIcon name="event" className="text-[15px]" />
+                    {type === 'income' ? 'Previsão de Recebimento' : 'Data de Vencimento'}
+                  </label>
+                  <input
+                    className="w-full h-10 px-2.5 bg-surface-container-lowest text-on-surface rounded-lg text-[13px] focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                    id="txDueDateInput"
+                    onChange={(e) => setDueDate(e.target.value)}
+                    type="date"
+                    value={dueDate}
+                  />
+                </div>
+              )}
+
+              {/* 9. Data & Hora */}
+              <div className="flex gap-2.5">
+                <div className="flex-1 min-w-0 flex flex-col gap-1">
+                  <label
+                    className="text-[11.5px] font-semibold text-on-surface-variant"
+                    htmlFor="txDateInput"
+                  >
+                    Data
+                  </label>
+                  <input
+                    className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    id="txDateInput"
+                    onChange={(e) => setDate(e.target.value)}
+                    required
+                    type="date"
+                    value={date}
+                  />
+                </div>
+                <div className="w-28 shrink-0 flex flex-col gap-1">
+                  <label
+                    className="text-[11.5px] font-semibold text-on-surface-variant"
+                    htmlFor="txTimeInput"
+                  >
+                    Hora
+                  </label>
+                  <input
+                    className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    id="txTimeInput"
+                    onChange={(e) => setTime(e.target.value)}
+                    type="time"
+                    value={time}
+                  />
+                </div>
+              </div>
+
+              {/* 10. Método de Pagamento & Recorrência */}
+              <div className="flex gap-2.5">
+                <div className="flex-1 min-w-0 flex flex-col gap-1">
+                  <label
+                    className="text-[11.5px] font-semibold text-on-surface-variant"
+                    htmlFor="txMethodSelect"
+                  >
+                    Método
+                  </label>
+                  <select
+                    className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[12.5px] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    id="txMethodSelect"
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    value={paymentMethod}
+                  >
+                    {PAYMENT_METHODS.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1 min-w-0 flex flex-col gap-1">
+                  <label
+                    className="text-[11.5px] font-semibold text-on-surface-variant"
+                    htmlFor="txRecurrenceSelect"
+                  >
+                    Frequência
+                  </label>
+                  <select
+                    className="w-full h-11 px-2.5 bg-surface-container-low text-on-surface rounded-xl text-[12.5px] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    id="txRecurrenceSelect"
+                    onChange={(e) => setRecurrence(e.target.value as TransactionRecurrence)}
+                    value={recurrence}
+                  >
+                    <option value="none">Única</option>
+                    <option value="weekly">Semanal</option>
+                    <option value="monthly">Mensal</option>
+                    <option value="yearly">Anual</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* 11. Referência Dinâmica */}
+              {account !== 'Numerário' && (
+                <div className="flex flex-col gap-1">
+                  <label
+                    className="text-[11.5px] font-semibold text-on-surface-variant"
+                    htmlFor="txRefInput"
+                  >
+                    {isMobileWallet(account)
+                      ? `Nº Telefone (+258) / Código ${account} (opcional)`
+                      : 'Nº Comprovativo / Referência (opcional)'}
+                  </label>
+                  <input
+                    className="h-10 px-3 bg-surface-container-low text-on-surface rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    id="txRefInput"
+                    onChange={(e) => setReference(e.target.value)}
+                    placeholder={
+                      isMobileWallet(account) ? 'Ex: 84 123 4567 ou MP9281' : 'Ex: TRF-2026-084'
+                    }
+                    type="text"
+                    value={reference}
+                  />
+                </div>
+              )}
+
+              {/* 12. Impacto Dinâmico no Orçamento (apenas Despesa com orçamento ativo) */}
+              {budgetImpact && (
+                <div className="p-2.5 rounded-xl bg-surface-container-low flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="font-semibold text-on-surface">
+                      Orçamento: {budgetImpact.budgetName}
+                    </span>
+                    <span
+                      className={`font-bold tabular-nums ${
+                        budgetImpact.exceeded
+                          ? 'text-tertiary'
+                          : budgetImpact.pct >= 80
+                            ? 'text-amber-700'
+                            : 'text-secondary'
+                      }`}
+                    >
+                      {formatMoney(budgetImpact.projectedSpent, currency)} /{' '}
+                      {formatMoney(budgetImpact.limit, currency)} ({budgetImpact.pct}%)
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-surface-container-high overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        budgetImpact.exceeded
+                          ? 'bg-tertiary-container'
+                          : budgetImpact.pct >= 80
+                            ? 'bg-amber-500'
+                            : 'bg-secondary'
+                      }`}
+                      style={{ width: `${Math.min(budgetImpact.pct, 100)}%` }}
+                    />
+                  </div>
+                  {status === 'pending' && (
+                    <span className="text-[10.5px] text-on-surface-variant">
+                      Como está Pendente, só entra no orçamento quando marcar como Pago.
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
           {errorMsg && (
-            <div className="p-2.5 rounded-xl bg-error-container text-on-error-container text-[12px] font-semibold">
+            <div className="p-2.5 rounded-xl bg-error-container text-on-error-container text-[12px] font-semibold mt-2 shrink-0">
               {errorMsg}
             </div>
           )}
 
-          <div className="flex items-center gap-space-sm pt-1.5">
+          <div className="flex items-center gap-space-sm pt-3 border-t border-surface-container shrink-0 mt-3">
             <button
               className="flex-1 h-11 rounded-xl bg-surface-container-high text-on-surface text-[13px] font-semibold hover:bg-surface-container transition-colors cursor-pointer"
               onClick={onClose}

@@ -153,7 +153,7 @@ export function Header({
   // Mobile Header variant
   return (
     <header className="fixed top-0 left-0 right-0 md:hidden w-full z-40 bg-surface/95 backdrop-blur-xl border-b border-surface-container/60 pt-safe">
-      <div className="h-16 max-w-lg mx-auto px-3 flex items-center justify-between gap-2">
+      <div className="h-16 w-full max-w-[440px] mx-auto px-3 flex items-center justify-between gap-2">
         {screen === 'perfil' ? (
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
