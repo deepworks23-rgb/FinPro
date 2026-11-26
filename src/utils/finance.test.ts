@@ -348,7 +348,7 @@ test('filterTransactionsByDropdowns filters by status/type, category, account, a
 });
 
 test('syncBudgetsWithTransactions updates budget spent in real time when status toggles', () => {
-  const ref = new Date();
+  const ref = new Date('2026-11-26T10:00:00');
   const seeded = buildSampleTransactions(ref);
   const syncedBefore = syncBudgetsWithTransactions(SAMPLE_BUDGETS, seeded, ref);
   const lazerBefore = syncedBefore.find((b) => b.id === 'cat_lazer');

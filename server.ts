@@ -1,13 +1,20 @@
+import 'dotenv/config';
 import crypto from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
 import express, { type NextFunction, type Request, type Response } from 'express';
+import { initDb, pool } from './db';
+import { LoginRateLimiter } from './rateLimit';
+import {
+  deleteObject,
+  getPresignedObjectUrl,
+  isStorageConfigured,
+  S3_BUCKET,
+  uploadObject,
+} from './storage';
 
 const PORT = Number(process.env.PORT || 3000);
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
-const DATA_DIR = path.resolve(process.cwd(), '.data');
-const DB_FILE = path.join(DATA_DIR, 'fintrack-db.json');
 
 interface StoredUser {
   id: string;
@@ -18,17 +25,12 @@ interface StoredUser {
   emailNormalized: string;
   address: string;
   avatarDataUrl: string;
+  avatarS3Key: string;
   passwordHash: string;
   acceptedTermsAt: string;
   isDemo: boolean;
   createdAt: string;
   updatedAt: string;
-}
-
-interface StoredSession {
-  userId: string;
-  createdAt: number;
-  expiresAt: number;
 }
 
 interface StoredSupportTicket {
@@ -46,35 +48,39 @@ interface StoredSupportTicket {
   createdAt: string;
 }
 
+interface AlertSettingsShape {
+  lowBalanceThreshold: number;
+  negativeAlertThreshold: number;
+  enableBudgetAlerts: boolean;
+  enableGoalAlerts: boolean;
+  enableLowBalanceAlerts: boolean;
+  enablePendingAlerts: boolean;
+}
+
 interface StoredWorkspace {
   transactions: unknown[];
   budgets: unknown[];
   goals: unknown[];
   currency: 'MZN' | 'USD';
   isBalanceHidden: boolean;
-  alertSettings: {
-    lowBalanceThreshold: number;
-    negativeAlertThreshold: number;
-    enableBudgetAlerts: boolean;
-    enableGoalAlerts: boolean;
-    enableLowBalanceAlerts: boolean;
-    enablePendingAlerts: boolean;
-  };
+  alertSettings: AlertSettingsShape;
   readAlertSignatures: string[];
   updatedAt: string;
-}
-
-interface DatabaseShape {
-  users: StoredUser[];
-  sessions: Record<string, StoredSession>;
-  workspaces: Record<string, StoredWorkspace>;
-  supportTickets: StoredSupportTicket[];
 }
 
 interface AuthenticatedRequest extends Request {
   authUser?: StoredUser;
   authTokenId?: string;
 }
+
+const DEFAULT_ALERT_SETTINGS: AlertSettingsShape = {
+  lowBalanceThreshold: 5000,
+  negativeAlertThreshold: 0,
+  enableBudgetAlerts: true,
+  enableGoalAlerts: true,
+  enableLowBalanceAlerts: true,
+  enablePendingAlerts: true,
+};
 
 function createEmptyWorkspace(): StoredWorkspace {
   return {
@@ -83,55 +89,97 @@ function createEmptyWorkspace(): StoredWorkspace {
     goals: [],
     currency: 'MZN',
     isBalanceHidden: false,
-    alertSettings: {
-      lowBalanceThreshold: 5000,
-      negativeAlertThreshold: 0,
-      enableBudgetAlerts: true,
-      enableGoalAlerts: true,
-      enableLowBalanceAlerts: true,
-      enablePendingAlerts: true,
-    },
+    alertSettings: { ...DEFAULT_ALERT_SETTINGS },
     readAlertSignatures: [],
     updatedAt: new Date().toISOString(),
   };
 }
 
-function loadDb(): DatabaseShape {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(DB_FILE)) {
-    const initial: DatabaseShape = {
-      users: [],
-      sessions: {},
-      workspaces: {},
-      supportTickets: [],
-    };
-    fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2), 'utf8');
-    return initial;
-  }
-  try {
-    const raw = fs.readFileSync(DB_FILE, 'utf8');
-    const parsed = JSON.parse(raw) as Partial<DatabaseShape>;
-    return {
-      users: Array.isArray(parsed.users) ? parsed.users : [],
-      sessions: parsed.sessions && typeof parsed.sessions === 'object' ? parsed.sessions : {},
-      workspaces:
-        parsed.workspaces && typeof parsed.workspaces === 'object' ? parsed.workspaces : {},
-      supportTickets: Array.isArray(parsed.supportTickets) ? parsed.supportTickets : [],
-    };
-  } catch {
-    return { users: [], sessions: {}, workspaces: {}, supportTickets: [] };
-  }
+function rowToUser(row: Record<string, unknown>): StoredUser {
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    phone: String(row.phone),
+    phoneNormalized: String(row.phone_normalized),
+    email: String(row.email ?? ''),
+    emailNormalized: String(row.email_normalized ?? ''),
+    address: String(row.address),
+    avatarDataUrl: String(row.avatar_data_url ?? ''),
+    avatarS3Key: String(row.avatar_s3_key ?? ''),
+    passwordHash: String(row.password_hash),
+    acceptedTermsAt: new Date(String(row.accepted_terms_at)).toISOString(),
+    isDemo: Boolean(row.is_demo),
+    createdAt: new Date(String(row.created_at)).toISOString(),
+    updatedAt: new Date(String(row.updated_at)).toISOString(),
+  };
 }
 
-function saveDb(db: DatabaseShape): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  const tmpPath = `${DB_FILE}.${process.pid}.tmp`;
-  fs.writeFileSync(tmpPath, JSON.stringify(db, null, 2), 'utf8');
-  fs.renameSync(tmpPath, DB_FILE);
+function rowToWorkspace(row: Record<string, unknown>): StoredWorkspace {
+  const rawSettings =
+    row.alert_settings && typeof row.alert_settings === 'object'
+      ? (row.alert_settings as Partial<AlertSettingsShape>)
+      : {};
+  return {
+    transactions: Array.isArray(row.transactions) ? row.transactions : [],
+    budgets: Array.isArray(row.budgets) ? row.budgets : [],
+    goals: Array.isArray(row.goals) ? row.goals : [],
+    currency: row.currency === 'USD' ? 'USD' : 'MZN',
+    isBalanceHidden: Boolean(row.is_balance_hidden),
+    alertSettings: {
+      ...DEFAULT_ALERT_SETTINGS,
+      ...rawSettings,
+    },
+    readAlertSignatures: Array.isArray(row.read_alert_signatures)
+      ? row.read_alert_signatures.filter((x): x is string => typeof x === 'string')
+      : [],
+    updatedAt: new Date(String(row.updated_at)).toISOString(),
+  };
+}
+
+function rowToSupportTicket(row: Record<string, unknown>): StoredSupportTicket {
+  return {
+    id: String(row.id),
+    code: String(row.code),
+    userId: String(row.user_id),
+    userName: String(row.user_name),
+    userPhone: String(row.user_phone),
+    userEmail: String(row.user_email ?? ''),
+    subject: String(row.subject),
+    category: String(row.category),
+    contactChannel: String(row.contact_channel),
+    message: String(row.message),
+    status: 'aberto',
+    createdAt: new Date(String(row.created_at)).toISOString(),
+  };
+}
+
+async function ensureWorkspace(userId: string): Promise<StoredWorkspace> {
+  const empty = createEmptyWorkspace();
+  await pool.query(
+    `INSERT INTO workspaces (
+      user_id, transactions, budgets, goals, currency, is_balance_hidden, alert_settings, read_alert_signatures, updated_at
+    ) VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5, $6, $7::jsonb, $8::jsonb, $9)
+    ON CONFLICT (user_id) DO NOTHING`,
+    [
+      userId,
+      JSON.stringify(empty.transactions),
+      JSON.stringify(empty.budgets),
+      JSON.stringify(empty.goals),
+      empty.currency,
+      empty.isBalanceHidden,
+      JSON.stringify(empty.alertSettings),
+      JSON.stringify(empty.readAlertSignatures),
+      empty.updatedAt,
+    ]
+  );
+
+  const res = await pool.query(
+    `SELECT user_id, transactions, budgets, goals, currency, is_balance_hidden, alert_settings, read_alert_signatures, updated_at
+     FROM workspaces
+     WHERE user_id = $1`,
+    [userId]
+  );
+  return res.rows[0] ? rowToWorkspace(res.rows[0]) : empty;
 }
 
 function normalizePhone(raw: string): string {
@@ -167,28 +215,23 @@ function signTokenId(tokenId: string): string {
   return crypto.createHmac('sha256', SESSION_SECRET).update(tokenId).digest('hex');
 }
 
-function createSessionToken(db: DatabaseShape, userId: string): string {
+async function createSessionToken(userId: string): Promise<string> {
   const now = Date.now();
-  // Prune expired sessions opportunistically
-  for (const [sid, session] of Object.entries(db.sessions)) {
-    if (!session || session.expiresAt <= now) {
-      delete db.sessions[sid];
-    }
-  }
+  await pool.query('DELETE FROM sessions WHERE expires_at <= $1', [now]);
+
   const tokenId = crypto.randomBytes(24).toString('hex');
-  db.sessions[tokenId] = {
-    userId,
-    createdAt: now,
-    expiresAt: now + SESSION_TTL_MS,
-  };
-  saveDb(db);
+  const expiresAt = now + SESSION_TTL_MS;
+  await pool.query(
+    'INSERT INTO sessions (token_id, user_id, created_at, expires_at) VALUES ($1, $2, $3, $4)',
+    [tokenId, userId, now, expiresAt]
+  );
+
   return `${tokenId}.${signTokenId(tokenId)}`;
 }
 
-function verifySessionToken(
-  db: DatabaseShape,
+async function verifySessionToken(
   token: string
-): { tokenId: string; user: StoredUser } | null {
+): Promise<{ tokenId: string; user: StoredUser } | null> {
   const parts = token.split('.');
   if (parts.length !== 2) return null;
   const [tokenId, sig] = parts;
@@ -201,45 +244,74 @@ function verifySessionToken(
     return null;
   }
 
-  const session = db.sessions[tokenId];
-  if (!session || session.expiresAt <= Date.now()) {
-    return null;
-  }
-
-  const user = db.users.find((u) => u.id === session.userId);
-  if (!user) return null;
-  return { tokenId, user };
+  const now = Date.now();
+  const res = await pool.query(
+    `SELECT u.*
+     FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.token_id = $1 AND s.expires_at > $2`,
+    [tokenId, now]
+  );
+  if (!res.rows[0]) return null;
+  return { tokenId, user: rowToUser(res.rows[0]) };
 }
 
-function sanitizeUser(user: StoredUser) {
+async function sanitizeUser(user: StoredUser) {
+  let avatarDataUrl = user.avatarDataUrl;
+  if (user.avatarS3Key && isStorageConfigured()) {
+    try {
+      avatarDataUrl = await getPresignedObjectUrl(user.avatarS3Key, 3600);
+    } catch (err) {
+      console.error('Failed to presign avatar URL:', err);
+    }
+  }
+
   return {
     id: user.id,
     name: user.name,
     phone: user.phone,
     email: user.email,
     address: user.address,
-    avatarDataUrl: user.avatarDataUrl,
+    avatarDataUrl,
     isDemo: user.isDemo,
     hasPassword: Boolean(user.passwordHash),
     createdAt: user.createdAt,
   };
 }
 
-function isValidAvatarDataUrl(val: string): boolean {
-  if (val === '') return true;
-  if (val.length > 350_000) return false;
-  return /^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/.test(val);
+function parseAvatarDataUrl(
+  val: string
+): { valid: boolean; ext?: string; mime?: string; buffer?: Buffer } {
+  if (val === '') return { valid: true };
+  if (val.length > 350_000) return { valid: false };
+  const match = /^data:(image\/(png|jpeg|jpg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(val);
+  if (!match) return { valid: false };
+  const mime = match[1];
+  const ext = match[2] === 'jpeg' ? 'jpg' : match[2];
+  return {
+    valid: true,
+    mime,
+    ext,
+    buffer: Buffer.from(match[3], 'base64'),
+  };
 }
 
-function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+function asyncHandler(
+  fn: (req: AuthenticatedRequest, res: Response, next: NextFunction) => Promise<void>
+) {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    void fn(req, res, next).catch(next);
+  };
+}
+
+const requireAuth = asyncHandler(async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Sessão não autenticada. Faça login para continuar.' });
     return;
   }
   const token = authHeader.slice(7).trim();
-  const db = loadDb();
-  const verified = verifySessionToken(db, token);
+  const verified = await verifySessionToken(token);
   if (!verified) {
     res.status(401).json({ error: 'Sessão expirada ou inválida. Entre novamente.' });
     return;
@@ -247,375 +319,574 @@ function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunctio
   req.authUser = verified.user;
   req.authTokenId = verified.tokenId;
   next();
-}
+});
 
 async function startServer() {
+  await initDb();
+
   const app = express();
+  const loginRateLimiter = new LoginRateLimiter();
+
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    next();
+  });
   app.use(express.json({ limit: '512kb' }));
 
-  app.get('/api/health', (_req, res) => {
-    res.json({ ok: true });
-  });
+  app.get(
+    '/api/health',
+    asyncHandler(async (_req, res) => {
+      await pool.query('SELECT 1');
+      res.json({
+        ok: true,
+        database: 'neon-postgres',
+        storageConfigured: isStorageConfigured(),
+        bucket: S3_BUCKET,
+      });
+    })
+  );
 
   // Register a real user account
-  app.post('/api/auth/register', (req, res) => {
-    const body = req.body as Record<string, unknown>;
-    const name = typeof body?.name === 'string' ? body.name.trim() : '';
-    const phone = typeof body?.phone === 'string' ? body.phone.trim() : '';
-    const email = typeof body?.email === 'string' ? body.email.trim() : '';
-    const address = typeof body?.address === 'string' ? body.address.trim() : '';
-    const password = typeof body?.password === 'string' ? body.password : '';
-    const confirmPassword = typeof body?.confirmPassword === 'string' ? body.confirmPassword : '';
-    const acceptedTerms = body?.acceptedTerms === true;
+  app.post(
+    '/api/auth/register',
+    asyncHandler(async (req, res) => {
+      const body = req.body as Record<string, unknown>;
+      const name = typeof body?.name === 'string' ? body.name.trim() : '';
+      const phone = typeof body?.phone === 'string' ? body.phone.trim() : '';
+      const email = typeof body?.email === 'string' ? body.email.trim() : '';
+      const address = typeof body?.address === 'string' ? body.address.trim() : '';
+      const password = typeof body?.password === 'string' ? body.password : '';
+      const confirmPassword =
+        typeof body?.confirmPassword === 'string' ? body.confirmPassword : '';
+      const acceptedTerms = body?.acceptedTerms === true;
 
-    if (name.length < 2 || name.length > 100) {
-      res.status(400).json({ error: 'Informe o seu nome completo (mínimo 2 caracteres).' });
-      return;
-    }
-
-    const phoneNormalized = normalizePhone(phone);
-    if (phoneNormalized.length < 9 || phoneNormalized.length > 15) {
-      res.status(400).json({
-        error: 'Informe um número de telemóvel válido (mínimo 9 dígitos, ex: +258 84 123 4567).',
-      });
-      return;
-    }
-
-    if (email && (!isValidEmailFormat(email) || email.length > 120)) {
-      res.status(400).json({ error: 'O e-mail informado não é válido.' });
-      return;
-    }
-
-    if (address.length < 3 || address.length > 200) {
-      res.status(400).json({ error: 'Informe o seu endereço (ex: Bairro, Cidade).' });
-      return;
-    }
-
-    if (password.length < 6 || password.length > 128) {
-      res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      res.status(400).json({ error: 'A senha e a confirmação de senha não coincidem.' });
-      return;
-    }
-
-    if (!acceptedTerms) {
-      res.status(400).json({
-        error: 'É obrigatório concordar com os Termos de Uso e Política de Privacidade.',
-      });
-      return;
-    }
-
-    const db = loadDb();
-    const emailNormalized = email.toLowerCase();
-
-    if (db.users.some((u) => u.phoneNormalized === phoneNormalized)) {
-      res.status(409).json({ error: 'Este número de telemóvel já está cadastrado.' });
-      return;
-    }
-    if (emailNormalized && db.users.some((u) => u.emailNormalized === emailNormalized)) {
-      res.status(409).json({ error: 'Este e-mail já está cadastrado.' });
-      return;
-    }
-
-    const nowIso = new Date().toISOString();
-    const userId = `usr_${crypto.randomUUID()}`;
-    const newUser: StoredUser = {
-      id: userId,
-      name,
-      phone,
-      phoneNormalized,
-      email,
-      emailNormalized,
-      address,
-      avatarDataUrl: '',
-      passwordHash: hashPassword(password),
-      acceptedTermsAt: nowIso,
-      isDemo: false,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-    };
-
-    const workspace = createEmptyWorkspace();
-    db.users.push(newUser);
-    db.workspaces[userId] = workspace;
-    const token = createSessionToken(db, userId);
-
-    res.status(201).json({
-      token,
-      user: sanitizeUser(newUser),
-      workspace,
-    });
-  });
-
-  // Real login via phone number OR email + password
-  app.post('/api/auth/login', (req, res) => {
-    const body = req.body as Record<string, unknown>;
-    const identifier = typeof body?.identifier === 'string' ? body.identifier.trim() : '';
-    const password = typeof body?.password === 'string' ? body.password : '';
-
-    if (!identifier || !password) {
-      res.status(400).json({ error: 'Informe o número/e-mail e a sua senha.' });
-      return;
-    }
-
-    const db = loadDb();
-    const lower = identifier.toLowerCase();
-    const normPhone = normalizePhone(identifier);
-
-    const user = db.users.find((u) => {
-      if (u.emailNormalized && u.emailNormalized === lower) return true;
-      if (normPhone.length >= 9 && u.phoneNormalized === normPhone) return true;
-      return false;
-    });
-
-    if (!user || !verifyPassword(password, user.passwordHash)) {
-      res.status(401).json({ error: 'Número/e-mail ou senha incorretos.' });
-      return;
-    }
-
-    if (!db.workspaces[user.id]) {
-      db.workspaces[user.id] = createEmptyWorkspace();
-    }
-
-    const token = createSessionToken(db, user.id);
-    res.json({
-      token,
-      user: sanitizeUser(user),
-      workspace: db.workspaces[user.id],
-    });
-  });
-
-  app.post('/api/auth/logout', requireAuth, (req: AuthenticatedRequest, res) => {
-    if (req.authTokenId) {
-      const db = loadDb();
-      delete db.sessions[req.authTokenId];
-      saveDb(db);
-    }
-    res.json({ ok: true });
-  });
-
-  app.get('/api/auth/me', requireAuth, (req: AuthenticatedRequest, res) => {
-    const user = req.authUser!;
-    const db = loadDb();
-    const workspace = db.workspaces[user.id] ?? createEmptyWorkspace();
-    res.json({
-      user: sanitizeUser(user),
-      workspace,
-    });
-  });
-
-  // Update profile data & avatar upload
-  app.patch('/api/profile', requireAuth, (req: AuthenticatedRequest, res) => {
-    const user = req.authUser!;
-    const body = req.body as Record<string, unknown>;
-    const db = loadDb();
-    const target = db.users.find((u) => u.id === user.id);
-    if (!target) {
-      res.status(404).json({ error: 'Utilizador não encontrado.' });
-      return;
-    }
-
-    if (typeof body.name === 'string') {
-      const trimmed = body.name.trim();
-      if (trimmed.length < 2 || trimmed.length > 100) {
-        res.status(400).json({ error: 'O nome deve ter entre 2 e 100 caracteres.' });
+      if (name.length < 2 || name.length > 100) {
+        res.status(400).json({ error: 'Informe o seu nome completo (mínimo 2 caracteres).' });
         return;
       }
-      target.name = trimmed;
-    }
 
-    if (typeof body.phone === 'string') {
-      const trimmedPhone = body.phone.trim();
-      const norm = normalizePhone(trimmedPhone);
-      if (norm.length < 9 || norm.length > 15) {
-        res.status(400).json({ error: 'Informe um número de telemóvel válido.' });
-        return;
-      }
-      if (db.users.some((u) => u.id !== target.id && u.phoneNormalized === norm)) {
-        res.status(409).json({ error: 'Este número já está associado a outra conta.' });
-        return;
-      }
-      target.phone = trimmedPhone;
-      target.phoneNormalized = norm;
-    }
-
-    if (typeof body.email === 'string') {
-      const trimmedEmail = body.email.trim();
-      if (trimmedEmail && (!isValidEmailFormat(trimmedEmail) || trimmedEmail.length > 120)) {
-        res.status(400).json({ error: 'Formato de e-mail inválido.' });
-        return;
-      }
-      const normEmail = trimmedEmail.toLowerCase();
-      if (normEmail && db.users.some((u) => u.id !== target.id && u.emailNormalized === normEmail)) {
-        res.status(409).json({ error: 'Este e-mail já está em uso por outra conta.' });
-        return;
-      }
-      target.email = trimmedEmail;
-      target.emailNormalized = normEmail;
-    }
-
-    if (typeof body.address === 'string') {
-      const trimmedAddress = body.address.trim();
-      if (trimmedAddress.length < 3 || trimmedAddress.length > 200) {
-        res.status(400).json({ error: 'O endereço deve ter pelo menos 3 caracteres.' });
-        return;
-      }
-      target.address = trimmedAddress;
-    }
-
-    if (typeof body.avatarDataUrl === 'string') {
-      if (!isValidAvatarDataUrl(body.avatarDataUrl)) {
+      const phoneNormalized = normalizePhone(phone);
+      if (phoneNormalized.length < 9 || phoneNormalized.length > 15) {
         res.status(400).json({
-          error: 'Foto inválida. Use uma imagem PNG, JPG ou WebP com tamanho reduzido.',
+          error:
+            'Informe um número de telemóvel válido (mínimo 9 dígitos, ex: +258 84 123 4567).',
         });
         return;
       }
-      target.avatarDataUrl = body.avatarDataUrl;
-    }
 
-    if (body.currency === 'MZN' || body.currency === 'USD') {
-      if (!db.workspaces[target.id]) {
-        db.workspaces[target.id] = createEmptyWorkspace();
-      }
-      db.workspaces[target.id].currency = body.currency;
-      db.workspaces[target.id].updatedAt = new Date().toISOString();
-    }
-
-    target.updatedAt = new Date().toISOString();
-    saveDb(db);
-
-    res.json({
-      user: sanitizeUser(target),
-      workspace: db.workspaces[target.id],
-    });
-  });
-
-  // Change password (verifies current password for password-protected accounts)
-  app.post('/api/profile/password', requireAuth, (req: AuthenticatedRequest, res) => {
-    const user = req.authUser!;
-    const body = req.body as Record<string, unknown>;
-    const currentPassword = typeof body?.currentPassword === 'string' ? body.currentPassword : '';
-    const newPassword = typeof body?.newPassword === 'string' ? body.newPassword : '';
-    const confirmPassword = typeof body?.confirmPassword === 'string' ? body.confirmPassword : '';
-
-    if (newPassword.length < 6 || newPassword.length > 128) {
-      res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      res.status(400).json({ error: 'A nova senha e a confirmação não coincidem.' });
-      return;
-    }
-
-    const db = loadDb();
-    const target = db.users.find((u) => u.id === user.id);
-    if (!target) {
-      res.status(404).json({ error: 'Utilizador não encontrado.' });
-      return;
-    }
-
-    if (target.passwordHash) {
-      if (!currentPassword || !verifyPassword(currentPassword, target.passwordHash)) {
-        res.status(401).json({ error: 'A senha atual está incorreta.' });
+      if (email && (!isValidEmailFormat(email) || email.length > 120)) {
+        res.status(400).json({ error: 'O e-mail informado não é válido.' });
         return;
       }
-    }
 
-    target.passwordHash = hashPassword(newPassword);
-    target.updatedAt = new Date().toISOString();
-    saveDb(db);
+      if (address.length < 3 || address.length > 200) {
+        res.status(400).json({ error: 'Informe o seu endereço (ex: Bairro, Cidade).' });
+        return;
+      }
 
-    res.json({ ok: true, user: sanitizeUser(target) });
-  });
+      if (password.length < 6 || password.length > 128) {
+        res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        res.status(400).json({ error: 'A senha e a confirmação de senha não coincidem.' });
+        return;
+      }
+
+      if (!acceptedTerms) {
+        res.status(400).json({
+          error: 'É obrigatório concordar com os Termos de Uso e Política de Privacidade.',
+        });
+        return;
+      }
+
+      const emailNormalized = email.toLowerCase();
+
+      const existingPhone = await pool.query(
+        'SELECT id FROM users WHERE phone_normalized = $1 LIMIT 1',
+        [phoneNormalized]
+      );
+      if (existingPhone.rows.length > 0) {
+        res.status(409).json({ error: 'Este número de telemóvel já está cadastrado.' });
+        return;
+      }
+
+      if (emailNormalized) {
+        const existingEmail = await pool.query(
+          'SELECT id FROM users WHERE email_normalized = $1 LIMIT 1',
+          [emailNormalized]
+        );
+        if (existingEmail.rows.length > 0) {
+          res.status(409).json({ error: 'Este e-mail já está cadastrado.' });
+          return;
+        }
+      }
+
+      const nowIso = new Date().toISOString();
+      const userId = `usr_${crypto.randomUUID()}`;
+      const passwordHash = hashPassword(password);
+
+      const userRes = await pool.query(
+        `INSERT INTO users (
+          id, name, phone, phone_normalized, email, email_normalized, address,
+          avatar_data_url, avatar_s3_key, password_hash, accepted_terms_at, is_demo, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, '', '', $8, $9, FALSE, $9, $9)
+        RETURNING *`,
+        [
+          userId,
+          name,
+          phone,
+          phoneNormalized,
+          email,
+          emailNormalized,
+          address,
+          passwordHash,
+          nowIso,
+        ]
+      );
+
+      const newUser = rowToUser(userRes.rows[0]);
+      const workspace = await ensureWorkspace(userId);
+      const token = await createSessionToken(userId);
+
+      res.status(201).json({
+        token,
+        user: await sanitizeUser(newUser),
+        workspace,
+      });
+    })
+  );
+
+  // Real login via phone number OR email + password
+  app.post(
+    '/api/auth/login',
+    asyncHandler(async (req, res) => {
+      const body = req.body as Record<string, unknown>;
+      const identifier = typeof body?.identifier === 'string' ? body.identifier.trim() : '';
+      const password = typeof body?.password === 'string' ? body.password : '';
+
+      if (!identifier || !password) {
+        res.status(400).json({ error: 'Informe o número/e-mail e a sua senha.' });
+        return;
+      }
+
+      const clientIp = req.ip || req.socket.remoteAddress || '';
+      const rateCheck = loginRateLimiter.check(identifier, clientIp);
+      if (!rateCheck.allowed) {
+        res.setHeader('Retry-After', String(rateCheck.retryAfterSec));
+        res.status(429).json({
+          error: 'Muitas tentativas falhadas. Aguarde alguns minutos antes de tentar novamente.',
+        });
+        return;
+      }
+
+      const lower = identifier.toLowerCase();
+      const normPhone = normalizePhone(identifier);
+
+      const userRes = await pool.query(
+        `SELECT *
+         FROM users
+         WHERE (email_normalized <> '' AND email_normalized = $1)
+            OR ($2 <> '' AND LENGTH($2) >= 9 AND phone_normalized = $2)
+         LIMIT 1`,
+        [lower, normPhone]
+      );
+
+      const user = userRes.rows[0] ? rowToUser(userRes.rows[0]) : null;
+      const passwordOk = user
+        ? verifyPassword(password, user.passwordHash)
+        : (crypto.scryptSync(password, '00000000000000000000000000000000', 64), false);
+
+      if (!user || !passwordOk) {
+        loginRateLimiter.recordFailure(identifier, clientIp);
+        res.status(401).json({ error: 'Número/e-mail ou senha incorretos.' });
+        return;
+      }
+
+      loginRateLimiter.reset(identifier, clientIp);
+
+      const workspace = await ensureWorkspace(user.id);
+      const token = await createSessionToken(user.id);
+
+      res.json({
+        token,
+        user: await sanitizeUser(user),
+        workspace,
+      });
+    })
+  );
+
+  app.post(
+    '/api/auth/logout',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (req.authTokenId) {
+        await pool.query('DELETE FROM sessions WHERE token_id = $1', [req.authTokenId]);
+      }
+      res.json({ ok: true });
+    })
+  );
+
+  app.get(
+    '/api/auth/me',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const user = req.authUser!;
+      const workspace = await ensureWorkspace(user.id);
+      res.json({
+        user: await sanitizeUser(user),
+        workspace,
+      });
+    })
+  );
+
+  // Update profile data & avatar upload (uses Neon Object Storage S3 when configured)
+  app.patch(
+    '/api/profile',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const user = req.authUser!;
+      const body = req.body as Record<string, unknown>;
+
+      const targetRes = await pool.query('SELECT * FROM users WHERE id = $1 LIMIT 1', [user.id]);
+      if (!targetRes.rows[0]) {
+        res.status(404).json({ error: 'Utilizador não encontrado.' });
+        return;
+      }
+      const target = rowToUser(targetRes.rows[0]);
+
+      if (typeof body.name === 'string') {
+        const trimmed = body.name.trim();
+        if (trimmed.length < 2 || trimmed.length > 100) {
+          res.status(400).json({ error: 'O nome deve ter entre 2 e 100 caracteres.' });
+          return;
+        }
+        target.name = trimmed;
+      }
+
+      if (typeof body.phone === 'string') {
+        const trimmedPhone = body.phone.trim();
+        const norm = normalizePhone(trimmedPhone);
+        if (norm.length < 9 || norm.length > 15) {
+          res.status(400).json({ error: 'Informe um número de telemóvel válido.' });
+          return;
+        }
+        const dupPhone = await pool.query(
+          'SELECT id FROM users WHERE id <> $1 AND phone_normalized = $2 LIMIT 1',
+          [target.id, norm]
+        );
+        if (dupPhone.rows.length > 0) {
+          res.status(409).json({ error: 'Este número já está associado a outra conta.' });
+          return;
+        }
+        target.phone = trimmedPhone;
+        target.phoneNormalized = norm;
+      }
+
+      if (typeof body.email === 'string') {
+        const trimmedEmail = body.email.trim();
+        if (trimmedEmail && (!isValidEmailFormat(trimmedEmail) || trimmedEmail.length > 120)) {
+          res.status(400).json({ error: 'Formato de e-mail inválido.' });
+          return;
+        }
+        const normEmail = trimmedEmail.toLowerCase();
+        if (normEmail) {
+          const dupEmail = await pool.query(
+            'SELECT id FROM users WHERE id <> $1 AND email_normalized = $2 LIMIT 1',
+            [target.id, normEmail]
+          );
+          if (dupEmail.rows.length > 0) {
+            res.status(409).json({ error: 'Este e-mail já está em uso por outra conta.' });
+            return;
+          }
+        }
+        target.email = trimmedEmail;
+        target.emailNormalized = normEmail;
+      }
+
+      if (typeof body.address === 'string') {
+        const trimmedAddress = body.address.trim();
+        if (trimmedAddress.length < 3 || trimmedAddress.length > 200) {
+          res.status(400).json({ error: 'O endereço deve ter pelo menos 3 caracteres.' });
+          return;
+        }
+        target.address = trimmedAddress;
+      }
+
+      if (typeof body.avatarDataUrl === 'string') {
+        const parsed = parseAvatarDataUrl(body.avatarDataUrl);
+        if (!parsed.valid) {
+          res.status(400).json({
+            error: 'Foto inválida. Use uma imagem PNG, JPG ou WebP com tamanho reduzido.',
+          });
+          return;
+        }
+
+        const previousS3Key = target.avatarS3Key;
+
+        if (body.avatarDataUrl === '') {
+          target.avatarDataUrl = '';
+          target.avatarS3Key = '';
+          if (previousS3Key && isStorageConfigured()) {
+            await deleteObject(previousS3Key).catch(() => {});
+          }
+        } else if (parsed.buffer && parsed.ext && isStorageConfigured()) {
+          const newKey = `avatars/${target.id}/${crypto.randomUUID()}.${parsed.ext}`;
+          await uploadObject(newKey, parsed.buffer, parsed.mime);
+          target.avatarS3Key = newKey;
+          target.avatarDataUrl = '';
+          if (previousS3Key) {
+            await deleteObject(previousS3Key).catch(() => {});
+          }
+        } else {
+          target.avatarDataUrl = body.avatarDataUrl;
+          target.avatarS3Key = '';
+        }
+      }
+
+      const nowIso = new Date().toISOString();
+      await pool.query(
+        `UPDATE users
+         SET name = $1,
+             phone = $2,
+             phone_normalized = $3,
+             email = $4,
+             email_normalized = $5,
+             address = $6,
+             avatar_data_url = $7,
+             avatar_s3_key = $8,
+             updated_at = $9
+         WHERE id = $10`,
+        [
+          target.name,
+          target.phone,
+          target.phoneNormalized,
+          target.email,
+          target.emailNormalized,
+          target.address,
+          target.avatarDataUrl,
+          target.avatarS3Key,
+          nowIso,
+          target.id,
+        ]
+      );
+
+      let workspace = await ensureWorkspace(target.id);
+      if (body.currency === 'MZN' || body.currency === 'USD') {
+        const wsRes = await pool.query(
+          `UPDATE workspaces
+           SET currency = $1, updated_at = $2
+           WHERE user_id = $3
+           RETURNING *`,
+          [body.currency, nowIso, target.id]
+        );
+        if (wsRes.rows[0]) {
+          workspace = rowToWorkspace(wsRes.rows[0]);
+        }
+      }
+
+      res.json({
+        user: await sanitizeUser(target),
+        workspace,
+      });
+    })
+  );
+
+  // Change password (verifies current password for password-protected accounts)
+  app.post(
+    '/api/profile/password',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const user = req.authUser!;
+      const body = req.body as Record<string, unknown>;
+      const currentPassword =
+        typeof body?.currentPassword === 'string' ? body.currentPassword : '';
+      const newPassword = typeof body?.newPassword === 'string' ? body.newPassword : '';
+      const confirmPassword =
+        typeof body?.confirmPassword === 'string' ? body.confirmPassword : '';
+
+      if (newPassword.length < 6 || newPassword.length > 128) {
+        res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        res.status(400).json({ error: 'A nova senha e a confirmação não coincidem.' });
+        return;
+      }
+
+      const targetRes = await pool.query('SELECT * FROM users WHERE id = $1 LIMIT 1', [user.id]);
+      if (!targetRes.rows[0]) {
+        res.status(404).json({ error: 'Utilizador não encontrado.' });
+        return;
+      }
+      const target = rowToUser(targetRes.rows[0]);
+
+      if (target.passwordHash) {
+        if (!currentPassword || !verifyPassword(currentPassword, target.passwordHash)) {
+          res.status(401).json({ error: 'A senha atual está incorreta.' });
+          return;
+        }
+      }
+
+      target.passwordHash = hashPassword(newPassword);
+      const nowIso = new Date().toISOString();
+      await pool.query('UPDATE users SET password_hash = $1, updated_at = $2 WHERE id = $3', [
+        target.passwordHash,
+        nowIso,
+        target.id,
+      ]);
+
+      if (req.authTokenId) {
+        await pool.query('DELETE FROM sessions WHERE user_id = $1 AND token_id <> $2', [
+          target.id,
+          req.authTokenId,
+        ]);
+      }
+
+      res.json({ ok: true, user: await sanitizeUser(target) });
+    })
+  );
 
   // Save authenticated user's financial workspace
-  app.put('/api/workspace', requireAuth, (req: AuthenticatedRequest, res) => {
-    const user = req.authUser!;
-    const body = req.body as Record<string, unknown>;
-    const db = loadDb();
+  app.put(
+    '/api/workspace',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const user = req.authUser!;
+      const body = req.body as Record<string, unknown>;
 
-    const existing = db.workspaces[user.id] ?? createEmptyWorkspace();
+      const existing = await ensureWorkspace(user.id);
 
-    const nextWorkspace: StoredWorkspace = {
-      transactions: Array.isArray(body.transactions) ? body.transactions : existing.transactions,
-      budgets: Array.isArray(body.budgets) ? body.budgets : existing.budgets,
-      goals: Array.isArray(body.goals) ? body.goals : existing.goals,
-      currency: body.currency === 'MZN' || body.currency === 'USD' ? body.currency : existing.currency,
-      isBalanceHidden:
-        typeof body.isBalanceHidden === 'boolean'
-          ? body.isBalanceHidden
-          : existing.isBalanceHidden,
-      alertSettings:
-        body.alertSettings && typeof body.alertSettings === 'object'
-          ? {
-              ...existing.alertSettings,
-              ...(body.alertSettings as Partial<StoredWorkspace['alertSettings']>),
-            }
-          : existing.alertSettings,
-      readAlertSignatures: Array.isArray(body.readAlertSignatures)
-        ? body.readAlertSignatures.filter((x): x is string => typeof x === 'string')
-        : existing.readAlertSignatures,
-      updatedAt: new Date().toISOString(),
-    };
+      const nextWorkspace: StoredWorkspace = {
+        transactions: Array.isArray(body.transactions) ? body.transactions : existing.transactions,
+        budgets: Array.isArray(body.budgets) ? body.budgets : existing.budgets,
+        goals: Array.isArray(body.goals) ? body.goals : existing.goals,
+        currency:
+          body.currency === 'MZN' || body.currency === 'USD' ? body.currency : existing.currency,
+        isBalanceHidden:
+          typeof body.isBalanceHidden === 'boolean'
+            ? body.isBalanceHidden
+            : existing.isBalanceHidden,
+        alertSettings:
+          body.alertSettings && typeof body.alertSettings === 'object'
+            ? {
+                ...existing.alertSettings,
+                ...(body.alertSettings as Partial<AlertSettingsShape>),
+              }
+            : existing.alertSettings,
+        readAlertSignatures: Array.isArray(body.readAlertSignatures)
+          ? body.readAlertSignatures.filter((x): x is string => typeof x === 'string')
+          : existing.readAlertSignatures,
+        updatedAt: new Date().toISOString(),
+      };
 
-    db.workspaces[user.id] = nextWorkspace;
-    saveDb(db);
-    res.json({ workspace: nextWorkspace });
-  });
+      await pool.query(
+        `INSERT INTO workspaces (
+          user_id, transactions, budgets, goals, currency, is_balance_hidden, alert_settings, read_alert_signatures, updated_at
+        ) VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5, $6, $7::jsonb, $8::jsonb, $9)
+        ON CONFLICT (user_id) DO UPDATE SET
+          transactions = EXCLUDED.transactions,
+          budgets = EXCLUDED.budgets,
+          goals = EXCLUDED.goals,
+          currency = EXCLUDED.currency,
+          is_balance_hidden = EXCLUDED.is_balance_hidden,
+          alert_settings = EXCLUDED.alert_settings,
+          read_alert_signatures = EXCLUDED.read_alert_signatures,
+          updated_at = EXCLUDED.updated_at`,
+        [
+          user.id,
+          JSON.stringify(nextWorkspace.transactions),
+          JSON.stringify(nextWorkspace.budgets),
+          JSON.stringify(nextWorkspace.goals),
+          nextWorkspace.currency,
+          nextWorkspace.isBalanceHidden,
+          JSON.stringify(nextWorkspace.alertSettings),
+          JSON.stringify(nextWorkspace.readAlertSignatures),
+          nextWorkspace.updatedAt,
+        ]
+      );
+
+      res.json({ workspace: nextWorkspace });
+    })
+  );
 
   // Submit a real support ticket
-  app.post('/api/support', requireAuth, (req: AuthenticatedRequest, res) => {
-    const user = req.authUser!;
-    const body = req.body as Record<string, unknown>;
-    const subject = typeof body?.subject === 'string' ? body.subject.trim() : '';
-    const category = typeof body?.category === 'string' ? body.category.trim() : 'Geral';
-    const contactChannel =
-      typeof body?.contactChannel === 'string' ? body.contactChannel.trim() : 'WhatsApp';
-    const message = typeof body?.message === 'string' ? body.message.trim() : '';
+  app.post(
+    '/api/support',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const user = req.authUser!;
+      const body = req.body as Record<string, unknown>;
+      const subject = typeof body?.subject === 'string' ? body.subject.trim() : '';
+      const category = typeof body?.category === 'string' ? body.category.trim() : 'Geral';
+      const contactChannel =
+        typeof body?.contactChannel === 'string' ? body.contactChannel.trim() : 'WhatsApp';
+      const message = typeof body?.message === 'string' ? body.message.trim() : '';
 
-    if (subject.length < 3 || subject.length > 120) {
-      res.status(400).json({ error: 'Informe um assunto com pelo menos 3 caracteres.' });
-      return;
-    }
-    if (message.length < 8 || message.length > 1500) {
-      res.status(400).json({ error: 'Descreva a sua solicitação com pelo menos 8 caracteres.' });
-      return;
-    }
+      if (subject.length < 3 || subject.length > 120) {
+        res.status(400).json({ error: 'Informe um assunto com pelo menos 3 caracteres.' });
+        return;
+      }
+      if (message.length < 8 || message.length > 1500) {
+        res.status(400).json({ error: 'Descreva a sua solicitação com pelo menos 8 caracteres.' });
+        return;
+      }
 
-    const db = loadDb();
-    const code = `FT-${new Date().getFullYear()}-${String(1000 + db.supportTickets.length + 1)}`;
-    const ticket: StoredSupportTicket = {
-      id: `sup_${crypto.randomUUID()}`,
-      code,
-      userId: user.id,
-      userName: user.name,
-      userPhone: user.phone,
-      userEmail: user.email,
-      subject,
-      category: category.slice(0, 60),
-      contactChannel: contactChannel.slice(0, 40),
-      message,
-      status: 'aberto',
-      createdAt: new Date().toISOString(),
-    };
+      const countRes = await pool.query('SELECT COUNT(*)::int AS total FROM support_tickets');
+      const nextNum = Number(countRes.rows[0]?.total ?? 0) + 1;
+      const suffix = crypto.randomBytes(2).toString('hex').toUpperCase();
+      const code = `FT-${new Date().getFullYear()}-${String(1000 + nextNum)}-${suffix}`;
+      const id = `sup_${crypto.randomUUID()}`;
+      const nowIso = new Date().toISOString();
 
-    db.supportTickets.unshift(ticket);
-    saveDb(db);
-    res.status(201).json({ ticket });
-  });
+      const ticketRes = await pool.query(
+        `INSERT INTO support_tickets (
+          id, code, user_id, user_name, user_phone, user_email, subject, category, contact_channel, message, status, created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'aberto', $11)
+        RETURNING *`,
+        [
+          id,
+          code,
+          user.id,
+          user.name,
+          user.phone,
+          user.email,
+          subject,
+          category.slice(0, 60),
+          contactChannel.slice(0, 40),
+          message,
+          nowIso,
+        ]
+      );
+
+      res.status(201).json({ ticket: rowToSupportTicket(ticketRes.rows[0]) });
+    })
+  );
 
   // List support tickets for the authenticated user
-  app.get('/api/support', requireAuth, (req: AuthenticatedRequest, res) => {
-    const user = req.authUser!;
-    const db = loadDb();
-    const tickets = db.supportTickets.filter((t) => t.userId === user.id);
-    res.json({ tickets });
-  });
+  app.get(
+    '/api/support',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const user = req.authUser!;
+      const ticketsRes = await pool.query(
+        'SELECT * FROM support_tickets WHERE user_id = $1 ORDER BY created_at DESC',
+        [user.id]
+      );
+      res.json({ tickets: ticketsRes.rows.map(rowToSupportTicket) });
+    })
+  );
 
   if (process.env.NODE_ENV !== 'production') {
+    if (!process.env.RAYON_NUM_THREADS) {
+      process.env.RAYON_NUM_THREADS = '1';
+    }
+    if (!process.env.UV_THREADPOOL_SIZE) {
+      process.env.UV_THREADPOOL_SIZE = '2';
+    }
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -629,6 +900,18 @@ async function startServer() {
       res.sendFile(path.join(distDir, 'index.html'));
     });
   }
+
+  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    const pgErr = err as { code?: string };
+    if (pgErr?.code === '23505') {
+      res.status(409).json({ error: 'Registo duplicado. Verifique os dados informados.' });
+      return;
+    }
+    console.error('Unhandled server error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Erro interno do servidor. Tente novamente.' });
+    }
+  });
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`FinTrack server running on http://0.0.0.0:${PORT}`);

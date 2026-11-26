@@ -54,18 +54,25 @@ async function apiRequest<T>(
     headers.Authorization = `Bearer ${options.token}`;
   }
 
-  const response = await fetch(url, {
-    method: options.method ?? 'GET',
-    headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: options.method ?? 'GET',
+      headers,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    });
+  } catch {
+    throw new Error(
+      'Não foi possível ligar ao servidor. Verifique se o app está a correr em http://localhost:3000 (npm run dev).'
+    );
+  }
 
   const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
   if (!response.ok) {
     const message =
       typeof payload.error === 'string'
         ? payload.error
-        : 'Não foi possível concluir a solicitação. Tente novamente.';
+        : `Não foi possível concluir a solicitação (HTTP ${response.status}). Tente novamente.`;
     throw new Error(message);
   }
 

@@ -6,12 +6,17 @@
   "scripts": {
     "dev": "tsx server.ts",
     "start": "node server.ts",
-    "build": "vite build",
+    "build": "node -e \"process.env.RAYON_NUM_THREADS=process.env.RAYON_NUM_THREADS||'1'; import('vite').then(v=>v.build())\"",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "tsx --test src/utils/finance.test.ts && tsx --test rateLimit.test.ts",
+    "fences": "node --test fences/fences-have-owner-and-review-date.test.ts fences/migrations-are-timestamped-and-unique.test.ts fences/no-secrets-in-tracked-files.test.ts fences/docs-point-to-existing-files.test.ts fences/tests-no-real-clock.test.ts",
+    "check": "npm run lint && npm run test && npm run fences && npm run build"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1178.0",
+    "@aws-sdk/s3-request-presigner": "^3.1178.0",
     "@google/genai": "^2.4.0",
     "@neon/config": "^1.14.8",
     "@neon/env": "^2.1.11",
@@ -23,19 +28,21 @@
     "jspdf-autotable": "^5.0.9",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "pg": "^8.23.1",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "vite": "^8.3.0"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.28.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
-    "typescript": "^7.0.2",
-    "@types/express": "^4.17.21"
+    "typescript": "^7.0.2"
   }
 }
