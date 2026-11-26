@@ -22,9 +22,9 @@ export function BottomNav({
   return (
     <nav
       aria-label="Navegação principal"
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[440px] z-40 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.05)]"
+      className="fixed bottom-0 left-0 right-0 md:hidden w-full z-40 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.05)]"
     >
-      <div className="flex items-center justify-around h-16 px-space-xs relative">
+      <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-space-xs relative">
         <button
           aria-current={activeScreen === 'dashboard-inicio' ? 'page' : undefined}
           className={navItemClass('dashboard-inicio')}

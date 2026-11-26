@@ -349,7 +349,7 @@ export function ReportsScreen({
           </span>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="p-3 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between relative overflow-hidden">
             <div className="absolute right-0 top-0 w-28 h-28 bg-secondary/5 rounded-full blur-2xl pointer-events-none" />
             <div className="flex items-start justify-between gap-2.5">
@@ -386,49 +386,47 @@ export function ReportsScreen({
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <div className="flex-1 min-w-0 p-3 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-1.5">
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-[11px] text-on-surface-variant font-medium leading-tight">
-                  Maior Gasto
-                </span>
-                <div className="w-7 h-7 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed-variant flex items-center justify-center shrink-0">
-                  <AppIcon name="home" className="text-[15px]" />
-                </div>
-              </div>
-              <div className="min-w-0">
-                <span className="text-[12.5px] font-semibold text-on-surface block break-words leading-snug">
-                  {metrics.topExpenseTitle}
-                </span>
-                <span className="text-[14.5px] leading-snug text-tertiary font-bold tabular-nums block break-words">
-                  {isBalanceHidden ? '••••' : formatMoney(metrics.topExpenseAmount, currency)}
-                </span>
-                <span className="text-[10.5px] text-on-surface-variant block mt-0.5 leading-tight">
-                  {metrics.topExpenseShare}
-                </span>
+          <div className="p-3 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-1.5">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[11px] text-on-surface-variant font-medium leading-tight">
+                Maior Gasto
+              </span>
+              <div className="w-7 h-7 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed-variant flex items-center justify-center shrink-0">
+                <AppIcon name="home" className="text-[15px]" />
               </div>
             </div>
+            <div className="min-w-0">
+              <span className="text-[12.5px] font-semibold text-on-surface block break-words leading-snug">
+                {metrics.topExpenseTitle}
+              </span>
+              <span className="text-[14.5px] leading-snug text-tertiary font-bold tabular-nums block break-words">
+                {isBalanceHidden ? '••••' : formatMoney(metrics.topExpenseAmount, currency)}
+              </span>
+              <span className="text-[10.5px] text-on-surface-variant block mt-0.5 leading-tight">
+                {metrics.topExpenseShare}
+              </span>
+            </div>
+          </div>
 
-            <div className="flex-1 min-w-0 p-3 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-1.5">
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-[11px] text-on-surface-variant font-medium leading-tight">
-                  Média Diária
-                </span>
-                <div className="w-7 h-7 rounded-lg bg-primary-fixed text-on-primary-fixed flex items-center justify-center shrink-0">
-                  <AppIcon name="calendar_today" className="text-[15px]" />
-                </div>
+          <div className="p-3 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-1.5">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[11px] text-on-surface-variant font-medium leading-tight">
+                Média Diária
+              </span>
+              <div className="w-7 h-7 rounded-lg bg-primary-fixed text-on-primary-fixed flex items-center justify-center shrink-0">
+                <AppIcon name="calendar_today" className="text-[15px]" />
               </div>
-              <div className="min-w-0">
-                <span className="text-[12.5px] font-semibold text-on-surface block break-words leading-snug">
-                  Saída por Dia
-                </span>
-                <span className="text-[14.5px] leading-snug text-on-surface font-bold tabular-nums block break-words">
-                  {isBalanceHidden ? '••••' : formatMoney(metrics.dailyAvg, currency)}
-                </span>
-                <span className="text-[10.5px] text-secondary font-medium block mt-0.5 leading-tight">
-                  {metrics.dailyDelta}
-                </span>
-              </div>
+            </div>
+            <div className="min-w-0">
+              <span className="text-[12.5px] font-semibold text-on-surface block break-words leading-snug">
+                Saída por Dia
+              </span>
+              <span className="text-[14.5px] leading-snug text-on-surface font-bold tabular-nums block break-words">
+                {isBalanceHidden ? '••••' : formatMoney(metrics.dailyAvg, currency)}
+              </span>
+              <span className="text-[10.5px] text-secondary font-medium block mt-0.5 leading-tight">
+                {metrics.dailyDelta}
+              </span>
             </div>
           </div>
         </div>

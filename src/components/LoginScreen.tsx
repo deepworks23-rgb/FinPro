@@ -110,8 +110,8 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
   };
 
   return (
-    <div className="flex-1 flex flex-col w-full px-4 py-6">
-      <div className="w-full max-w-[380px] m-auto flex flex-col items-center">
+    <div className="flex-1 flex flex-col w-full px-4 py-8 items-center justify-center">
+      <div className="w-full max-w-[420px] m-auto flex flex-col items-center sm:bg-surface-container-lowest sm:p-7 sm:rounded-3xl sm:shadow-lg sm:border sm:border-surface-container/60">
         {/* Header / Brand Mark */}
         <div className="flex flex-col items-center text-center mb-5">
           <div className="w-14 h-14 rounded-2xl bg-primary text-on-primary flex items-center justify-center shadow-lg shadow-primary/20 mb-3">
@@ -154,7 +154,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
         </div>
 
         {/* Form Card */}
-        <div className="w-full bg-surface-container-lowest rounded-2xl p-4 shadow-sm space-y-3">
+        <div className="w-full bg-surface-container-lowest sm:bg-transparent rounded-2xl sm:rounded-none p-4 sm:p-0 shadow-sm sm:shadow-none space-y-3">
           {errorMsg && (
             <div
               className="p-2.5 rounded-xl bg-error-container text-on-error-container flex items-start gap-2 text-[12px] font-medium"

@@ -389,8 +389,10 @@ export function ProfileScreen({
         </div>
       </section>
 
-      {/* Dados Pessoais & Configurações */}
-      <section className="p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm space-y-3">
+      {/* Linha Responsiva: Dados do Perfil & Segurança */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Dados Pessoais & Configurações */}
+        <section className="p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm space-y-3">
         <div className="flex items-center gap-2 border-b border-surface-container pb-2">
           <AppIcon name="manage_accounts" className="text-primary text-[20px]" />
           <h3 className="text-[14.5px] font-bold text-on-surface">Dados do Perfil</h3>
@@ -605,9 +607,12 @@ export function ProfileScreen({
           </button>
         </form>
       </section>
+    </div>
 
+    {/* Linha Responsiva: Suporte & Sessão */}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* Suporte ao Cliente */}
-      <section className="p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm space-y-2.5">
+      <section className="p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm space-y-2.5 flex flex-col justify-between">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-secondary-container/70 text-secondary flex items-center justify-center shrink-0">
@@ -635,7 +640,15 @@ export function ProfileScreen({
       </section>
 
       {/* Sessão & Manutenção */}
-      <section className="space-y-2">
+      <section className="p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm space-y-2 flex flex-col justify-between">
+        <div>
+          <h3 className="text-[14.5px] font-bold text-on-surface leading-tight mb-1">
+            Gestão de Sessão
+          </h3>
+          <p className="text-[11.5px] text-on-surface-variant">
+            Termine a sessão atual com segurança no seu navegador.
+          </p>
+        </div>
         <button
           className="w-full h-11 rounded-xl bg-error-container/70 text-tertiary text-[13.5px] font-semibold flex items-center justify-center gap-2 hover:bg-error-container transition-colors cursor-pointer"
           onClick={() =>
@@ -658,8 +671,9 @@ export function ProfileScreen({
           <span>Terminar Sessão (Sair)</span>
         </button>
       </section>
+    </div>
 
-      {/* Support Modal */}
+    {/* Support Modal */}
       {supportOpen && (
         <div
           aria-labelledby="supportModalTitle"

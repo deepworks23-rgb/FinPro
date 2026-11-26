@@ -9,6 +9,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { NotificationsModal } from './components/Overlays';
 import { ProfileScreen } from './components/ProfileScreen';
 import { ReportsScreen } from './components/ReportsScreen';
+import { Sidebar } from './components/Sidebar';
 import { TransactionModal } from './components/TransactionModal';
 import { TransactionsScreen } from './components/TransactionsScreen';
 import { DEFAULT_ALERT_SETTINGS } from './data/seed';
@@ -559,13 +560,35 @@ export default function App() {
   const activeScreen: AppScreen = isAuthenticated ? screen : 'login';
 
   return (
-    <div className="min-h-screen w-full bg-surface-container-low/60 flex justify-center">
-      <div className="relative w-full max-w-[440px] min-h-screen bg-surface flex flex-col shadow-[0_0_40px_rgba(19,27,46,0.06)]">
+    <div className="min-h-screen w-full bg-surface-container-low/40 flex flex-col md:flex-row text-on-surface">
+      {/* Desktop Permanent Sidebar */}
+      {isAuthenticated && currentUser && (
+        <Sidebar
+          activeScreen={activeScreen}
+          currency={currency}
+          hasCriticalAlert={hasCriticalAlert}
+          onChangeCurrency={(next) => {
+            setCurrency(next);
+            showToast(`Moeda alterada para ${next}`);
+          }}
+          onLogout={handleLogout}
+          onNavigate={navigateTo}
+          onOpenNewTransaction={() => handleOpenNewTransaction('expense')}
+          onOpenNotifications={() => setNotificationsOpen(true)}
+          unreadNotificationsCount={unreadAlertsCount}
+          user={currentUser}
+        />
+      )}
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen relative bg-surface">
+        {/* Mobile Fixed Top Header */}
         {isAuthenticated && currentUser && (
           <Header
             avatarUrl={currentUser.avatarDataUrl}
             balanceAlertStatus={balanceAlertStatus}
             currency={currency}
+            desktop={false}
             hasCriticalAlert={hasCriticalAlert}
             now={nowTick}
             onBack={() =>
@@ -587,9 +610,33 @@ export default function App() {
           />
         )}
 
+        {/* Desktop Sticky Header */}
+        {isAuthenticated && currentUser && (
+          <Header
+            avatarUrl={currentUser.avatarDataUrl}
+            balanceAlertStatus={balanceAlertStatus}
+            currency={currency}
+            desktop={true}
+            hasCriticalAlert={hasCriticalAlert}
+            now={nowTick}
+            onBack={() => navigateTo('dashboard-inicio')}
+            onChangeCurrency={(next) => {
+              setCurrency(next);
+              showToast(`Moeda alterada para ${next}`);
+            }}
+            onOpenNotifications={() => setNotificationsOpen(true)}
+            onOpenProfile={() => navigateTo('perfil')}
+            screen={activeScreen}
+            unreadNotificationsCount={unreadAlertsCount}
+            userName={currentUser.name}
+          />
+        )}
+
         <main
-          className={`flex flex-col relative w-full flex-1 bg-surface ${
-            activeScreen === 'login' ? 'pb-safe' : 'pt-16 pb-20'
+          className={`flex-1 w-full max-w-7xl mx-auto flex flex-col ${
+            activeScreen === 'login'
+              ? 'p-0 justify-center items-center'
+              : 'pt-18 md:pt-4 px-3 sm:px-6 lg:px-8 pb-24 md:pb-12'
           }`}
         >
           {isRestoringSession ? (

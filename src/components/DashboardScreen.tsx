@@ -229,53 +229,50 @@ export function DashboardScreen({
         )}
 
         {/* Flex Cards de Resumo */}
-        <div className="flex flex-col gap-1.5 pt-0.5 relative z-10">
-          <div className="flex gap-2">
-            <div className="flex-1 min-w-0 bg-surface-container-low p-2.5 rounded-xl flex flex-col justify-between gap-0.5">
-              <div className="flex items-center gap-1 text-secondary text-[11px] font-semibold">
-                <AppIcon name="trending_up" className="text-[14px] shrink-0" />
-                <span className="whitespace-nowrap">Entradas</span>
-              </div>
-              <span
-                className="text-[14.5px] leading-snug tracking-tight text-secondary font-bold tabular-nums break-words"
-                data-testid="income-amount"
-              >
-                {formatSigned(summary.totalIncome, '+')}
-              </span>
-              <span className="text-[10.5px] text-on-surface-variant">
-                {summary.incomeCount} no extrato
-              </span>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-0.5 relative z-10">
+          <div className="bg-surface-container-low p-3 rounded-xl flex flex-col justify-between gap-1">
+            <div className="flex items-center gap-1 text-secondary text-[11px] font-semibold">
+              <AppIcon name="trending_up" className="text-[14px] shrink-0" />
+              <span className="whitespace-nowrap">Entradas</span>
             </div>
-
-            <div className="flex-1 min-w-0 bg-surface-container-low p-2.5 rounded-xl flex flex-col justify-between gap-0.5">
-              <div className="flex items-center gap-1 text-tertiary text-[11px] font-semibold">
-                <AppIcon name="trending_down" className="text-[14px] shrink-0" />
-                <span className="whitespace-nowrap">Saídas</span>
-              </div>
-              <span
-                className="text-[14.5px] leading-snug tracking-tight text-tertiary font-bold tabular-nums break-words"
-                data-testid="expense-amount"
-              >
-                {formatSigned(summary.totalExpense, '-')}
-              </span>
-              <span className="text-[10.5px] text-on-surface-variant">
-                {summary.expenseCount} lançamentos
-              </span>
-            </div>
+            <span
+              className="text-[15.5px] leading-snug tracking-tight text-secondary font-bold tabular-nums break-words"
+              data-testid="income-amount"
+            >
+              {formatSigned(summary.totalIncome, '+')}
+            </span>
+            <span className="text-[11px] text-on-surface-variant">
+              {summary.incomeCount} no extrato
+            </span>
           </div>
 
-          <div className="bg-primary-fixed/40 px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-primary text-[11.5px] font-semibold min-w-0">
+          <div className="bg-surface-container-low p-3 rounded-xl flex flex-col justify-between gap-1">
+            <div className="flex items-center gap-1 text-tertiary text-[11px] font-semibold">
+              <AppIcon name="trending_down" className="text-[14px] shrink-0" />
+              <span className="whitespace-nowrap">Saídas</span>
+            </div>
+            <span
+              className="text-[15.5px] leading-snug tracking-tight text-tertiary font-bold tabular-nums break-words"
+              data-testid="expense-amount"
+            >
+              {formatSigned(summary.totalExpense, '-')}
+            </span>
+            <span className="text-[11px] text-on-surface-variant">
+              {summary.expenseCount} lançamentos
+            </span>
+          </div>
+
+          <div className="bg-primary-fixed/40 p-3 rounded-xl flex flex-col justify-between gap-1">
+            <div className="flex items-center gap-1.5 text-primary text-[11px] font-semibold">
               <AppIcon name="savings" className="text-[15px] shrink-0" />
-              <span className="whitespace-nowrap">Economia do mês</span>
+              <span className="whitespace-nowrap">Poupança do Mês</span>
             </div>
-            <div className="flex items-center gap-1.5 text-[11.5px] shrink-0 whitespace-nowrap">
-              <span className="font-bold text-primary tabular-nums">{summary.savingRate}%</span>
-              <span aria-hidden="true" className="text-primary/50">
-                ·
-              </span>
-              <span className="text-primary/90 font-medium">{savingNote}</span>
-            </div>
+            <span className="text-[15.5px] leading-snug tracking-tight font-bold text-primary tabular-nums">
+              {summary.savingRate}%
+            </span>
+            <span className="text-[11px] text-primary/80 truncate">
+              {savingNote}
+            </span>
           </div>
         </div>
       </section>
@@ -346,9 +343,11 @@ export function DashboardScreen({
         </div>
       </section>
 
-      {/* Gráfico de Fluxo de Caixa Interativo (Últimos 6 Meses) */}
-      <section className="bg-surface-container-lowest rounded-2xl p-3 shadow-sm flex flex-col space-y-2.5">
-        <div className="flex flex-col gap-0.5">
+      {/* Linha Analítica Responsiva (Fluxo de Caixa + Despesas por Categoria) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* Gráfico de Fluxo de Caixa Interativo (Últimos 6 Meses) */}
+        <section className="lg:col-span-7 bg-surface-container-lowest rounded-2xl p-3 sm:p-4 shadow-sm flex flex-col space-y-2.5">
+          <div className="flex flex-col gap-0.5">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-[15px] font-bold text-on-surface">Fluxo de Caixa</h3>
             <div className="flex items-center gap-2.5 shrink-0">
@@ -478,8 +477,8 @@ export function DashboardScreen({
         )}
       </section>
 
-      {/* Despesas por Categoria Interativo */}
-      <section className="bg-surface-container-lowest rounded-2xl p-3 shadow-sm flex flex-col space-y-2.5">
+        {/* Despesas por Categoria Interativo */}
+        <section className="lg:col-span-5 bg-surface-container-lowest rounded-2xl p-3 sm:p-4 shadow-sm flex flex-col space-y-2.5">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <h3 className="text-[15px] font-bold text-on-surface">Despesas por Categoria</h3>
@@ -583,9 +582,10 @@ export function DashboardScreen({
           </div>
         )}
       </section>
+    </div>
 
-      {/* Últimas Transações */}
-      <section className="flex flex-col space-y-2">
+    {/* Últimas Transações */}
+    <section className="flex flex-col space-y-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
             <h3 className="text-[15px] font-bold text-on-surface">Últimas Transações</h3>
