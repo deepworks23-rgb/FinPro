@@ -18,7 +18,7 @@
 ## Limites Conhecidos
 
 - O `LoginRateLimiter` atual vive em memória do processo Node (`Map`). Em múltiplas réplicas simultâneas sem sticky sessions, cada instância mantém sua própria contagem.
-- O token de sessão é mantido em memória no frontend ([src/App.tsx](src/App.tsx)), pelo que recarregar a página exige novo login.
+- O token Bearer da sessão é guardado em `localStorage` no frontend ([src/App.tsx](src/App.tsx)) e revalidado no servidor via `GET /api/auth/me` ao recarregar a página (sendo limpo automaticamente se estiver expirado ou revogado).
 - A aplicação ainda não possui papéis multi-organização; cada utilizador acessa exclusivamente o seu próprio `workspace` via `req.authUser.id`.
 
 ## Como Reportar Vulnerabilidades

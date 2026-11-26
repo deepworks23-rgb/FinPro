@@ -33,10 +33,38 @@ import {
   toLocalISODate,
 } from './utils/finance';
 
+const AUTH_TOKEN_STORAGE_KEY = 'fintrack_auth_token';
+
+function readStoredToken(): string | null {
+  try {
+    return window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredToken(token: string): void {
+  try {
+    window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+  } catch {
+    // Ignore storage quota / privacy mode errors
+  }
+}
+
+function clearStoredToken(): void {
+  try {
+    window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export default function App() {
-  // Auth state held strictly in memory
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isRestoringSession, setIsRestoringSession] = useState<boolean>(() =>
+    Boolean(readStoredToken())
+  );
 
   const [screen, setScreen] = useState<AppScreen>('login');
   const [previousScreen, setPreviousScreen] = useState<AppScreen>('dashboard-inicio');
@@ -126,8 +154,45 @@ export default function App() {
     readAlertSignatures,
   ]);
 
+  // Restore persisted session on page load via /api/auth/me
+  useEffect(() => {
+    const savedToken = readStoredToken();
+    if (!savedToken) {
+      setIsRestoringSession(false);
+      return;
+    }
+
+    let cancelled = false;
+    authApi
+      .me(savedToken)
+      .then((res) => {
+        if (cancelled) return;
+        setAuthToken(savedToken);
+        setCurrentUser(res.user);
+        applyWorkspace(res.workspace);
+        setScreen('dashboard-inicio');
+        setPreviousScreen('dashboard-inicio');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        clearStoredToken();
+        setAuthToken(null);
+        setCurrentUser(null);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsRestoringSession(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applyWorkspace]);
+
   const handleAuthenticated = useCallback(
     (auth: AuthResponse, mode: 'login' | 'register') => {
+      writeStoredToken(auth.token);
       setAuthToken(auth.token);
       setCurrentUser(auth.user);
       applyWorkspace(auth.workspace);
@@ -147,6 +212,7 @@ export default function App() {
     if (authToken) {
       await authApi.logout(authToken).catch(() => {});
     }
+    clearStoredToken();
     setAuthToken(null);
     setCurrentUser(null);
     setNotificationsOpen(false);
@@ -472,7 +538,16 @@ export default function App() {
             activeScreen === 'login' ? 'pb-safe' : 'pt-16 pb-20'
           }`}
         >
-          {activeScreen === 'login' && <LoginScreen onAuthenticated={handleAuthenticated} />}
+          {isRestoringSession ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
+              <div className="w-10 h-10 rounded-full border-3 border-primary/20 border-t-primary animate-spin" />
+              <p className="text-[13px] font-medium text-on-surface-variant">
+                A restaurar sessão...
+              </p>
+            </div>
+          ) : (
+            activeScreen === 'login' && <LoginScreen onAuthenticated={handleAuthenticated} />
+          )}
 
           {isAuthenticated && activeScreen === 'dashboard-inicio' && (
             <DashboardScreen
