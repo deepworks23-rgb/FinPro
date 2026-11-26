@@ -1,20 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import { BudgetsScreen } from './components/BudgetsScreen';
 import { ConfirmDialog, type ConfirmDialogRequest } from './components/ConfirmDialog';
 import { DashboardScreen } from './components/DashboardScreen';
 import { Header } from './components/Header';
 import { LoginScreen } from './components/LoginScreen';
-import { NotificationsModal, ProfileModal } from './components/Overlays';
+import { NotificationsModal } from './components/Overlays';
+import { ProfileScreen } from './components/ProfileScreen';
 import { ReportsScreen } from './components/ReportsScreen';
 import { TransactionModal } from './components/TransactionModal';
 import { TransactionsScreen } from './components/TransactionsScreen';
-import {
-  DEFAULT_ALERT_SETTINGS,
-  getInitialGoals,
-  getInitialTransactions,
-  INITIAL_BUDGET_CATEGORIES,
-} from './data/seed';
+import { DEFAULT_ALERT_SETTINGS } from './data/seed';
+import { authApi, type AuthResponse } from './services/api';
 import type {
   AlertSettings,
   AppScreen,
@@ -23,9 +20,11 @@ import type {
   FinancialGoal,
   Transaction,
   TransactionType,
+  UserProfile,
+  UserWorkspacePayload,
 } from './types/finance';
 import {
-  buildTransactionsCSV,
+  buildStyledReportCSV,
   computeRealMonthExpenseByBudgetCategory,
   computeRealTimeAlerts,
   computeTransactionSummary,
@@ -34,160 +33,161 @@ import {
   toLocalISODate,
 } from './utils/finance';
 
-const STORAGE_KEYS = {
-  transactions: 'fintrack_mz_transactions_v1',
-  budgets: 'fintrack_mz_budgets_v2',
-  goals: 'fintrack_mz_goals_v1',
-  currency: 'fintrack_mz_currency_v1',
-  hideBalance: 'fintrack_mz_hide_balance',
-  userEmail: 'fintrack_mz_user_email',
-  userName: 'fintrack_mz_user_name',
-  alertSettings: 'fintrack_mz_alert_settings_v1',
-  readAlerts: 'fintrack_mz_read_alerts_v1',
-};
-
-function readStoredJSON<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function readStoredCurrency(): CurrencyCode {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEYS.currency);
-    return stored === 'USD' || stored === 'MZN' ? stored : 'MZN';
-  } catch {
-    return 'MZN';
-  }
-}
-
-function getInitialScreen(): AppScreen {
-  const params = new URLSearchParams(window.location.search);
-  const s = params.get('screen');
-  if (
-    s === 'dashboard-inicio' ||
-    s === 'transacoes' ||
-    s === 'orcamentos' ||
-    s === 'relatorios' ||
-    s === 'login'
-  ) {
-    return s;
-  }
-  return 'dashboard-inicio';
-}
-
 export default function App() {
-  const [screen, setScreen] = useState<AppScreen>(getInitialScreen);
+  // Auth state held strictly in memory
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+
+  const [screen, setScreen] = useState<AppScreen>('login');
   const [previousScreen, setPreviousScreen] = useState<AppScreen>('dashboard-inicio');
   const [nowTick, setNowTick] = useState<Date>(() => new Date());
 
-  const [transactions, setTransactions] = useState<Transaction[]>(() =>
-    readStoredJSON(STORAGE_KEYS.transactions, getInitialTransactions())
-  );
-  const [budgets, setBudgets] = useState<BudgetCategory[]>(() =>
-    readStoredJSON(STORAGE_KEYS.budgets, INITIAL_BUDGET_CATEGORIES)
-  );
-  const [goals, setGoals] = useState<FinancialGoal[]>(() =>
-    readStoredJSON(STORAGE_KEYS.goals, getInitialGoals())
-  );
+  // Authenticated workspace state
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [budgets, setBudgets] = useState<BudgetCategory[]>([]);
+  const [goals, setGoals] = useState<FinancialGoal[]>([]);
+  const [currency, setCurrency] = useState<CurrencyCode>('MZN');
+  const [isBalanceHidden, setIsBalanceHidden] = useState<boolean>(false);
+  const [alertSettings, setAlertSettings] = useState<AlertSettings>(DEFAULT_ALERT_SETTINGS);
+  const [readAlertSignatures, setReadAlertSignatures] = useState<string[]>([]);
 
-  const [currency, setCurrency] = useState<CurrencyCode>(readStoredCurrency);
-  const [isBalanceHidden, setIsBalanceHidden] = useState<boolean>(
-    () => localStorage.getItem(STORAGE_KEYS.hideBalance) === 'true'
-  );
-  const [userEmail, setUserEmail] = useState<string>(
-    () => localStorage.getItem(STORAGE_KEYS.userEmail) || 'edson.machava@fintrack.co.mz'
-  );
-  const [userName, setUserName] = useState<string>(
-    () => localStorage.getItem(STORAGE_KEYS.userName) || 'Edson Machava'
-  );
-  const [alertSettings, setAlertSettings] = useState<AlertSettings>(() => ({
-    ...DEFAULT_ALERT_SETTINGS,
-    ...readStoredJSON<Partial<AlertSettings>>(STORAGE_KEYS.alertSettings, {}),
-  }));
-  const [readAlertSignatures, setReadAlertSignatures] = useState<string[]>(() =>
-    readStoredJSON<string[]>(STORAGE_KEYS.readAlerts, [])
-  );
+  // Skip immediate PUT right after hydrating from login/register
+  const skipNextWorkspaceSyncRef = useRef(false);
 
   // Modals & Overlays
   const [txModalOpen, setTxModalOpen] = useState(false);
   const [txModalType, setTxModalType] = useState<TransactionType>('expense');
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmDialogRequest | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Real-time clock tick (every 30s) & cross-tab storage synchronization
+  // Real-time clock tick (every 30s)
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       setNowTick(new Date());
     }, 30000);
-
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEYS.transactions && e.newValue) {
-        setTransactions(JSON.parse(e.newValue) as Transaction[]);
-      } else if (e.key === STORAGE_KEYS.budgets && e.newValue) {
-        setBudgets(JSON.parse(e.newValue) as BudgetCategory[]);
-      } else if (e.key === STORAGE_KEYS.goals && e.newValue) {
-        setGoals(JSON.parse(e.newValue) as FinancialGoal[]);
-      } else if (e.key === STORAGE_KEYS.currency && (e.newValue === 'MZN' || e.newValue === 'USD')) {
-        setCurrency(e.newValue);
-      } else if (e.key === STORAGE_KEYS.alertSettings && e.newValue) {
-        setAlertSettings({
-          ...DEFAULT_ALERT_SETTINGS,
-          ...(JSON.parse(e.newValue) as Partial<AlertSettings>),
-        });
-      } else if (e.key === STORAGE_KEYS.readAlerts && e.newValue) {
-        setReadAlertSignatures(JSON.parse(e.newValue) as string[]);
-      }
-    };
-
-    window.addEventListener('storage', handleStorage);
-    return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener('storage', handleStorage);
-    };
+    return () => window.clearInterval(intervalId);
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(transactions));
-  }, [transactions]);
+  const showToast = useCallback((msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => {
+      setToastMsg((current) => (current === msg ? null : current));
+    }, 2800);
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.budgets, JSON.stringify(budgets));
-  }, [budgets]);
+  const applyWorkspace = useCallback((ws: UserWorkspacePayload) => {
+    skipNextWorkspaceSyncRef.current = true;
+    setTransactions(Array.isArray(ws.transactions) ? ws.transactions : []);
+    setBudgets(Array.isArray(ws.budgets) ? ws.budgets : []);
+    setGoals(Array.isArray(ws.goals) ? ws.goals : []);
+    setCurrency(ws.currency === 'USD' ? 'USD' : 'MZN');
+    setIsBalanceHidden(Boolean(ws.isBalanceHidden));
+    setAlertSettings({
+      ...DEFAULT_ALERT_SETTINGS,
+      ...(ws.alertSettings ?? {}),
+    });
+    setReadAlertSignatures(Array.isArray(ws.readAlertSignatures) ? ws.readAlertSignatures : []);
+  }, []);
 
+  // Persist workspace mutations to backend for authenticated user
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.goals, JSON.stringify(goals));
-  }, [goals]);
+    if (!authToken || !currentUser) return;
+    if (skipNextWorkspaceSyncRef.current) {
+      skipNextWorkspaceSyncRef.current = false;
+      return;
+    }
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.currency, currency);
-  }, [currency]);
+    const timer = window.setTimeout(() => {
+      void authApi
+        .saveWorkspace(authToken, {
+          transactions,
+          budgets,
+          goals,
+          currency,
+          isBalanceHidden,
+          alertSettings,
+          readAlertSignatures,
+        })
+        .catch(() => {});
+    }, 250);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.hideBalance, String(isBalanceHidden));
-  }, [isBalanceHidden]);
+    return () => window.clearTimeout(timer);
+  }, [
+    authToken,
+    currentUser,
+    transactions,
+    budgets,
+    goals,
+    currency,
+    isBalanceHidden,
+    alertSettings,
+    readAlertSignatures,
+  ]);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.userEmail, userEmail);
-  }, [userEmail]);
+  const handleAuthenticated = useCallback(
+    (auth: AuthResponse, mode: 'login' | 'register') => {
+      setAuthToken(auth.token);
+      setCurrentUser(auth.user);
+      applyWorkspace(auth.workspace);
+      setScreen('dashboard-inicio');
+      setPreviousScreen('dashboard-inicio');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      if (mode === 'register') {
+        showToast(`Bem-vindo(a), ${auth.user.name.split(' ')[0]}!`);
+      } else {
+        showToast('Sessão iniciada com sucesso!');
+      }
+    },
+    [applyWorkspace, showToast]
+  );
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.userName, userName);
-  }, [userName]);
+  const handleLogout = useCallback(async () => {
+    if (authToken) {
+      await authApi.logout(authToken).catch(() => {});
+    }
+    setAuthToken(null);
+    setCurrentUser(null);
+    setNotificationsOpen(false);
+    setTxModalOpen(false);
+    setEditingTx(null);
+    setScreen('login');
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    showToast('Sessão terminada.');
+  }, [authToken, showToast]);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.alertSettings, JSON.stringify(alertSettings));
-  }, [alertSettings]);
+  const handleUpdateProfile = useCallback(
+    async (updates: {
+      name?: string;
+      phone?: string;
+      email?: string;
+      address?: string;
+      avatarDataUrl?: string;
+      currency?: CurrencyCode;
+    }) => {
+      if (!authToken) return;
+      const res = await authApi.updateProfile(authToken, updates);
+      setCurrentUser(res.user);
+      if (updates.currency) {
+        setCurrency(updates.currency);
+      }
+    },
+    [authToken]
+  );
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.readAlerts, JSON.stringify(readAlertSignatures));
-  }, [readAlertSignatures]);
+  const handleChangePassword = useCallback(
+    async (payload: {
+      currentPassword: string;
+      newPassword: string;
+      confirmPassword: string;
+    }) => {
+      if (!authToken) return;
+      const res = await authApi.changePassword(authToken, payload);
+      setCurrentUser(res.user);
+    },
+    [authToken]
+  );
 
   // Real-time budgets derived dynamically from transactions of the current month
   const liveBudgets = useMemo(
@@ -210,17 +210,10 @@ export default function App() {
     [transactions, liveBudgets, goals, alertSettings, currency, nowTick]
   );
 
-  const showToast = useCallback((msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => {
-      setToastMsg((current) => (current === msg ? null : current));
-    }, 2800);
-  }, []);
-
   const navigateTo = useCallback(
     (next: AppScreen) => {
       if (next !== screen) {
-        if (next === 'login') {
+        if (next === 'perfil' && screen !== 'login') {
           setPreviousScreen(screen);
         }
         setScreen(next);
@@ -383,7 +376,13 @@ export default function App() {
   );
 
   const handleExportCSV = useCallback(() => {
-    const csv = buildTransactionsCSV(transactions);
+    const csv = buildStyledReportCSV({
+      transactions,
+      currency,
+      periodLabel: 'Extrato Completo',
+      userName: currentUser?.name ?? 'Utilizador FinTrack',
+      userPhone: currentUser?.phone ?? '',
+    });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -394,22 +393,7 @@ export default function App() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     showToast('Extrato CSV baixado com sucesso!');
-  }, [transactions, showToast]);
-
-  const handleResetDemo = useCallback(() => {
-    const now = new Date();
-    setNowTick(now);
-    setTransactions(getInitialTransactions(now));
-    setBudgets(INITIAL_BUDGET_CATEGORIES);
-    setGoals(getInitialGoals(now));
-    setCurrency('MZN');
-    setIsBalanceHidden(false);
-    setUserName('Edson Machava');
-    setUserEmail('edson.machava@fintrack.co.mz');
-    setAlertSettings(DEFAULT_ALERT_SETTINGS);
-    setReadAlertSignatures([]);
-    showToast('Dados de demonstração restaurados!');
-  }, [showToast]);
+  }, [transactions, currency, currentUser, showToast]);
 
   const handleUpdateAlertSettings = useCallback(
     (next: AlertSettings) => {
@@ -445,40 +429,52 @@ export default function App() {
   );
 
   const balanceAlertStatus: 'critical' | 'warning' | null = useMemo(() => {
-    if (!alertSettings.enableLowBalanceAlerts) return null;
+    if (transactions.length === 0 || !alertSettings.enableLowBalanceAlerts) return null;
     if (summary.netBalance <= alertSettings.negativeAlertThreshold) return 'critical';
     if (summary.netBalance <= alertSettings.lowBalanceThreshold) return 'warning';
     return null;
-  }, [alertSettings, summary.netBalance]);
+  }, [transactions.length, alertSettings, summary.netBalance]);
 
-  const firstName = userName.trim().split(' ')[0] || 'Edson';
+  const isAuthenticated = Boolean(authToken && currentUser);
+  const activeScreen: AppScreen = isAuthenticated ? screen : 'login';
 
   return (
     <div className="min-h-screen w-full bg-surface-container-low/60 flex justify-center">
       <div className="relative w-full max-w-[440px] min-h-screen bg-surface flex flex-col shadow-[0_0_40px_rgba(19,27,46,0.06)]">
-        <Header
-          balanceAlertStatus={balanceAlertStatus}
-          currency={currency}
-          firstName={firstName}
-          hasCriticalAlert={hasCriticalAlert}
-          now={nowTick}
-          onBack={() => navigateTo(previousScreen === 'login' ? 'dashboard-inicio' : previousScreen)}
-          onChangeCurrency={(next) => {
-            setCurrency(next);
-            showToast(`Moeda alterada para ${next}`);
-          }}
-          onOpenNotifications={() => setNotificationsOpen(true)}
-          onOpenProfile={() => setProfileOpen(true)}
-          screen={screen}
-          unreadNotificationsCount={unreadAlertsCount}
-        />
+        {isAuthenticated && currentUser && (
+          <Header
+            avatarUrl={currentUser.avatarDataUrl}
+            balanceAlertStatus={balanceAlertStatus}
+            currency={currency}
+            hasCriticalAlert={hasCriticalAlert}
+            now={nowTick}
+            onBack={() =>
+              navigateTo(
+                previousScreen === 'login' || previousScreen === 'perfil'
+                  ? 'dashboard-inicio'
+                  : previousScreen
+              )
+            }
+            onChangeCurrency={(next) => {
+              setCurrency(next);
+              showToast(`Moeda alterada para ${next}`);
+            }}
+            onOpenNotifications={() => setNotificationsOpen(true)}
+            onOpenProfile={() => navigateTo('perfil')}
+            screen={activeScreen}
+            unreadNotificationsCount={unreadAlertsCount}
+            userName={currentUser.name}
+          />
+        )}
 
         <main
           className={`flex flex-col relative w-full flex-1 bg-surface ${
-            screen === 'login' ? 'pt-14 pb-safe' : 'pt-16 pb-20'
+            activeScreen === 'login' ? 'pb-safe' : 'pt-16 pb-20'
           }`}
         >
-          {screen === 'dashboard-inicio' && (
+          {activeScreen === 'login' && <LoginScreen onAuthenticated={handleAuthenticated} />}
+
+          {isAuthenticated && activeScreen === 'dashboard-inicio' && (
             <DashboardScreen
               alertSettings={alertSettings}
               currency={currency}
@@ -496,9 +492,10 @@ export default function App() {
             />
           )}
 
-          {screen === 'transacoes' && (
+          {isAuthenticated && activeScreen === 'transacoes' && (
             <TransactionsScreen
               currency={currency}
+              isBalanceHidden={isBalanceHidden}
               onDeleteTransaction={handleDeleteTransaction}
               onEditTransaction={handleEditTransaction}
               onOpenNew={() => handleOpenNewTransaction('expense')}
@@ -508,11 +505,12 @@ export default function App() {
             />
           )}
 
-          {screen === 'orcamentos' && (
+          {isAuthenticated && activeScreen === 'orcamentos' && (
             <BudgetsScreen
               budgets={liveBudgets}
               currency={currency}
               goals={goals}
+              isBalanceHidden={isBalanceHidden}
               onAddBudget={handleAddBudget}
               onAddGoal={handleAddGoal}
               onContributeGoal={handleContributeGoal}
@@ -524,82 +522,77 @@ export default function App() {
             />
           )}
 
-          {screen === 'relatorios' && (
+          {isAuthenticated && activeScreen === 'relatorios' && currentUser && (
             <ReportsScreen
               currency={currency}
+              isBalanceHidden={isBalanceHidden}
               onNavigate={navigateTo}
+              onNotify={showToast}
               transactions={transactions}
+              userName={currentUser.name}
+              userPhone={currentUser.phone}
             />
           )}
 
-          {screen === 'login' && (
-            <LoginScreen
-              initialEmail={userEmail}
-              onAuthenticated={(email) => {
-                setUserEmail(email);
-                navigateTo('dashboard-inicio');
-                showToast('Sessão iniciada com sucesso!');
+          {isAuthenticated && activeScreen === 'perfil' && currentUser && authToken && (
+            <ProfileScreen
+              authToken={authToken}
+              currency={currency}
+              onChangeCurrency={(next) => {
+                setCurrency(next);
+                showToast(`Moeda alterada para ${next}`);
               }}
-              onBack={() =>
-                navigateTo(previousScreen === 'login' ? 'dashboard-inicio' : previousScreen)
-              }
+              onChangePassword={handleChangePassword}
+              onLogout={handleLogout}
+              onNotify={showToast}
+              onRequestConfirm={requestConfirm}
+              onUpdateProfile={handleUpdateProfile}
+              user={currentUser}
             />
           )}
         </main>
 
-        <BottomNav
-          activeScreen={screen}
-          onNavigate={navigateTo}
-          onOpenNewTransaction={() => handleOpenNewTransaction('expense')}
-        />
+        {isAuthenticated && (
+          <BottomNav
+            activeScreen={activeScreen}
+            onNavigate={navigateTo}
+            onOpenNewTransaction={() => handleOpenNewTransaction('expense')}
+          />
+        )}
 
-        <TransactionModal
-          budgets={liveBudgets}
-          currency={currency}
-          editingTransaction={editingTx}
-          initialType={txModalType}
-          isOpen={txModalOpen}
-          onClose={() => {
-            setTxModalOpen(false);
-            setEditingTx(null);
-          }}
-          onRequestConfirm={requestConfirm}
-          onSave={handleSaveTransaction}
-        />
+        {isAuthenticated && (
+          <>
+            <TransactionModal
+              budgets={liveBudgets}
+              currency={currency}
+              editingTransaction={editingTx}
+              initialType={txModalType}
+              isOpen={txModalOpen}
+              onClose={() => {
+                setTxModalOpen(false);
+                setEditingTx(null);
+              }}
+              onRequestConfirm={requestConfirm}
+              onSave={handleSaveTransaction}
+            />
 
-        <NotificationsModal
-          alertSettings={alertSettings}
-          alerts={realTimeAlerts}
-          currency={currency}
-          isOpen={notificationsOpen}
-          netBalanceBase={summary.netBalance}
-          onClose={() => setNotificationsOpen(false)}
-          onMarkAlertRead={handleMarkAlertRead}
-          onMarkAllRead={handleMarkAllAlertsRead}
-          onNavigate={navigateTo}
-          onRequestConfirm={requestConfirm}
-          onUpdateAlertSettings={handleUpdateAlertSettings}
-          readSignatures={readAlertSignatures}
-        />
-
-        <ProfileModal
-          currency={currency}
-          isOpen={profileOpen}
-          onChangeCurrency={(c) => {
-            setCurrency(c);
-            showToast(`Moeda alterada para ${c}`);
-          }}
-          onClose={() => setProfileOpen(false)}
-          onOpenLogin={() => navigateTo('login')}
-          onRequestConfirm={requestConfirm}
-          onResetDemo={handleResetDemo}
-          onUpdateName={(nextName) => {
-            setUserName(nextName);
-            showToast('Perfil atualizado!');
-          }}
-          userEmail={userEmail}
-          userName={userName}
-        />
+            <NotificationsModal
+              alertSettings={alertSettings}
+              alerts={realTimeAlerts}
+              currency={currency}
+              isBalanceHidden={isBalanceHidden}
+              isOpen={notificationsOpen}
+              netBalanceBase={summary.netBalance}
+              onClose={() => setNotificationsOpen(false)}
+              onMarkAlertRead={handleMarkAlertRead}
+              onMarkAllRead={handleMarkAllAlertsRead}
+              onNavigate={navigateTo}
+              onRequestConfirm={requestConfirm}
+              onUpdateAlertSettings={handleUpdateAlertSettings}
+              readSignatures={readAlertSignatures}
+            />
+          </>
+        )}
 
         <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
 

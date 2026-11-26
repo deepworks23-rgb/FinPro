@@ -148,9 +148,11 @@ export function DashboardScreen({
         : 'Saldo negativo';
 
   const isCriticalBalance =
+    transactions.length > 0 &&
     alertSettings.enableLowBalanceAlerts &&
     summary.netBalance <= alertSettings.negativeAlertThreshold;
   const isLowBalance =
+    transactions.length > 0 &&
     alertSettings.enableLowBalanceAlerts &&
     !isCriticalBalance &&
     summary.netBalance <= Math.max(alertSettings.lowBalanceThreshold, alertSettings.negativeAlertThreshold);
@@ -165,12 +167,18 @@ export function DashboardScreen({
             Saldo Total Líquido
           </span>
           <button
-            aria-label={isBalanceHidden ? 'Mostrar Saldo' : 'Ocultar Saldo'}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors cursor-pointer shrink-0"
+            aria-label={isBalanceHidden ? 'Mostrar valores' : 'Ocultar valores'}
+            aria-pressed={isBalanceHidden}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
+              isBalanceHidden
+                ? 'bg-primary-fixed text-primary hover:bg-primary-fixed-dim/50'
+                : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
+            }`}
             onClick={onToggleHideBalance}
+            title={isBalanceHidden ? 'Mostrar valores' : 'Ocultar valores'}
             type="button"
           >
-            <span className="material-symbols-outlined text-[18px]">
+            <span className="material-symbols-outlined text-[19px]">
               {isBalanceHidden ? 'visibility_off' : 'visibility'}
             </span>
           </button>
@@ -216,7 +224,7 @@ export function DashboardScreen({
               <span className="break-words">
                 {isCriticalBalance
                   ? 'Alerta crítico: saldo atingiu limite definido'
-                  : `Saldo a esgotar (margem: ${formatMoney(alertSettings.lowBalanceThreshold, currency)})`}
+                  : `Saldo a esgotar (margem: ${isBalanceHidden ? '••••' : formatMoney(alertSettings.lowBalanceThreshold, currency)})`}
               </span>
             </span>
             <span className="material-symbols-outlined text-[15px] shrink-0">chevron_right</span>
@@ -462,10 +470,10 @@ export function DashboardScreen({
             </span>
             <div className="flex items-center gap-2.5 flex-wrap tabular-nums">
               <span className="text-secondary font-semibold">
-                +{formatMoney(activeFlowItem.income, currency)}
+                {formatSigned(activeFlowItem.income, '+')}
               </span>
               <span className="text-tertiary font-semibold">
-                -{formatMoney(activeFlowItem.expense, currency)}
+                {formatSigned(activeFlowItem.expense, '-')}
               </span>
               <span className="px-1.5 py-0.5 rounded bg-surface-container text-on-surface font-bold">
                 {activeFlowItem.savePct} poupado
@@ -567,7 +575,11 @@ export function DashboardScreen({
                       <span className="text-on-surface leading-tight break-words">{item.name}</span>
                     </div>
                     <span className="font-bold text-on-surface shrink-0 tabular-nums">
-                      {isActive ? formatMoney(item.amount, currency) : `${item.percentage}%`}
+                      {isActive
+                        ? isBalanceHidden
+                          ? '••••'
+                          : formatMoney(item.amount, currency)
+                        : `${item.percentage}%`}
                     </span>
                   </button>
                 );

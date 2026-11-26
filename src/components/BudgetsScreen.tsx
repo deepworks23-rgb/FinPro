@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { ASSETS, CURRENCY_CONFIG } from '../data/seed';
+import { CURRENCY_CONFIG } from '../data/seed';
 import type { BudgetCategory, CurrencyCode, FinancialGoal } from '../types/finance';
 import {
   computeBudgetTotals,
@@ -13,6 +13,7 @@ interface BudgetsScreenProps {
   budgets: BudgetCategory[];
   goals: FinancialGoal[];
   currency: CurrencyCode;
+  isBalanceHidden?: boolean;
   onAddBudget: (budget: Omit<BudgetCategory, 'id'>) => void;
   onUpdateBudget: (id: string, updates: Pick<BudgetCategory, 'limit' | 'spent'>) => void;
   onDeleteBudget: (id: string) => void;
@@ -38,6 +39,7 @@ export function BudgetsScreen({
   budgets,
   goals,
   currency,
+  isBalanceHidden = false,
   onAddBudget,
   onUpdateBudget,
   onDeleteBudget,
@@ -150,7 +152,7 @@ export function BudgetsScreen({
           title: cleanTitle,
           current: currentBase,
           target: targetBase,
-          imageUrl: ASSETS.goalInvest,
+          imageUrl: '',
           barColor: 'bg-primary',
           accentColor: 'text-primary',
         });
@@ -213,7 +215,7 @@ export function BudgetsScreen({
               Orçamento Mensal Total
             </p>
             <h2 className="text-[26px] leading-[32px] sm:text-[30px] font-bold text-on-surface mt-0.5 tabular-nums tracking-tight break-words">
-              {formatMoney(totals.totalLimit, currency)}
+              {isBalanceHidden ? '••••••••' : formatMoney(totals.totalLimit, currency)}
             </h2>
           </div>
           <div className="w-11 h-11 rounded-xl bg-surface-container flex items-center justify-center text-primary shadow-sm shrink-0">
@@ -228,7 +230,7 @@ export function BudgetsScreen({
               Consumo do Mês ({totals.percentage}%)
             </span>
             <span className="text-on-surface-variant tabular-nums whitespace-nowrap">
-              Meta: {formatMoney(totals.totalLimit, currency)}
+              Meta: {isBalanceHidden ? '••••' : formatMoney(totals.totalLimit, currency)}
             </span>
           </div>
           <div className="w-full h-2.5 rounded-full bg-surface-container-high overflow-hidden p-0.5">
@@ -249,7 +251,7 @@ export function BudgetsScreen({
               <span className="whitespace-nowrap">Gasto Total</span>
             </div>
             <p className="text-[14.5px] leading-snug text-tertiary font-bold tabular-nums break-words">
-              {formatMoney(totals.totalSpent, currency)}
+              {isBalanceHidden ? '••••' : formatMoney(totals.totalSpent, currency)}
             </p>
           </div>
           <div className="flex-1 min-w-0 p-2 rounded-xl bg-surface-container-low flex flex-col gap-0.5">
@@ -260,7 +262,7 @@ export function BudgetsScreen({
               <span className="whitespace-nowrap">Disponível</span>
             </div>
             <p className="text-[14.5px] leading-snug text-secondary font-bold tabular-nums break-words">
-              {formatMoney(totals.available, currency)}
+              {isBalanceHidden ? '••••' : formatMoney(totals.available, currency)}
             </p>
           </div>
         </div>
@@ -321,7 +323,20 @@ export function BudgetsScreen({
         </div>
 
         <div className="space-y-2" data-testid="budgets-list">
-          {budgets.map((b) => {
+          {budgets.length === 0 ? (
+            <div className="bg-surface-container-lowest rounded-2xl p-5 text-center space-y-2 shadow-sm">
+              <div className="w-11 h-11 rounded-full bg-surface-container mx-auto flex items-center justify-center text-on-surface-variant">
+                <span className="material-symbols-outlined text-[22px]">pie_chart</span>
+              </div>
+              <p className="text-[13.5px] font-bold text-on-surface">
+                Nenhum orçamento definido ainda
+              </p>
+              <p className="text-[11.5px] text-on-surface-variant">
+                Adicione limites por categoria para acompanhar os seus gastos mensais.
+              </p>
+            </div>
+          ) : (
+            budgets.map((b) => {
             const info = evaluateBudgetStatus(b.spent, b.limit, currency);
             return (
               <div
@@ -342,7 +357,7 @@ export function BudgetsScreen({
                         {b.category}
                       </h4>
                       <p className="text-[11px] text-on-surface-variant tabular-nums">
-                        Limite: {formatMoney(b.limit, currency)}
+                        Limite: {isBalanceHidden ? '••••' : formatMoney(b.limit, currency)}
                       </p>
                     </div>
                   </div>
@@ -381,11 +396,13 @@ export function BudgetsScreen({
                 <div className="space-y-1.5">
                   <div className="flex items-baseline justify-between gap-2 flex-wrap text-[12px]">
                     <span className={`${info.amountColor} font-bold tabular-nums whitespace-nowrap`}>
-                      {formatMoney(b.spent, currency)}
+                      {isBalanceHidden ? '••••' : formatMoney(b.spent, currency)}
                     </span>
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className={`${info.amountColor} text-[11px] font-semibold break-words`}>
-                        {info.tagText}
+                        {isBalanceHidden && info.tagText.startsWith('Resta ')
+                          ? 'Resta ••••'
+                          : info.tagText}
                       </span>
                       <span aria-hidden="true" className="text-on-surface-variant/50 text-[11px]">
                         ·
@@ -404,7 +421,8 @@ export function BudgetsScreen({
                 </div>
               </div>
             );
-          })}
+          })
+          )}
         </div>
       </div>
 
@@ -428,7 +446,20 @@ export function BudgetsScreen({
         </div>
 
         <div className="space-y-2" data-testid="goals-list">
-          {goals.map((goal) => {
+          {goals.length === 0 ? (
+            <div className="bg-surface-container-lowest rounded-2xl p-5 text-center space-y-2 shadow-sm">
+              <div className="w-11 h-11 rounded-full bg-surface-container mx-auto flex items-center justify-center text-on-surface-variant">
+                <span className="material-symbols-outlined text-[22px]">flag</span>
+              </div>
+              <p className="text-[13.5px] font-bold text-on-surface">
+                Nenhuma meta financeira ainda
+              </p>
+              <p className="text-[11.5px] text-on-surface-variant">
+                Toque no botão + acima para criar o seu primeiro objetivo financeiro.
+              </p>
+            </div>
+          ) : (
+            goals.map((goal) => {
             const pct = Math.min(Math.round((goal.current / goal.target) * 100), 100);
             return (
               <div
@@ -436,11 +467,18 @@ export function BudgetsScreen({
                 className="bg-surface-container-lowest rounded-2xl p-3 shadow-sm flex flex-col gap-2"
               >
                 <div className="flex items-center gap-3">
-                  <img
-                    alt={goal.title}
-                    className="w-11 h-11 rounded-xl object-cover shrink-0"
-                    src={goal.imageUrl}
-                  />
+                  {goal.imageUrl ? (
+                    <img
+                      alt={goal.title}
+                      className="w-11 h-11 rounded-xl object-cover shrink-0"
+                      referrerPolicy="no-referrer"
+                      src={goal.imageUrl}
+                    />
+                  ) : (
+                    <div className="w-11 h-11 rounded-xl bg-primary-fixed text-primary flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-[22px]">flag</span>
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1 flex flex-col gap-0.5">
                     <div className="flex items-baseline justify-between gap-2">
                       <h4 className="text-[14px] leading-snug font-semibold text-on-surface break-words flex-1 min-w-0">
@@ -453,7 +491,9 @@ export function BudgetsScreen({
                       </span>
                     </div>
                     <p className="text-[12px] text-on-surface-variant tabular-nums">
-                      {formatMoney(goal.current, currency)} de {formatMoney(goal.target, currency)}
+                      {isBalanceHidden
+                        ? '•••• de ••••'
+                        : `${formatMoney(goal.current, currency)} de ${formatMoney(goal.target, currency)}`}
                     </p>
                   </div>
                 </div>
@@ -498,7 +538,8 @@ export function BudgetsScreen({
                 </div>
               </div>
             );
-          })}
+          })
+          )}
         </div>
       </div>
 

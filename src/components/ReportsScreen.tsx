@@ -7,10 +7,11 @@ import {
 } from '../data/seed';
 import type { AppScreen, CurrencyCode, ReportPeriod, Transaction } from '../types/finance';
 import {
-  buildSimplePDF,
-  buildTransactionsCSV,
+  buildStyledReportCSV,
+  buildStyledReportPDF,
   computeDynamicSixMonthSeries,
   computeExpenseBreakdown,
+  computeTransactionSummary,
   filterTransactionsByDateRange,
   filterTransactionsByMonth,
   formatMoney,
@@ -22,10 +23,22 @@ import {
 interface ReportsScreenProps {
   transactions: Transaction[];
   currency: CurrencyCode;
+  isBalanceHidden?: boolean;
+  userName?: string;
+  userPhone?: string;
   onNavigate: (screen: AppScreen) => void;
+  onNotify?: (msg: string) => void;
 }
 
-export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScreenProps) {
+export function ReportsScreen({
+  transactions,
+  currency,
+  isBalanceHidden = false,
+  userName = 'Utilizador FinTrack',
+  userPhone = '',
+  onNavigate,
+  onNotify,
+}: ReportsScreenProps) {
   const cycleInfo = useMemo(() => getMonthCycleInfo(), []);
   const firstOfMonthIso = useMemo(
     () => toLocalISODate(new Date(cycleInfo.year, cycleInfo.monthIndex, 1)),
@@ -39,11 +52,6 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
   const [customStart, setCustomStart] = useState(firstOfMonthIso);
   const [customEnd, setCustomEnd] = useState(todayIso);
   const [selectedSeriesKey, setSelectedSeriesKey] = useState<string | null>(null);
-  const [exportFormat, setExportFormat] = useState<'csv' | 'pdf'>('csv');
-  const [includeIncome, setIncludeIncome] = useState(true);
-  const [includeExpense, setIncludeExpense] = useState(true);
-  const [includeInvestments, setIncludeInvestments] = useState(true);
-  const [exportFeedback, setExportFeedback] = useState(false);
 
   const periodChips: Array<{ id: ReportPeriod; label: string }> = [
     { id: 'mes', label: 'Mês Atual' },
@@ -69,25 +77,20 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
   }, [transactions, accountFilter, statusFilter]);
 
   const scopedTransactions = useMemo(() => {
+    let list: Transaction[];
     if (period === 'mes') {
-      return filterTransactionsByMonth(
-        filteredBaseTransactions,
-        cycleInfo.year,
-        cycleInfo.monthIndex
-      );
-    }
-    if (period === 'trimestre') {
+      list = filterTransactionsByMonth(filteredBaseTransactions, cycleInfo.year, cycleInfo.monthIndex);
+    } else if (period === 'trimestre') {
       const start = new Date(cycleInfo.year, cycleInfo.monthIndex - 2, 1);
-      return filterTransactionsByDateRange(
-        filteredBaseTransactions,
-        toLocalISODate(start),
-        todayIso
-      );
+      list = filterTransactionsByDateRange(filteredBaseTransactions, toLocalISODate(start), todayIso);
+    } else if (period === 'ano') {
+      list = filteredBaseTransactions.filter((t) => t.date.startsWith(`${cycleInfo.year}-`));
+    } else {
+      list = filterTransactionsByDateRange(filteredBaseTransactions, customStart, customEnd);
     }
-    if (period === 'ano') {
-      return filteredBaseTransactions.filter((t) => t.date.startsWith(`${cycleInfo.year}-`));
-    }
-    return filterTransactionsByDateRange(filteredBaseTransactions, customStart, customEnd);
+    return [...list].sort((a, b) =>
+      `${b.date}T${b.time ?? '00:00'}`.localeCompare(`${a.date}T${a.time ?? '00:00'}`)
+    );
   }, [
     period,
     filteredBaseTransactions,
@@ -101,6 +104,11 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
   const metrics = useMemo(
     () => getReportPeriodMetrics(period, filteredBaseTransactions, scopedTransactions),
     [period, filteredBaseTransactions, scopedTransactions]
+  );
+
+  const tableSummary = useMemo(
+    () => computeTransactionSummary(scopedTransactions),
+    [scopedTransactions]
   );
 
   const monthlySeries = useMemo(
@@ -152,74 +160,82 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
 
   const cfg = CURRENCY_CONFIG[currency] ?? CURRENCY_CONFIG.MZN;
   const convertedSavings = metrics.netSavings * cfg.rateFromBase;
+  const activePeriodLabel =
+    period === 'custom'
+      ? `${customStart.split('-').reverse().join('/')} a ${customEnd.split('-').reverse().join('/')}`
+      : (periodChips.find((p) => p.id === period)?.label ?? period);
 
-  const triggerDownload = (forceCsv = false) => {
-    const useCsv = forceCsv || exportFormat === 'csv';
-    const exportSource = scopedTransactions.length > 0 ? scopedTransactions : transactions;
+  const handleExportPDF = () => {
+    const blob = buildStyledReportPDF({
+      transactions: scopedTransactions,
+      currency,
+      periodLabel: activePeriodLabel,
+      userName,
+      userPhone,
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `FinTrack_Relatorio_${toLocalISODate()}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    onNotify?.('Relatório PDF estilizado exportado!');
+  };
 
-    if (useCsv) {
-      const csvContent = buildTransactionsCSV(exportSource, {
-        includeIncome,
-        includeExpense,
-        includeInvestments,
-      });
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = forceCsv
-        ? `fintrack_extrato_${toLocalISODate()}.csv`
-        : `fintrack_extrato_completo_${toLocalISODate()}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } else {
-      const pdfLines = [
-        `Periodo: ${periodChips.find((p) => p.id === period)?.label ?? period}`,
-        `Gerado em: ${toLocalISODate()}`,
-        `Economia Liquida: ${metrics.netSavings < 0 ? '-' : ''}${formatMoney(metrics.netSavings, currency)}`,
-        `Receitas Totais: ${formatMoney(metrics.incomeTotal, currency)}`,
-        `Despesas Totais: ${formatMoney(metrics.expenseTotal, currency)}`,
-        `Taxa de Poupanca: ${metrics.savingsRate}`,
-        `Maior Categoria de Gasto: ${metrics.topExpenseTitle} (${formatMoney(metrics.topExpenseAmount, currency)})`,
-      ];
-      const blob = buildSimplePDF('FinTrack - Resumo Executivo', pdfLines);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `fintrack_resumo_${toLocalISODate()}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-
-    setExportFeedback(true);
-    setTimeout(() => setExportFeedback(false), 4000);
+  const handleExportCSV = () => {
+    const csvContent = buildStyledReportCSV({
+      transactions: scopedTransactions,
+      currency,
+      periodLabel: activePeriodLabel,
+      userName,
+      userPhone,
+    });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `FinTrack_Relatorio_${toLocalISODate()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    onNotify?.('Relatório CSV estruturado exportado!');
   };
 
   return (
-    <div className="flex flex-col w-full px-3 space-y-3 pb-2">
-      {/* Top Action & Period Control Filter */}
+    <div className="flex flex-col w-full px-3 space-y-3 pb-3">
+      {/* Top Title & Direct PDF / CSV Export Buttons */}
       <section className="flex flex-col space-y-2.5 pt-1.5">
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center justify-between gap-2">
-            <h1 className="text-[15.5px] leading-snug font-bold text-on-surface whitespace-nowrap">
+        <div className="flex flex-col gap-2">
+          <div>
+            <h1 className="text-[16px] leading-snug font-bold text-on-surface">
               Relatórios de Desempenho
             </h1>
+            <span className="text-[12px] text-on-surface-variant block">
+              Análise contábil com tabela estruturada e exportação
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
             <button
-              className="flex items-center justify-center gap-1 px-2.5 py-1.5 bg-primary text-on-primary rounded-xl shadow-md hover:bg-primary-container active:scale-95 transition-all cursor-pointer shrink-0 whitespace-nowrap"
-              onClick={() => triggerDownload(true)}
+              className="h-10 px-3 bg-primary text-on-primary rounded-xl shadow-sm hover:bg-primary-container active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap"
+              onClick={handleExportPDF}
               type="button"
             >
-              <span className="material-symbols-outlined text-[15px]">download</span>
-              <span className="text-[11.5px] font-semibold">Exportar CSV</span>
+              <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+              <span className="text-[12.5px] font-semibold">Exportar PDF</span>
+            </button>
+            <button
+              className="h-10 px-3 bg-secondary text-on-secondary rounded-xl shadow-sm hover:opacity-95 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap"
+              onClick={handleExportCSV}
+              type="button"
+            >
+              <span className="material-symbols-outlined text-[18px]">table_view</span>
+              <span className="text-[12.5px] font-semibold">Exportar CSV</span>
             </button>
           </div>
-          <span className="text-[12px] text-on-surface-variant">
-            Análise contábil e exportação consolidada
-          </span>
         </div>
 
         {/* Dropdown Selectors */}
@@ -235,7 +251,11 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
               value={period}
             >
               {periodChips.map((chip) => (
-                <option key={chip.id} className="bg-surface-container-lowest text-on-surface" value={chip.id}>
+                <option
+                  key={chip.id}
+                  className="bg-surface-container-lowest text-on-surface"
+                  value={chip.id}
+                >
                   {chip.label}
                 </option>
               ))}
@@ -343,13 +363,19 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
                   Economia Total Líquida
                 </span>
                 <div className="text-[24px] leading-[30px] sm:text-[28px] font-bold text-on-surface flex items-baseline gap-1.5 tabular-nums break-words flex-wrap">
-                  {convertedSavings < 0 && <span>-</span>}
-                  {cfg.position === 'left' && (
-                    <span className="text-[15px] text-secondary font-semibold">{cfg.symbol}</span>
-                  )}
-                  <span>{formatNumberBR(Math.abs(convertedSavings))}</span>
-                  {cfg.position === 'right' && (
-                    <span className="text-[15px] text-secondary font-semibold">{cfg.symbol}</span>
+                  {isBalanceHidden ? (
+                    <span>••••••••</span>
+                  ) : (
+                    <>
+                      {convertedSavings < 0 && <span>-</span>}
+                      {cfg.position === 'left' && (
+                        <span className="text-[15px] text-secondary font-semibold">{cfg.symbol}</span>
+                      )}
+                      <span>{formatNumberBR(Math.abs(convertedSavings))}</span>
+                      {cfg.position === 'right' && (
+                        <span className="text-[15px] text-secondary font-semibold">{cfg.symbol}</span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -380,7 +406,7 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
                   {metrics.topExpenseTitle}
                 </span>
                 <span className="text-[14.5px] leading-snug text-tertiary font-bold tabular-nums block break-words">
-                  {formatMoney(metrics.topExpenseAmount, currency)}
+                  {isBalanceHidden ? '••••' : formatMoney(metrics.topExpenseAmount, currency)}
                 </span>
                 <span className="text-[10.5px] text-on-surface-variant block mt-0.5 leading-tight">
                   {metrics.topExpenseShare}
@@ -402,7 +428,7 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
                   Saída por Dia
                 </span>
                 <span className="text-[14.5px] leading-snug text-on-surface font-bold tabular-nums block break-words">
-                  {formatMoney(metrics.dailyAvg, currency)}
+                  {isBalanceHidden ? '••••' : formatMoney(metrics.dailyAvg, currency)}
                 </span>
                 <span className="text-[10.5px] text-secondary font-medium block mt-0.5 leading-tight">
                   {metrics.dailyDelta}
@@ -413,13 +439,117 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
         </div>
       </section>
 
+      {/* Styled Report Table Preview */}
+      <section className="rounded-2xl bg-surface-container-lowest shadow-sm overflow-hidden">
+        <div className="p-3 flex items-center justify-between gap-2 border-b border-surface-container">
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-bold text-on-surface leading-tight">
+              Tabela do Relatório
+            </h2>
+            <p className="text-[11.5px] text-on-surface-variant">
+              {activePeriodLabel} · {scopedTransactions.length} movimento
+              {scopedTransactions.length === 1 ? '' : 's'}
+            </p>
+          </div>
+          <button
+            className="text-[12px] font-semibold text-primary hover:underline cursor-pointer whitespace-nowrap shrink-0"
+            onClick={() => onNavigate('transacoes')}
+            type="button"
+          >
+            Gerir extrato
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-primary text-on-primary text-[11px] font-semibold">
+                <th className="py-2.5 px-2.5 whitespace-nowrap">Data</th>
+                <th className="py-2.5 px-2">Descrição & Conta</th>
+                <th className="py-2.5 px-2 text-center whitespace-nowrap">Estado</th>
+                <th className="py-2.5 px-2.5 text-right whitespace-nowrap">Valor</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-surface-container/70 text-[12px]">
+              {scopedTransactions.length === 0 ? (
+                <tr>
+                  <td className="py-6 px-3 text-center text-on-surface-variant" colSpan={4}>
+                    Sem movimentos para os filtros selecionados.
+                  </td>
+                </tr>
+              ) : (
+                scopedTransactions.map((tx, idx) => {
+                  const isIncome = tx.type === 'income';
+                  const dateBr = tx.date.split('-').reverse().slice(0, 2).join('/');
+                  const statusText =
+                    tx.status === 'completed' ? (isIncome ? 'Recebido' : 'Pago') : 'Pendente';
+                  return (
+                    <tr
+                      key={tx.id}
+                      className={idx % 2 === 1 ? 'bg-surface-container-low/55' : 'bg-surface-container-lowest'}
+                    >
+                      <td className="py-2.5 px-2.5 align-top text-on-surface-variant font-medium tabular-nums whitespace-nowrap">
+                        {dateBr}
+                      </td>
+                      <td className="py-2.5 px-2 align-top min-w-[130px]">
+                        <span className="font-semibold text-on-surface block leading-snug break-words">
+                          {tx.description}
+                        </span>
+                        <span className="text-[10.5px] text-on-surface-variant block leading-tight">
+                          {tx.category} · {tx.account}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-2 align-top text-center whitespace-nowrap">
+                        <span
+                          className={`text-[11px] font-semibold ${
+                            tx.status === 'pending' ? 'text-amber-800' : 'text-secondary'
+                          }`}
+                        >
+                          {statusText}
+                        </span>
+                      </td>
+                      <td
+                        className={`py-2.5 px-2.5 align-top text-right font-bold tabular-nums whitespace-nowrap ${
+                          isIncome ? 'text-secondary' : 'text-tertiary'
+                        }`}
+                      >
+                        {isBalanceHidden
+                          ? `${isIncome ? '+' : '-'}••••`
+                          : `${isIncome ? '+' : '-'}${formatMoney(tx.amount, currency)}`}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="bg-surface-container text-[12px] font-bold text-on-surface border-t border-surface-container-highest">
+                <td className="py-2.5 px-2.5" colSpan={2}>
+                  Saldo Líquido do Período
+                </td>
+                <td className="py-2.5 px-2 text-center text-[11px] text-primary whitespace-nowrap">
+                  {tableSummary.savingRate}%
+                </td>
+                <td
+                  className={`py-2.5 px-2.5 text-right tabular-nums whitespace-nowrap ${
+                    tableSummary.netBalance >= 0 ? 'text-secondary' : 'text-tertiary'
+                  }`}
+                >
+                  {isBalanceHidden
+                    ? '••••'
+                    : `${tableSummary.netBalance < 0 ? '-' : ''}${formatMoney(Math.abs(tableSummary.netBalance), currency)}`}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
       {/* Interactive Cash Flow Chart (Income vs Expense) */}
       <section className="p-3 rounded-2xl bg-surface-container-lowest shadow-sm space-y-2.5">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[16px] font-bold text-on-surface">
-              Evolução Mensal
-            </span>
+            <span className="text-[16px] font-bold text-on-surface">Evolução Mensal</span>
             <div className="flex items-center gap-2.5 shrink-0">
               <div className="flex items-center gap-1 whitespace-nowrap">
                 <span className="w-2 h-2 rounded-full bg-secondary shrink-0" />
@@ -453,24 +583,8 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
               </linearGradient>
             </defs>
 
-            <line
-              stroke="#eaedff"
-              strokeDasharray="3,3"
-              strokeWidth="1"
-              x1="0"
-              x2="320"
-              y1="30"
-              y2="30"
-            />
-            <line
-              stroke="#eaedff"
-              strokeDasharray="3,3"
-              strokeWidth="1"
-              x1="0"
-              x2="320"
-              y1="80"
-              y2="80"
-            />
+            <line stroke="#eaedff" strokeDasharray="3,3" strokeWidth="1" x1="0" x2="320" y1="30" y2="30" />
+            <line stroke="#eaedff" strokeDasharray="3,3" strokeWidth="1" x1="0" x2="320" y1="80" y2="80" />
             <line stroke="#eaedff" strokeWidth="1" x1="0" x2="320" y1="130" y2="130" />
 
             {monthlySeries.map((m, idx) => {
@@ -550,10 +664,10 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
             </div>
             <div className="flex items-center gap-2 flex-wrap text-[11.5px] tabular-nums">
               <span className="text-secondary font-bold">
-                +{formatMoney(activeSeriesItem.income, currency)}
+                {isBalanceHidden ? '+••••' : `+${formatMoney(activeSeriesItem.income, currency)}`}
               </span>
               <span className="text-tertiary font-bold">
-                -{formatMoney(activeSeriesItem.expense, currency)}
+                {isBalanceHidden ? '-••••' : `-${formatMoney(activeSeriesItem.expense, currency)}`}
               </span>
               <span className="px-1.5 py-0.5 rounded bg-surface-container-lowest font-bold text-primary">
                 {activeSeriesItem.savePct}
@@ -569,13 +683,6 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
           <span className="text-[15px] font-bold text-on-surface">
             Despesas por Categoria
           </span>
-          <button
-            className="text-[12px] font-semibold text-primary cursor-pointer hover:underline whitespace-nowrap shrink-0"
-            onClick={() => onNavigate('transacoes')}
-            type="button"
-          >
-            Ver extrato ({scopedTransactions.length})
-          </button>
         </div>
 
         <div className="p-3 rounded-2xl bg-surface-container-lowest shadow-sm space-y-2.5">
@@ -593,9 +700,7 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
                       <div
                         className={`w-8 h-8 rounded-lg ${style.bg} ${style.color} flex items-center justify-center shrink-0`}
                       >
-                        <span className="material-symbols-outlined text-[18px]">
-                          {style.icon}
-                        </span>
+                        <span className="material-symbols-outlined text-[18px]">{style.icon}</span>
                       </div>
                       <div className="min-w-0 flex-1">
                         <span className="text-[13px] font-semibold text-on-surface block leading-snug break-words">
@@ -608,7 +713,7 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
                     </div>
                     <div className="text-right shrink-0">
                       <span className="text-[14px] font-bold text-on-surface tabular-nums block leading-tight whitespace-nowrap">
-                        {formatMoney(cat.amount, currency)}
+                        {isBalanceHidden ? '••••' : formatMoney(cat.amount, currency)}
                       </span>
                       <span className="text-[11px] text-on-surface-variant font-medium tabular-nums">
                         {cat.percentage}% do total
@@ -633,7 +738,7 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
         <div className="flex items-center justify-between gap-2">
           <span className="text-[16px] font-bold text-on-surface">Fontes de Receita</span>
           <span className="text-[12px] text-secondary font-bold tabular-nums whitespace-nowrap shrink-0">
-            {formatMoney(metrics.incomeTotal, currency)} Total
+            {isBalanceHidden ? '••••' : formatMoney(metrics.incomeTotal, currency)} Total
           </span>
         </div>
 
@@ -662,7 +767,7 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
                 </div>
                 <div className="min-w-0">
                   <span className="text-[14.5px] leading-snug text-on-surface font-bold tabular-nums block break-words">
-                    {formatMoney(src.amount, currency)}
+                    {isBalanceHidden ? '••••' : formatMoney(src.amount, currency)}
                   </span>
                   <span className="text-[10.5px] text-on-surface-variant block leading-tight">
                     {src.share}
@@ -672,147 +777,6 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
             ))}
           </div>
         )}
-      </section>
-
-      {/* Complete Export Control Panel */}
-      <section className="p-3 rounded-2xl bg-surface-container-lowest shadow-sm space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <span className="text-[16px] font-bold text-on-surface block">
-              Central de Exportação
-            </span>
-            <span className="text-[12px] text-on-surface-variant block">
-              Baixe os registros contábeis originais
-            </span>
-          </div>
-          <div className="w-9 h-9 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-[20px]">file_download</span>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <label className="text-[12px] font-semibold text-on-surface-variant block mb-1.5">
-              Formato do Arquivo
-            </label>
-            <div className="flex gap-2">
-              <button
-                className={
-                  exportFormat === 'csv'
-                    ? 'flex-1 min-w-0 flex items-center gap-2 p-2.5 rounded-xl bg-primary text-on-primary text-left transition-colors cursor-pointer'
-                    : 'flex-1 min-w-0 flex items-center gap-2 p-2.5 rounded-xl bg-surface-container text-on-surface-variant text-left transition-colors cursor-pointer'
-                }
-                onClick={() => setExportFormat('csv')}
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[19px] shrink-0">table_view</span>
-                <div className="min-w-0 flex-1">
-                  <span className="text-[12px] font-semibold block leading-tight">
-                    Planilha CSV
-                  </span>
-                  <span
-                    className={`text-[10px] leading-tight block ${
-                      exportFormat === 'csv' ? 'text-on-primary-container' : 'text-on-surface-variant'
-                    }`}
-                  >
-                    Excel, Sheets, Contábil
-                  </span>
-                </div>
-              </button>
-
-              <button
-                className={
-                  exportFormat === 'pdf'
-                    ? 'flex-1 min-w-0 flex items-center gap-2 p-2.5 rounded-xl bg-primary text-on-primary text-left transition-colors cursor-pointer'
-                    : 'flex-1 min-w-0 flex items-center gap-2 p-2.5 rounded-xl bg-surface-container text-on-surface-variant text-left transition-colors cursor-pointer'
-                }
-                onClick={() => setExportFormat('pdf')}
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[19px] shrink-0">
-                  picture_as_pdf
-                </span>
-                <div className="min-w-0 flex-1">
-                  <span className="text-[12px] font-semibold block leading-tight">
-                    Resumo PDF
-                  </span>
-                  <span
-                    className={`text-[10px] leading-tight block ${
-                      exportFormat === 'pdf' ? 'text-on-primary-container' : 'text-on-surface-variant'
-                    }`}
-                  >
-                    Relatório Imprimível
-                  </span>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-[12px] font-semibold text-on-surface-variant block mb-1.5">
-              Tipos Inclusos
-            </label>
-            <div className="flex items-center gap-2">
-              <label className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-surface-container-low cursor-pointer">
-                <input
-                  checked={includeIncome}
-                  className="w-4 h-4 rounded accent-primary shrink-0"
-                  onChange={(e) => setIncludeIncome(e.target.checked)}
-                  type="checkbox"
-                />
-                <span className="text-[12px] font-semibold text-on-surface whitespace-nowrap">
-                  Receitas
-                </span>
-              </label>
-              <label className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-surface-container-low cursor-pointer">
-                <input
-                  checked={includeExpense}
-                  className="w-4 h-4 rounded accent-primary shrink-0"
-                  onChange={(e) => setIncludeExpense(e.target.checked)}
-                  type="checkbox"
-                />
-                <span className="text-[12px] font-semibold text-on-surface whitespace-nowrap">
-                  Despesas
-                </span>
-              </label>
-              <label className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl bg-surface-container-low cursor-pointer">
-                <input
-                  checked={includeInvestments}
-                  className="w-4 h-4 rounded accent-primary shrink-0"
-                  onChange={(e) => setIncludeInvestments(e.target.checked)}
-                  type="checkbox"
-                />
-                <span className="text-[12px] font-semibold text-on-surface whitespace-nowrap">
-                  Aportes
-                </span>
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <div className="pt-1">
-          <button
-            className="w-full py-3 px-4 bg-primary text-on-primary rounded-xl text-[13px] font-semibold flex items-center justify-center gap-2 shadow-lg shadow-primary/25 active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap"
-            onClick={() => triggerDownload(false)}
-            type="button"
-          >
-            <span className="material-symbols-outlined text-[20px]">download_for_offline</span>
-            <span>
-              {exportFormat === 'pdf'
-                ? 'Gerar e Baixar Resumo (.pdf)'
-                : 'Baixar Extrato Completo (.csv)'}
-            </span>
-          </button>
-
-          {exportFeedback && (
-            <div className="mt-2.5 flex items-center gap-2 p-2.5 rounded-xl bg-secondary-container text-on-secondary-container">
-              <span className="material-symbols-outlined text-[18px]">check_circle</span>
-              <span className="font-body-sm text-body-sm font-semibold">
-                Arquivo gerado e baixado com sucesso!
-              </span>
-            </div>
-          )}
-        </div>
       </section>
     </div>
   );

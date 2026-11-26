@@ -1,345 +1,533 @@
 import { useState, type FormEvent } from 'react';
-import { isValidEmail } from '../utils/finance';
+import { authApi, type AuthResponse } from '../services/api';
+import { isValidEmail, isValidPhoneMZ } from '../utils/finance';
 
 interface LoginScreenProps {
-  initialEmail?: string;
-  onAuthenticated: (email: string) => void;
-  onBack: () => void;
+  initialIdentifier?: string;
+  onAuthenticated: (auth: AuthResponse, mode: 'login' | 'register') => void;
 }
 
-export function LoginScreen({ initialEmail = '', onAuthenticated }: LoginScreenProps) {
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
-  const [email, setEmail] = useState(initialEmail);
+export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginScreenProps) {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+
+  // Login fields
+  const [identifier, setIdentifier] = useState(initialIdentifier);
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+
+  // Register fields
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
-  const [authStatus, setAuthStatus] = useState<'idle' | 'loading' | 'success'>('idle');
-  const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [showRegConfirm, setShowRegConfirm] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
 
-  const emailIsValid = isValidEmail(email);
+  const [loadingMode, setLoadingMode] = useState<'idle' | 'submit'>('idle');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleLoginSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!emailIsValid || password.length < 4) {
-      setFeedbackMsg('Informe um e-mail válido e senha com ao menos 4 caracteres.');
+    if (!identifier.trim() || !loginPassword) {
+      setErrorMsg('Informe o número de telemóvel ou e-mail e a sua senha.');
       return;
     }
 
-    setFeedbackMsg(null);
-    setAuthStatus('loading');
-
-    setTimeout(() => {
-      setAuthStatus('success');
-      setTimeout(() => {
-        onAuthenticated(email.trim());
-      }, 450);
-    }, 650);
+    setErrorMsg(null);
+    setLoadingMode('submit');
+    try {
+      const auth = await authApi.login(identifier.trim(), loginPassword);
+      onAuthenticated(auth, 'login');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Falha ao iniciar sessão.');
+      setLoadingMode('idle');
+    }
   };
 
-  const handleBiometric = () => {
-    if (authStatus !== 'idle') return;
-    setAuthStatus('loading');
-    setFeedbackMsg('Identidade biométrica confirmada!');
-    setTimeout(() => {
-      setAuthStatus('success');
-      onAuthenticated(email.trim() || 'edson.machava@fintrack.co.mz');
-    }, 550);
+  const handleRegisterSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
+    const trimmedEmail = email.trim();
+    const trimmedAddress = address.trim();
+
+    if (trimmedName.length < 2) {
+      setErrorMsg('Informe o seu nome completo (mínimo 2 caracteres).');
+      return;
+    }
+    if (!isValidPhoneMZ(trimmedPhone)) {
+      setErrorMsg('Informe um número de telemóvel válido (mínimo 9 dígitos, ex: +258 84 123 4567).');
+      return;
+    }
+    if (trimmedEmail && !isValidEmail(trimmedEmail)) {
+      setErrorMsg('O e-mail informado não tem um formato válido.');
+      return;
+    }
+    if (trimmedAddress.length < 3) {
+      setErrorMsg('Informe o seu endereço (ex: Bairro, Cidade).');
+      return;
+    }
+    if (password.length < 6) {
+      setErrorMsg('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setErrorMsg('A senha e a confirmação de senha não coincidem.');
+      return;
+    }
+    if (!acceptedTerms) {
+      setErrorMsg('É obrigatório concordar com os Termos de Uso e Política de Privacidade.');
+      return;
+    }
+
+    setErrorMsg(null);
+    setLoadingMode('submit');
+    try {
+      const auth = await authApi.register({
+        name: trimmedName,
+        phone: trimmedPhone,
+        email: trimmedEmail,
+        address: trimmedAddress,
+        password,
+        confirmPassword,
+        acceptedTerms,
+      });
+      onAuthenticated(auth, 'register');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Não foi possível concluir o cadastro.');
+      setLoadingMode('idle');
+    }
   };
 
-  const handleSocial = (provider: 'Google' | 'Apple') => {
-    if (authStatus !== 'idle') return;
-    setAuthStatus('loading');
-    setFeedbackMsg(`Iniciando sessão com ${provider}...`);
-    setTimeout(() => {
-      setAuthStatus('success');
-      onAuthenticated(`edson.${provider.toLowerCase()}@fintrack.co.mz`);
-    }, 550);
+  const switchMode = (next: 'login' | 'register') => {
+    setMode(next);
+    setErrorMsg(null);
   };
 
   return (
-    <div className="flex flex-col w-full px-margin pb-space-xl">
-      <div className="relative w-full overflow-hidden flex flex-col items-center pt-space-md">
-        {/* Brand / App Welcome Header */}
-        <div className="flex flex-col items-center text-center w-full max-w-sm">
-          <div className="relative flex items-center justify-center mb-space-sm">
-            <div className="w-14 h-14 rounded-2xl bg-primary-container text-on-primary flex items-center justify-center shadow-lg shadow-primary-container/20">
-              <span
-                className="material-symbols-outlined text-[30px]"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                insights
-              </span>
-            </div>
-            <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-secondary flex items-center justify-center">
-              <span className="w-2 h-2 rounded-full bg-surface-container-lowest" />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 mb-space-xs">
-            <span className="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight">
-              FinTrack
-            </span>
-            <span className="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-[10px] uppercase font-bold tracking-wider">
-              PRO
+    <div className="flex-1 flex flex-col w-full px-4 py-6">
+      <div className="w-full max-w-[380px] m-auto flex flex-col items-center">
+        {/* Header / Brand Mark */}
+        <div className="flex flex-col items-center text-center mb-5">
+          <div className="w-14 h-14 rounded-2xl bg-primary text-on-primary flex items-center justify-center shadow-lg shadow-primary/20 mb-3">
+            <span
+              className="material-symbols-outlined text-[28px]"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              account_balance_wallet
             </span>
           </div>
-
-          <h1 className="font-headline-md text-headline-md text-on-surface font-bold tracking-tight">
-            {isRegisterMode ? 'Crie sua conta grátis' : 'Bem-vindo de volta'}
+          <h1 className="text-[22px] leading-tight text-on-surface font-bold tracking-tight">
+            {mode === 'login' ? 'Aceder à sua conta' : 'Criar Conta FinTrack'}
           </h1>
-          <p className="font-body-md text-body-md text-on-surface-variant mt-1 max-w-xs leading-relaxed">
-            {isRegisterMode
-              ? 'Comece a organizar suas receitas, despesas e metas em tempo real.'
-              : 'Acesse sua conta para gerenciar suas finanças pessoais em tempo real.'}
+          <p className="text-[12.5px] text-on-surface-variant mt-1 max-w-xs leading-snug">
+            {mode === 'login'
+              ? 'Entre com o seu número de telemóvel ou e-mail e senha.'
+              : 'Registe os seus dados para gerir finanças em Meticais (MT) ou USD.'}
           </p>
         </div>
 
-        {/* Login Form Card */}
-        <div className="w-full max-w-sm mt-space-lg bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm">
-          <form className="flex flex-col gap-space-md" onSubmit={handleSubmit}>
-            {/* Email Field */}
-            <div className="flex flex-col gap-1.5">
-              <label
-                className="font-label-sm text-label-sm text-on-surface-variant flex items-center justify-between"
-                htmlFor="emailInput"
-              >
-                <span>E-mail</span>
-                {emailIsValid && (
-                  <span className="text-secondary font-label-sm flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                    Válido
-                  </span>
-                )}
-              </label>
-              <div className="relative flex items-center">
-                <span className="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">
-                  mail
-                </span>
-                <input
-                  autoComplete="email"
-                  className="w-full h-12 pl-11 pr-4 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary-container transition-all"
-                  id="emailInput"
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="exemplo@fintrack.co.mz"
-                  required
-                  type="email"
-                  value={email}
-                />
-              </div>
-            </div>
+        {/* Mode Segmented Control */}
+        <div className="w-full grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-surface-container-low mb-3">
+          <button
+            className={`h-10 rounded-lg text-[13px] font-semibold transition-all cursor-pointer ${
+              mode === 'login'
+                ? 'bg-surface-container-lowest text-primary shadow-xs'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+            onClick={() => switchMode('login')}
+            type="button"
+          >
+            Entrar
+          </button>
+          <button
+            className={`h-10 rounded-lg text-[13px] font-semibold transition-all cursor-pointer ${
+              mode === 'register'
+                ? 'bg-surface-container-lowest text-primary shadow-xs'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+            onClick={() => switchMode('register')}
+            type="button"
+          >
+            Criar Conta
+          </button>
+        </div>
 
-            {/* Password Field */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
+        {/* Form Card */}
+        <div className="w-full bg-surface-container-lowest rounded-2xl p-4 shadow-sm space-y-3">
+          {errorMsg && (
+            <div
+              className="p-2.5 rounded-xl bg-error-container text-on-error-container flex items-start gap-2 text-[12px] font-medium"
+              role="alert"
+            >
+              <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">error</span>
+              <span className="leading-snug break-words">{errorMsg}</span>
+            </div>
+          )}
+
+          {mode === 'login' ? (
+            <form className="space-y-3" onSubmit={handleLoginSubmit}>
+              <div className="space-y-1">
                 <label
-                  className="font-label-sm text-label-sm text-on-surface-variant"
-                  htmlFor="passwordInput"
+                  className="text-[12px] font-semibold text-on-surface-variant block"
+                  htmlFor="loginIdentifier"
+                >
+                  Número de Telemóvel ou E-mail
+                </label>
+                <div className="relative flex items-center">
+                  <span className="material-symbols-outlined absolute left-3 text-outline text-[19px] pointer-events-none">
+                    person
+                  </span>
+                  <input
+                    autoComplete="username"
+                    className="w-full h-11 pl-10 pr-3 rounded-xl bg-surface-container-low text-on-surface text-[13.5px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                    id="loginIdentifier"
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder="+258 84 123 4567 ou e-mail"
+                    required
+                    type="text"
+                    value={identifier}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label
+                  className="text-[12px] font-semibold text-on-surface-variant block"
+                  htmlFor="loginPassword"
                 >
                   Senha
                 </label>
-                {!isRegisterMode && (
+                <div className="relative flex items-center">
+                  <span className="material-symbols-outlined absolute left-3 text-outline text-[19px] pointer-events-none">
+                    lock
+                  </span>
+                  <input
+                    autoComplete="current-password"
+                    className="w-full h-11 pl-10 pr-11 rounded-xl bg-surface-container-low text-on-surface text-[13.5px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                    id="loginPassword"
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="Digite a sua senha"
+                    required
+                    type={showLoginPassword ? 'text' : 'password'}
+                    value={loginPassword}
+                  />
                   <button
-                    className="font-label-sm text-label-sm text-primary font-semibold hover:underline active:opacity-75 transition-opacity cursor-pointer"
-                    onClick={() =>
-                      setFeedbackMsg('Link de redefinição enviado para seu e-mail cadastrado.')
-                    }
+                    aria-label="Mostrar ou ocultar senha"
+                    className="absolute right-1.5 w-9 h-9 flex items-center justify-center rounded-lg text-outline hover:text-on-surface cursor-pointer"
+                    onClick={() => setShowLoginPassword((v) => !v)}
                     type="button"
                   >
-                    Esqueceu a senha?
+                    <span className="material-symbols-outlined text-[19px]">
+                      {showLoginPassword ? 'visibility_off' : 'visibility'}
+                    </span>
                   </button>
-                )}
-              </div>
-              <div className="relative flex items-center">
-                <span className="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">
-                  lock
-                </span>
-                <input
-                  autoComplete={isRegisterMode ? 'new-password' : 'current-password'}
-                  className="w-full h-12 pl-11 pr-12 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary-container transition-all"
-                  id="passwordInput"
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Digite sua senha"
-                  required
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                />
-                <button
-                  aria-label="Alternar visibilidade da senha"
-                  className="absolute right-2 w-9 h-9 flex items-center justify-center rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-[20px]">
-                    {showPassword ? 'visibility_off' : 'visibility'}
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* Remember Me Checkbox */}
-            <div className="flex items-center justify-between pt-0.5">
-              <label className="flex items-center gap-2.5 cursor-pointer select-none group">
-                <input
-                  checked={rememberMe}
-                  className="sr-only peer"
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  type="checkbox"
-                />
-                <div
-                  className={`w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
-                    rememberMe ? 'bg-primary-container' : 'bg-surface-container'
-                  }`}
-                >
-                  <span
-                    className={`material-symbols-outlined text-on-primary text-[16px] transition-opacity ${
-                      rememberMe ? 'opacity-100' : 'opacity-0'
-                    }`}
-                  >
-                    check
-                  </span>
                 </div>
-                <span className="font-body-sm text-body-sm text-on-surface font-medium group-hover:text-primary transition-colors">
-                  Lembrar meu acesso
+              </div>
+
+              <button
+                className="w-full h-11 rounded-xl bg-primary text-on-primary text-[14px] font-semibold flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:bg-primary-container active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60"
+                disabled={loadingMode !== 'idle'}
+                type="submit"
+              >
+                <span>{loadingMode === 'submit' ? 'A entrar...' : 'Entrar na Conta'}</span>
+                <span className="material-symbols-outlined text-[19px]">
+                  {loadingMode === 'submit' ? 'progress_activity' : 'arrow_forward'}
                 </span>
-              </label>
-            </div>
+              </button>
+            </form>
+          ) : (
+            <form className="space-y-2.5" onSubmit={handleRegisterSubmit}>
+              <div className="space-y-1">
+                <label
+                  className="text-[12px] font-semibold text-on-surface-variant block"
+                  htmlFor="regName"
+                >
+                  Nome Completo *
+                </label>
+                <div className="relative flex items-center">
+                  <span className="material-symbols-outlined absolute left-3 text-outline text-[19px] pointer-events-none">
+                    badge
+                  </span>
+                  <input
+                    autoComplete="name"
+                    className="w-full h-11 pl-10 pr-3 rounded-xl bg-surface-container-low text-on-surface text-[13.5px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                    id="regName"
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Ex: Edson Machava"
+                    required
+                    type="text"
+                    value={name}
+                  />
+                </div>
+              </div>
 
-            {/* Primary Action Button */}
-            <button
-              className={`w-full h-12 mt-1 rounded-xl text-on-primary font-label-md text-label-md flex items-center justify-center gap-2 shadow-md shadow-primary-container/25 hover:opacity-95 active:scale-[0.98] transition-all cursor-pointer ${
-                authStatus === 'success' ? 'bg-secondary' : 'bg-primary-container'
-              }`}
-              disabled={authStatus !== 'idle'}
-              type="submit"
-            >
-              <span>
-                {authStatus === 'loading'
-                  ? 'Autenticando...'
-                  : authStatus === 'success'
-                    ? 'Conectado!'
-                    : isRegisterMode
-                      ? 'Criar Minha Conta'
-                      : 'Entrar na Minha Conta'}
-              </span>
-              <span
-                className={`material-symbols-outlined text-[20px] ${
-                  authStatus === 'loading' ? 'animate-spin' : ''
-                }`}
+              <div className="space-y-1">
+                <label
+                  className="text-[12px] font-semibold text-on-surface-variant block"
+                  htmlFor="regPhone"
+                >
+                  Número de Telemóvel *
+                </label>
+                <div className="relative flex items-center">
+                  <span className="material-symbols-outlined absolute left-3 text-outline text-[19px] pointer-events-none">
+                    call
+                  </span>
+                  <input
+                    autoComplete="tel"
+                    className="w-full h-11 pl-10 pr-3 rounded-xl bg-surface-container-low text-on-surface text-[13.5px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                    id="regPhone"
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+258 84 123 4567"
+                    required
+                    type="tel"
+                    value={phone}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label
+                  className="text-[12px] font-semibold text-on-surface-variant flex items-center justify-between"
+                  htmlFor="regEmail"
+                >
+                  <span>E-mail</span>
+                  <span className="text-[11px] font-normal text-outline">Opcional</span>
+                </label>
+                <div className="relative flex items-center">
+                  <span className="material-symbols-outlined absolute left-3 text-outline text-[19px] pointer-events-none">
+                    mail
+                  </span>
+                  <input
+                    autoComplete="email"
+                    className="w-full h-11 pl-10 pr-3 rounded-xl bg-surface-container-low text-on-surface text-[13.5px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                    id="regEmail"
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="exemplo@fintrack.co.mz (opcional)"
+                    type="email"
+                    value={email}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label
+                  className="text-[12px] font-semibold text-on-surface-variant block"
+                  htmlFor="regAddress"
+                >
+                  Endereço *
+                </label>
+                <div className="relative flex items-center">
+                  <span className="material-symbols-outlined absolute left-3 text-outline text-[19px] pointer-events-none">
+                    location_on
+                  </span>
+                  <input
+                    autoComplete="street-address"
+                    className="w-full h-11 pl-10 pr-3 rounded-xl bg-surface-container-low text-on-surface text-[13.5px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                    id="regAddress"
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Ex: Av. 24 de Julho, Polana, Maputo"
+                    required
+                    type="text"
+                    value={address}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <label
+                    className="text-[12px] font-semibold text-on-surface-variant block"
+                    htmlFor="regPassword"
+                  >
+                    Senha *
+                  </label>
+                  <div className="relative flex items-center">
+                    <span className="material-symbols-outlined absolute left-3 text-outline text-[18px] pointer-events-none">
+                      lock
+                    </span>
+                    <input
+                      autoComplete="new-password"
+                      className="w-full h-11 pl-9 pr-10 rounded-xl bg-surface-container-low text-on-surface text-[13px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                      id="regPassword"
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Mín. 6 caracteres"
+                      required
+                      type={showRegPassword ? 'text' : 'password'}
+                      value={password}
+                    />
+                    <button
+                      aria-label="Mostrar senha"
+                      className="absolute right-1 w-8 h-8 flex items-center justify-center rounded-lg text-outline hover:text-on-surface cursor-pointer"
+                      onClick={() => setShowRegPassword((v) => !v)}
+                      type="button"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">
+                        {showRegPassword ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label
+                    className="text-[12px] font-semibold text-on-surface-variant block"
+                    htmlFor="regConfirmPassword"
+                  >
+                    Confirmar Senha *
+                  </label>
+                  <div className="relative flex items-center">
+                    <span className="material-symbols-outlined absolute left-3 text-outline text-[18px] pointer-events-none">
+                      verified_user
+                    </span>
+                    <input
+                      autoComplete="new-password"
+                      className="w-full h-11 pl-9 pr-10 rounded-xl bg-surface-container-low text-on-surface text-[13px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                      id="regConfirmPassword"
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repita a senha"
+                      required
+                      type={showRegConfirm ? 'text' : 'password'}
+                      value={confirmPassword}
+                    />
+                    <button
+                      aria-label="Mostrar confirmação de senha"
+                      className="absolute right-1 w-8 h-8 flex items-center justify-center rounded-lg text-outline hover:text-on-surface cursor-pointer"
+                      onClick={() => setShowRegConfirm((v) => !v)}
+                      type="button"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">
+                        {showRegConfirm ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {confirmPassword.length > 0 && password !== confirmPassword && (
+                <p className="text-[11px] font-semibold text-tertiary">
+                  As senhas ainda não coincidem.
+                </p>
+              )}
+
+              {/* Mandatory Terms Checkbox */}
+              <div className="pt-1">
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <input
+                    checked={acceptedTerms}
+                    className="mt-0.5 w-4 h-4 rounded accent-primary shrink-0 cursor-pointer"
+                    id="acceptTermsCheckbox"
+                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    type="checkbox"
+                  />
+                  <span className="text-[12px] text-on-surface leading-snug">
+                    Concordo com os{' '}
+                    <button
+                      className="text-primary font-semibold hover:underline cursor-pointer"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setTermsModalOpen(true);
+                      }}
+                      type="button"
+                    >
+                      Termos de Uso e Política de Privacidade
+                    </button>{' '}
+                    (obrigatório)
+                  </span>
+                </label>
+              </div>
+
+              <button
+                className="w-full h-11 mt-1 rounded-xl bg-primary text-on-primary text-[14px] font-semibold flex items-center justify-center gap-2 shadow-md shadow-primary/20 hover:bg-primary-container active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60"
+                disabled={loadingMode !== 'idle'}
+                type="submit"
               >
-                {authStatus === 'loading'
-                  ? 'progress_activity'
-                  : authStatus === 'success'
-                    ? 'check'
-                    : 'arrow_forward'}
-              </span>
-            </button>
-
-            {/* Biometric Authentication Quick Option */}
-            <button
-              className="w-full h-12 rounded-xl bg-surface-container-high text-primary font-label-md text-label-md flex items-center justify-center gap-2.5 hover:bg-surface-container-highest active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60"
-              disabled={authStatus !== 'idle'}
-              onClick={handleBiometric}
-              type="button"
-            >
-              <span
-                className="material-symbols-outlined text-[22px]"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                fingerprint
-              </span>
-              <span>Entrar com Biometria</span>
-            </button>
-          </form>
-
-          {feedbackMsg && (
-            <div className="mt-space-sm p-space-sm rounded-xl bg-secondary-container text-on-secondary-container flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px]">verified</span>
-              <span className="font-label-sm text-label-sm font-semibold">{feedbackMsg}</span>
-            </div>
+                <span>{loadingMode === 'submit' ? 'A criar conta...' : 'Criar Minha Conta'}</span>
+                <span className="material-symbols-outlined text-[19px]">
+                  {loadingMode === 'submit' ? 'progress_activity' : 'person_add'}
+                </span>
+              </button>
+            </form>
           )}
         </div>
 
-        {/* Social Authentication Divider */}
-        <div className="w-full max-w-sm flex items-center gap-3 my-space-md px-space-xs">
-          <div className="h-[1px] flex-1 bg-surface-container-highest" />
-          <span className="font-label-sm text-label-sm text-outline font-medium tracking-wide">
-            Ou continue com
-          </span>
-          <div className="h-[1px] flex-1 bg-surface-container-highest" />
-        </div>
-
-        {/* Social Authentication Buttons */}
-        <div className="w-full max-w-sm grid grid-cols-2 gap-space-sm">
-          <button
-            className="h-12 rounded-xl bg-surface-container-lowest text-on-surface font-label-md text-label-md flex items-center justify-center gap-2.5 shadow-sm hover:bg-surface-container-low active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60"
-            disabled={authStatus !== 'idle'}
-            onClick={() => handleSocial('Google')}
-            type="button"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24">
-              <path
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                fill="#4285F4"
-              />
-              <path
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                fill="#34A853"
-              />
-              <path
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                fill="#FBBC05"
-              />
-              <path
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                fill="#EA4335"
-              />
-            </svg>
-            <span>Google</span>
-          </button>
-
-          <button
-            className="h-12 rounded-xl bg-surface-container-lowest text-on-surface font-label-md text-label-md flex items-center justify-center gap-2.5 shadow-sm hover:bg-surface-container-low active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60"
-            disabled={authStatus !== 'idle'}
-            onClick={() => handleSocial('Apple')}
-            type="button"
-          >
-            <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.85c.65-.79 1.09-1.9 0.97-3-.94.04-2.07.63-2.73 1.41-.58.67-1.09 1.76-.95 2.83 1.05.08 2.13-.53 2.71-1.24z" />
-            </svg>
-            <span>Apple</span>
-          </button>
-        </div>
-
-        {/* Registration Link Footer */}
-        <div className="mt-space-md text-center">
-          <p className="font-body-md text-body-md text-on-surface-variant">
-            {isRegisterMode ? 'Já possui uma conta?' : 'Ainda não tem uma conta?'}
-            <button
-              className="font-label-md text-label-md text-primary font-bold ml-1 hover:underline active:opacity-75 transition-opacity cursor-pointer"
-              onClick={() => {
-                setIsRegisterMode((prev) => !prev);
-                setFeedbackMsg(null);
-              }}
-              type="button"
-            >
-              {isRegisterMode ? 'Fazer login' : 'Cadastre-se grátis'}
-            </button>
-          </p>
-        </div>
-
-        {/* Bank-Grade Security Assurance Badge */}
-        <div className="mt-space-md w-full max-w-sm rounded-xl bg-surface-container-high/60 p-space-sm flex items-center justify-center gap-2 text-on-surface-variant">
-          <span
-            className="material-symbols-outlined text-[18px] text-secondary"
-            style={{ fontVariationSettings: "'FILL' 1" }}
-          >
-            verified_user
-          </span>
-          <span className="font-label-sm text-[11px] text-on-surface-variant font-medium tracking-tight">
-            Criptografia de ponta a ponta de nível bancário
-          </span>
+        <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-on-surface-variant text-center">
+          <span className="material-symbols-outlined text-[15px] text-secondary shrink-0">verified_user</span>
+          <span>Autenticação protegida com encriptação de senha no servidor</span>
         </div>
       </div>
+
+      {/* Terms Modal */}
+      {termsModalOpen && (
+        <div
+          aria-labelledby="termsModalTitle"
+          aria-modal="true"
+          className="fixed inset-0 z-[75] bg-inverse-surface/50 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setTermsModalOpen(false);
+          }}
+          role="dialog"
+        >
+          <div className="w-full max-w-sm bg-surface-container-lowest rounded-2xl p-4 shadow-2xl space-y-3">
+            <div className="flex items-center justify-between border-b border-surface-container pb-2">
+              <h2 className="text-[15px] font-bold text-on-surface" id="termsModalTitle">
+                Termos de Uso & Privacidade
+              </h2>
+              <button
+                aria-label="Fechar termos"
+                className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant cursor-pointer"
+                onClick={() => setTermsModalOpen(false)}
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+            <div className="text-[12px] text-on-surface-variant space-y-2 max-h-60 overflow-y-auto leading-relaxed pr-1">
+              <p>
+                <strong>1. Uso da Plataforma:</strong> O FinTrack Moçambique é uma ferramenta de
+                gestão financeira pessoal em Meticais (MT) e Dólares (USD) para registo voluntário de
+                receitas, despesas, orçamentos e metas.
+              </p>
+              <p>
+                <strong>2. Privacidade e Dados:</strong> Os seus dados de perfil (nome, telefone,
+                e-mail opcional, endereço e foto) e movimentos financeiros são mantidos de forma
+                privada e associados exclusivamente à sua conta autenticada.
+              </p>
+              <p>
+                <strong>3. Segurança da Senha:</strong> A sua senha é protegida com hash criptográfico
+                seguro no servidor e nunca é exibida em texto simples.
+              </p>
+              <p>
+                <strong>4. Suporte:</strong> Em caso de dúvidas ou recuperação de acesso, utilize o
+                canal oficial de suporte disponível na página de Perfil.
+              </p>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                className="flex-1 h-10 rounded-xl bg-surface-container text-on-surface text-[12.5px] font-semibold cursor-pointer"
+                onClick={() => setTermsModalOpen(false)}
+                type="button"
+              >
+                Fechar
+              </button>
+              <button
+                className="flex-1 h-10 rounded-xl bg-primary text-on-primary text-[12.5px] font-semibold cursor-pointer"
+                onClick={() => {
+                  setAcceptedTerms(true);
+                  setTermsModalOpen(false);
+                }}
+                type="button"
+              >
+                Aceitar Termos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

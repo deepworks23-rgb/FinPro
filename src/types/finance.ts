@@ -9,9 +9,48 @@ export type AppScreen =
   | 'transacoes'
   | 'orcamentos'
   | 'relatorios'
+  | 'perfil'
   | 'login';
 
 export type ReportPeriod = 'mes' | 'trimestre' | 'ano' | 'custom';
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  avatarDataUrl: string;
+  isDemo: boolean;
+  hasPassword: boolean;
+  createdAt: string;
+}
+
+export interface UserWorkspacePayload {
+  transactions: Transaction[];
+  budgets: BudgetCategory[];
+  goals: FinancialGoal[];
+  currency: CurrencyCode;
+  isBalanceHidden: boolean;
+  alertSettings: AlertSettings;
+  readAlertSignatures: string[];
+  updatedAt?: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  code: string;
+  userId: string;
+  userName: string;
+  userPhone: string;
+  userEmail: string;
+  subject: string;
+  category: string;
+  contactChannel: string;
+  message: string;
+  status: 'aberto';
+  createdAt: string;
+}
 
 export interface Transaction {
   id: string;

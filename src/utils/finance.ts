@@ -1,3 +1,5 @@
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { CURRENCY_CONFIG } from '../data/seed';
 import type {
   AlertSettings,
@@ -578,6 +580,300 @@ export function buildTransactionsCSV(
   return '\uFEFF' + [headers.join(';'), ...rows].join('\r\n');
 }
 
+export interface StyledReportExportParams {
+  transactions: Transaction[];
+  currency: CurrencyCode;
+  periodLabel: string;
+  userName?: string;
+  userPhone?: string;
+  generatedAt?: Date;
+}
+
+export function buildStyledReportCSV({
+  transactions,
+  currency,
+  periodLabel,
+  userName = 'Utilizador FinTrack',
+  userPhone = '',
+  generatedAt = new Date(),
+}: StyledReportExportParams): string {
+  const cfg = CURRENCY_CONFIG[currency] ?? CURRENCY_CONFIG.MZN;
+  const summary = computeTransactionSummary(transactions);
+  const sorted = [...transactions].sort((a, b) =>
+    `${b.date}T${b.time ?? '00:00'}`.localeCompare(`${a.date}T${a.time ?? '00:00'}`)
+  );
+
+  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const lines: string[] = [
+    [esc('FINTRACK MOÇAMBIQUE — RELATÓRIO FINANCEIRO'), esc(''), esc(''), esc(''), esc(''), esc(''), esc(''), esc('')].join(';'),
+    [esc('Titular'), esc(userName), esc('Contacto'), esc(userPhone || 'N/A'), esc('Período'), esc(periodLabel), esc('Moeda'), esc(`${currency} (${cfg.symbol})`)].join(';'),
+    [esc('Emissão'), esc(toLocalISODate(generatedAt)), esc('Total Receitas'), esc(formatMoney(summary.totalIncome, currency)), esc('Total Despesas'), esc(formatMoney(summary.totalExpense, currency)), esc('Saldo Líquido'), esc(`${summary.netBalance < 0 ? '-' : ''}${formatMoney(Math.abs(summary.netBalance), currency)}`)].join(';'),
+    '',
+    ['Data', 'Hora', 'Descrição', 'Categoria', 'Conta / Carteira', 'Tipo', 'Estado', `Valor (${cfg.symbol})`].map(esc).join(';'),
+  ];
+
+  for (const t of sorted) {
+    const converted = Number(t.amount) * cfg.rateFromBase;
+    const signed = t.type === 'income' ? converted : -converted;
+    const tipo = t.type === 'income' ? 'Receita' : 'Despesa';
+    const estado = t.status === 'completed' ? (t.type === 'income' ? 'Recebido' : 'Pago') : 'Pendente';
+    lines.push(
+      [
+        esc(t.date.split('-').reverse().join('/')),
+        esc(t.time || '—'),
+        esc(t.description),
+        esc(t.category),
+        esc(t.account),
+        esc(tipo),
+        esc(estado),
+        esc(signed.toFixed(2).replace('.', ',')),
+      ].join(';')
+    );
+  }
+
+  const netConverted = summary.netBalance * cfg.rateFromBase;
+  lines.push(
+    [
+      esc('TOTAL'),
+      esc(`${sorted.length} reg.`),
+      esc(`Poupança: ${summary.savingRate}%`),
+      esc('—'),
+      esc('—'),
+      esc('Líquido'),
+      esc('—'),
+      esc(netConverted.toFixed(2).replace('.', ',')),
+    ].join(';')
+  );
+
+  return '\uFEFF' + lines.join('\r\n');
+}
+
+export function buildStyledReportPDF({
+  transactions,
+  currency,
+  periodLabel,
+  userName = 'Utilizador FinTrack',
+  userPhone = '',
+  generatedAt = new Date(),
+}: StyledReportExportParams): Blob {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const contentWidth = pageWidth - margin * 2;
+  const summary = computeTransactionSummary(transactions);
+
+  // Header Banner
+  doc.setFillColor(53, 37, 205); // #3525cd
+  doc.rect(0, 0, pageWidth, 34, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(17);
+  doc.text('FinTrack Moçambique', margin, 14);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text(`Relatório Financeiro — ${periodLabel}`, margin, 21);
+  doc.setFontSize(8.5);
+  doc.setTextColor(218, 215, 255);
+  const metaParts = [
+    `Titular: ${userName}`,
+    userPhone ? `Tel: ${userPhone}` : null,
+    `Moeda: ${currency}`,
+    `Emissão: ${generatedAt.toLocaleDateString('pt-MZ')}`,
+  ].filter(Boolean);
+  doc.text(metaParts.join('  |  '), margin, 28);
+
+  // 3 Summary KPI Cards
+  const cardGap = 4;
+  const cardW = (contentWidth - cardGap * 2) / 3;
+  const cardY = 40;
+  const cardH = 21;
+
+  const kpis: Array<{
+    label: string;
+    value: string;
+    sub: string;
+    fill: [number, number, number];
+    accent: [number, number, number];
+  }> = [
+    {
+      label: 'ENTRADAS TOTAIS',
+      value: `+${formatMoney(summary.totalIncome, currency)}`,
+      sub: `${summary.incomeCount} registo(s)`,
+      fill: [236, 253, 245],
+      accent: [0, 108, 73],
+    },
+    {
+      label: 'SAÍDAS TOTAIS',
+      value: `-${formatMoney(summary.totalExpense, currency)}`,
+      sub: `${summary.expenseCount} lançamento(s)`,
+      fill: [254, 242, 242],
+      accent: [186, 26, 26],
+    },
+    {
+      label: 'SALDO LÍQUIDO',
+      value: `${summary.netBalance < 0 ? '-' : ''}${formatMoney(Math.abs(summary.netBalance), currency)}`,
+      sub: `Poupança: ${summary.savingRate}%`,
+      fill: [238, 240, 255],
+      accent: [53, 37, 205],
+    },
+  ];
+
+  kpis.forEach((kpi, idx) => {
+    const x = margin + idx * (cardW + cardGap);
+    doc.setFillColor(...kpi.fill);
+    doc.roundedRect(x, cardY, cardW, cardH, 3, 3, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(70, 69, 85);
+    doc.text(kpi.label, x + 4, cardY + 6.5);
+    doc.setFontSize(11.5);
+    doc.setTextColor(...kpi.accent);
+    doc.text(kpi.value, x + 4, cardY + 13.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(kpi.sub, x + 4, cardY + 18.2);
+  });
+
+  // Transactions Table Title
+  doc.setTextColor(19, 27, 46);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('Movimentos Registados', margin, 70);
+
+  const sorted = [...transactions].sort((a, b) =>
+    `${b.date}T${b.time ?? '00:00'}`.localeCompare(`${a.date}T${a.time ?? '00:00'}`)
+  );
+
+  const bodyRows =
+    sorted.length > 0
+      ? sorted.map((t) => {
+          const dateBr = t.date.split('-').reverse().join('/');
+          const status =
+            t.status === 'completed' ? (t.type === 'income' ? 'Recebido' : 'Pago') : 'Pendente';
+          const signedVal = `${t.type === 'income' ? '+' : '-'}${formatMoney(t.amount, currency)}`;
+          return [dateBr, t.description, t.category, t.account, status, signedVal];
+        })
+      : [['—', 'Sem lançamentos no período selecionado', '—', '—', '—', formatMoney(0, currency)]];
+
+  const netLabel = `${summary.netBalance < 0 ? '-' : ''}${formatMoney(Math.abs(summary.netBalance), currency)}`;
+
+  autoTable(doc, {
+    startY: 73,
+    margin: { left: margin, right: margin },
+    head: [['Data', 'Descrição', 'Categoria', 'Conta', 'Estado', 'Valor']],
+    body: bodyRows,
+    foot: [['TOTAL', `${sorted.length} movimento(s)`, '', '', `Taxa: ${summary.savingRate}%`, netLabel]],
+    theme: 'grid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 8.5,
+      cellPadding: { top: 3, right: 3, bottom: 3, left: 3 },
+      textColor: [19, 27, 46],
+      lineColor: [226, 231, 255],
+      lineWidth: 0.25,
+      valign: 'middle',
+    },
+    headStyles: {
+      fillColor: [53, 37, 205],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8.5,
+    },
+    footStyles: {
+      fillColor: [234, 237, 255],
+      textColor: [19, 27, 46],
+      fontStyle: 'bold',
+      fontSize: 9,
+    },
+    alternateRowStyles: {
+      fillColor: [248, 249, 255],
+    },
+    columnStyles: {
+      0: { cellWidth: 22 },
+      1: { cellWidth: 'auto' },
+      2: { cellWidth: 28 },
+      3: { cellWidth: 26 },
+      4: { cellWidth: 20, halign: 'center' },
+      5: { cellWidth: 30, halign: 'right', fontStyle: 'bold' },
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.column.index === 5) {
+        const raw = String(data.cell.raw ?? '');
+        if (raw.startsWith('+')) {
+          data.cell.styles.textColor = [0, 108, 73];
+        } else if (raw.startsWith('-')) {
+          data.cell.styles.textColor = [186, 26, 26];
+        }
+      }
+      if (data.section === 'body' && data.column.index === 4) {
+        const raw = String(data.cell.raw ?? '');
+        if (raw === 'Pendente') {
+          data.cell.styles.textColor = [180, 83, 9];
+        } else {
+          data.cell.styles.textColor = [0, 108, 73];
+        }
+      }
+    },
+  });
+
+  // Category Breakdown Table if expenses exist
+  const breakdown = computeExpenseBreakdown(transactions);
+  if (breakdown.length > 0) {
+    const lastY =
+      ((doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? 120) + 8;
+    if (lastY < pageHeight - 40) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10.5);
+      doc.setTextColor(19, 27, 46);
+      doc.text('Resumo de Despesas por Categoria', margin, lastY);
+
+      autoTable(doc, {
+        startY: lastY + 3,
+        margin: { left: margin, right: margin },
+        head: [['Categoria', 'Participação (%)', 'Total Gasto']],
+        body: breakdown.map((c) => [c.name, `${c.percentage}%`, formatMoney(c.amount, currency)]),
+        theme: 'striped',
+        styles: {
+          font: 'helvetica',
+          fontSize: 8.5,
+          cellPadding: 2.8,
+          textColor: [19, 27, 46],
+        },
+        headStyles: {
+          fillColor: [40, 48, 68],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+        },
+        columnStyles: {
+          1: { halign: 'center', cellWidth: 34 },
+          2: { halign: 'right', cellWidth: 42, fontStyle: 'bold' },
+        },
+      });
+    }
+  }
+
+  // Page footer across all pages
+  const totalPages = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(119, 117, 135);
+    doc.text(
+      `FinTrack Moçambique · Documento gerado automaticamente`,
+      margin,
+      pageHeight - 8
+    );
+    doc.text(`Página ${p} de ${totalPages}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+  }
+
+  return doc.output('blob');
+}
+
 function sanitizePdfText(text: string): string {
   return text
     .normalize('NFD')
@@ -664,7 +960,7 @@ export function computeRealTimeAlerts(params: {
   const todayIso = toLocalISODate(now);
 
   // 1. Saldo negativo personalizado & Saldo a esgotar
-  if (settings.enableLowBalanceAlerts) {
+  if (settings.enableLowBalanceAlerts && transactions.length > 0) {
     const net = summary.netBalance;
     const negLimit = settings.negativeAlertThreshold;
     const lowLimit = Math.max(settings.lowBalanceThreshold, negLimit);
@@ -815,4 +1111,16 @@ export function computeRealTimeAlerts(params: {
 
 export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
+export function isValidPhoneMZ(phone: string): boolean {
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 9 && digits.length <= 15;
+}
+
+export function getUserInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'FT';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }

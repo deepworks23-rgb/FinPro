@@ -1,11 +1,11 @@
-import { useMemo } from 'react';
-import { ASSETS } from '../data/seed';
+import { useEffect, useMemo, useState } from 'react';
 import type { AppScreen, CurrencyCode } from '../types/finance';
-import { formatHeaderDateLabel } from '../utils/finance';
+import { formatHeaderDateLabel, getUserInitials } from '../utils/finance';
 
 interface HeaderProps {
   screen: AppScreen;
-  firstName: string;
+  userName: string;
+  avatarUrl?: string;
   currency: CurrencyCode;
   now?: Date;
   onChangeCurrency: (next: CurrencyCode) => void;
@@ -19,7 +19,8 @@ interface HeaderProps {
 
 export function Header({
   screen,
-  firstName,
+  userName,
+  avatarUrl = '',
   currency,
   now = new Date(),
   onChangeCurrency,
@@ -30,45 +31,55 @@ export function Header({
   hasCriticalAlert = false,
   balanceAlertStatus = null,
 }: HeaderProps) {
+  const [imgError, setImgError] = useState(false);
   const headerDateLabel = useMemo(() => formatHeaderDateLabel(now), [now]);
 
+  useEffect(() => {
+    setImgError(false);
+  }, [avatarUrl]);
+
   if (screen === 'login') {
-    return (
-      <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[440px] z-40 pt-safe bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
-        <div className="h-14 px-3 flex items-center justify-between">
-          <button
-            aria-label="Voltar"
-            className="min-w-[40px] min-h-[40px] -ml-1 flex items-center justify-center rounded-full text-on-surface hover:bg-surface-container transition-colors cursor-pointer"
-            onClick={onBack}
-            type="button"
-          >
-            <span className="material-symbols-outlined text-[20px]">arrow_back_ios_new</span>
-          </button>
-          <span className="text-[16px] text-on-surface font-bold tracking-tight">
-            Aceder Conta
-          </span>
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-            <span className="material-symbols-outlined text-on-primary text-[17px]">person</span>
-          </div>
-        </div>
-      </header>
-    );
+    return null;
   }
+
+  const firstName = userName.trim().split(' ')[0] || 'Utilizador';
+  const initials = getUserInitials(userName);
+  const showAvatarImg = Boolean(avatarUrl) && !imgError;
 
   return (
     <header className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-[440px] z-40 bg-surface/95 backdrop-blur-xl border-b border-surface-container/60 pt-safe">
       <div className="h-16 px-3 flex items-center justify-between gap-2">
-        {/* Saudação & Data Dinâmica */}
-        <div className="flex flex-col min-w-0 flex-1">
-          <span className="text-[11px] text-on-surface-variant font-medium leading-tight">
-            {headerDateLabel}
-          </span>
-          <h1 className="text-[16px] text-on-surface font-bold tracking-tight leading-snug">
-            Olá, {firstName} 👋
-          </h1>
-        </div>
+        {screen === 'perfil' ? (
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button
+              aria-label="Voltar"
+              className="w-9 h-9 -ml-1 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-container transition-colors cursor-pointer shrink-0"
+              onClick={onBack}
+              type="button"
+            >
+              <span className="material-symbols-outlined text-[20px]">arrow_back_ios_new</span>
+            </button>
+            <div className="min-w-0">
+              <span className="text-[11px] text-on-surface-variant font-medium leading-tight block">
+                {headerDateLabel}
+              </span>
+              <h1 className="text-[16px] text-on-surface font-bold tracking-tight leading-snug">
+                Meu Perfil
+              </h1>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col min-w-0 flex-1">
+            <span className="text-[11px] text-on-surface-variant font-medium leading-tight">
+              {headerDateLabel}
+            </span>
+            <h1 className="text-[16px] text-on-surface font-bold tracking-tight leading-snug">
+              Olá, {firstName} 👋
+            </h1>
+          </div>
+        )}
 
-        {/* Seletor de Moeda + Notificações + Avatar (sem nome) */}
+        {/* Seletor de Moeda + Notificações + Avatar */}
         <div className="flex items-center gap-1.5 shrink-0">
           <div className="relative">
             <label className="sr-only" htmlFor="currency-selector">
@@ -80,8 +91,8 @@ export function Header({
               onChange={(e) => onChangeCurrency(e.target.value as CurrencyCode)}
               value={currency}
             >
-              <option value="MZN">MZN (MT)</option>
-              <option value="USD">USD ($)</option>
+              <option value="MZN">MZN</option>
+              <option value="USD">USD</option>
             </select>
             <span className="material-symbols-outlined pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[15px] text-on-surface-variant">
               expand_more
@@ -111,16 +122,26 @@ export function Header({
           </button>
 
           <button
-            aria-label="Perfil e Configurações"
-            className="w-8 h-8 rounded-full overflow-hidden ring-1 ring-primary/15 hover:ring-primary/35 transition-all cursor-pointer shrink-0"
+            aria-label="Abrir Página de Perfil"
+            className={`w-8 h-8 rounded-full overflow-hidden ring-2 transition-all cursor-pointer shrink-0 flex items-center justify-center bg-primary-fixed text-primary font-bold text-[11px] ${
+              screen === 'perfil'
+                ? 'ring-primary'
+                : 'ring-primary/15 hover:ring-primary/35'
+            }`}
             onClick={onOpenProfile}
             type="button"
           >
-            <img
-              alt="Foto de perfil"
-              className="w-full h-full object-cover"
-              src={ASSETS.avatar}
-            />
+            {showAvatarImg ? (
+              <img
+                alt="Foto de perfil"
+                className="w-full h-full object-cover"
+                onError={() => setImgError(true)}
+                referrerPolicy="no-referrer"
+                src={avatarUrl}
+              />
+            ) : (
+              <span>{initials}</span>
+            )}
           </button>
         </div>
       </div>

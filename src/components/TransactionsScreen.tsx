@@ -21,6 +21,7 @@ import type { ConfirmDialogRequest } from './ConfirmDialog';
 interface TransactionsScreenProps {
   transactions: Transaction[];
   currency: CurrencyCode;
+  isBalanceHidden?: boolean;
   onOpenNew: () => void;
   onEditTransaction: (tx: Transaction) => void;
   onToggleStatus: (id: string) => void;
@@ -37,6 +38,7 @@ const RECURRENCE_LABEL: Record<string, string> = {
 export function TransactionsScreen({
   transactions,
   currency,
+  isBalanceHidden = false,
   onOpenNew,
   onEditTransaction,
   onToggleStatus,
@@ -220,7 +222,7 @@ export function TransactionsScreen({
                 <span className="text-[11.5px] font-semibold whitespace-nowrap">Entradas</span>
               </div>
               <span className="text-[14.5px] leading-snug text-secondary font-bold tabular-nums tracking-tight break-words">
-                +{formatMoney(summary.totalIncome, currency)}
+                {isBalanceHidden ? '+••••' : `+${formatMoney(summary.totalIncome, currency)}`}
               </span>
               <span className="text-[10.5px] text-on-surface-variant">
                 {summary.incomeCount} recebidas
@@ -235,7 +237,7 @@ export function TransactionsScreen({
                 <span className="text-[11.5px] font-semibold whitespace-nowrap">Saídas</span>
               </div>
               <span className="text-[14.5px] leading-snug text-tertiary font-bold tabular-nums tracking-tight break-words">
-                -{formatMoney(summary.totalExpense, currency)}
+                {isBalanceHidden ? '-••••' : `-${formatMoney(summary.totalExpense, currency)}`}
               </span>
               <span className="text-[10.5px] text-on-surface-variant">
                 {summary.expenseCount} registadas
@@ -479,8 +481,9 @@ export function TransactionsScreen({
                               isIncome ? 'text-secondary' : 'text-tertiary'
                             }`}
                           >
-                            {isIncome ? '+' : '-'}
-                            {formatMoney(tx.amount, currency)}
+                            {isBalanceHidden
+                              ? `${isIncome ? '+' : '-'}••••`
+                              : `${isIncome ? '+' : '-'}${formatMoney(tx.amount, currency)}`}
                           </span>
                           {(tx.time || tx.paymentMethod) && (
                             <span className="text-[10.5px] text-on-surface-variant tabular-nums whitespace-nowrap">
