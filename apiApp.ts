@@ -324,6 +324,14 @@ const requireAuth = asyncHandler(async (req, res, next) => {
   next();
 });
 
+const ALLOWED_ORIGINS = new Set([
+  'https://localhost',
+  'http://localhost',
+  'http://localhost:3000',
+  'capacitor://localhost',
+  'https://fin-pro-livid.vercel.app',
+]);
+
 /**
  * Creates the Express application with all FinTrack `/api/*` routes and security middleware.
  */
@@ -332,10 +340,20 @@ export function createApiApp(): express.Express {
   app.set('trust proxy', 1);
   const loginRateLimiter = new LoginRateLimiter();
 
-  app.use((_req, res, next) => {
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && ALLOWED_ORIGINS.has(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    }
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer');
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
     next();
   });
   app.use(express.json({ limit: '512kb' }));

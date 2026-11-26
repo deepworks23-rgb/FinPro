@@ -38,6 +38,8 @@ export interface CreateSupportTicketRequest {
   message: string;
 }
 
+const API_BASE = (import.meta.env?.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
+
 async function apiRequest<T>(
   url: string,
   options: {
@@ -55,9 +57,11 @@ async function apiRequest<T>(
     headers.Authorization = `Bearer ${options.token}`;
   }
 
+  const targetUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+
   let response: Response;
   try {
-    response = await fetch(url, {
+    response = await fetch(targetUrl, {
       method: options.method ?? 'GET',
       headers,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,

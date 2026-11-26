@@ -9,3 +9,5 @@ coverage/
 .data/
 
 .neon
+android/
+ios/

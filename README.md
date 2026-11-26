@@ -35,6 +35,18 @@ npm run check
 
 Executa em sequência: `tsc --noEmit`, testes unitários (`src/utils/finance.test.ts` e `rateLimit.test.ts`), cercas de conformidade em `fences/` e `vite build`.
 
+## App Mobile (PWA, Android APK e iOS)
+
+- **PWA (Android e iPhone sem loja):** Acesse `https://fin-pro-livid.vercel.app/` no telemóvel e toque em **Instalar app** (Chrome no Android) ou **Partilhar → Adicionar ao Ecrã Principal** (Safari no iPhone).
+- **Android (`.apk` instalável):** Cada push em `main` executa o workflow [android-apk.yml](.github/workflows/android-apk.yml) no GitHub Actions e gera o artefato **`FinTrack-Android-APK`** (`app-debug.apk`).
+- **iOS (Xcode no macOS):**
+  ```powershell
+  npm run build:mobile
+  npx cap add ios
+  npx cap sync ios
+  npx cap open ios
+  ```
+
 ## Documentação e Conformidade
 
 - Visão e antiobjetivos: [VISION.md](VISION.md)
