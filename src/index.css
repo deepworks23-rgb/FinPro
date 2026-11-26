@@ -155,3 +155,19 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+.material-symbols-outlined {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  overflow: hidden;
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+html:not(.icons-loaded) .material-symbols-outlined {
+  color: transparent !important;
+}
