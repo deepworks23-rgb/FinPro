@@ -63,7 +63,7 @@ export function Header({
   if (desktop) {
     return (
       <header className="hidden md:flex w-full h-16 border-b border-surface-container/70 bg-surface/85 backdrop-blur-md sticky top-0 z-20">
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+        <div className="w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
             <div>
               <span className="text-[11px] text-on-surface-variant font-medium block leading-none mb-1">

@@ -633,7 +633,7 @@ export default function App() {
         )}
 
         <main
-          className={`flex-1 w-full max-w-[440px] md:max-w-7xl mx-auto flex flex-col md:overflow-y-auto ${
+          className={`flex-1 w-full max-w-[440px] md:max-w-none mx-auto md:mx-0 flex flex-col md:overflow-y-auto ${
             activeScreen === 'login'
               ? 'p-0 justify-center items-center'
               : 'pt-18 md:pt-6 px-3 md:px-6 lg:px-8 pb-24 md:pb-8'
