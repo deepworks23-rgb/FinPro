@@ -1,3 +1,4 @@
+import { AppIcon } from './AppIcon';
 import { useMemo, useState, type FormEvent } from 'react';
 import { CURRENCY_CONFIG } from '../data/seed';
 import type { BudgetCategory, CurrencyCode, FinancialGoal } from '../types/finance';
@@ -201,7 +202,7 @@ export function BudgetsScreen({
           <p className="text-[11.5px] text-on-surface-variant break-words">{cycleInfo.cycleLabel}</p>
         </div>
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-secondary-fixed text-on-secondary-fixed text-[11px] font-bold shadow-xs whitespace-nowrap shrink-0">
-          <span className="material-symbols-outlined text-[14px]">schedule</span>
+          <AppIcon name="schedule" className="text-[14px]" />
           {cycleInfo.daysRemainingLabel}
         </span>
       </div>
@@ -219,7 +220,7 @@ export function BudgetsScreen({
             </h2>
           </div>
           <div className="w-11 h-11 rounded-xl bg-surface-container flex items-center justify-center text-primary shadow-sm shrink-0">
-            <span className="material-symbols-outlined text-[24px]">account_balance_wallet</span>
+            <AppIcon name="account_balance_wallet" className="text-[24px]" />
           </div>
         </div>
 
@@ -235,7 +236,13 @@ export function BudgetsScreen({
           </div>
           <div className="w-full h-2.5 rounded-full bg-surface-container-high overflow-hidden p-0.5">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-secondary via-primary to-tertiary-container transition-all duration-700 ease-out"
+              className={`h-full rounded-full transition-all duration-700 ease-out ${
+                totals.percentage >= 95
+                  ? 'bg-tertiary'
+                  : totals.percentage >= 75
+                    ? 'bg-amber-600'
+                    : 'bg-secondary'
+              }`}
               style={{ width: `${totals.percentage}%` }}
             />
           </div>
@@ -245,9 +252,7 @@ export function BudgetsScreen({
         <div className="flex gap-2 mt-3 pt-2.5 border-t border-surface-container">
           <div className="flex-1 min-w-0 p-2 rounded-xl bg-surface-container-low flex flex-col gap-0.5">
             <div className="flex items-center gap-1 text-on-surface-variant text-[11px] font-semibold">
-              <span className="material-symbols-outlined text-[15px] text-tertiary shrink-0">
-                arrow_upward
-              </span>
+              <AppIcon name="arrow_upward" className="text-[15px] text-tertiary shrink-0" />
               <span className="whitespace-nowrap">Gasto Total</span>
             </div>
             <p className="text-[14.5px] leading-snug text-tertiary font-bold tabular-nums break-words">
@@ -256,9 +261,7 @@ export function BudgetsScreen({
           </div>
           <div className="flex-1 min-w-0 p-2 rounded-xl bg-surface-container-low flex flex-col gap-0.5">
             <div className="flex items-center gap-1 text-on-surface-variant text-[11px] font-semibold">
-              <span className="material-symbols-outlined text-[15px] text-secondary shrink-0">
-                savings
-              </span>
+              <AppIcon name="savings" className="text-[15px] text-secondary shrink-0" />
               <span className="whitespace-nowrap">Disponível</span>
             </div>
             <p className="text-[14.5px] leading-snug text-secondary font-bold tabular-nums break-words">
@@ -272,7 +275,7 @@ export function BudgetsScreen({
           onClick={openNewBudgetModal}
           type="button"
         >
-          <span className="material-symbols-outlined text-[18px]">add_circle</span>
+          <AppIcon name="add_circle" className="text-[18px]" />
           Novo Orçamento por Categoria
         </button>
       </div>
@@ -326,7 +329,7 @@ export function BudgetsScreen({
           {budgets.length === 0 ? (
             <div className="bg-surface-container-lowest rounded-2xl p-5 text-center space-y-2 shadow-sm">
               <div className="w-11 h-11 rounded-full bg-surface-container mx-auto flex items-center justify-center text-on-surface-variant">
-                <span className="material-symbols-outlined text-[22px]">pie_chart</span>
+                <AppIcon name="pie_chart" className="text-[22px]" />
               </div>
               <p className="text-[13.5px] font-bold text-on-surface">
                 Nenhum orçamento definido ainda
@@ -350,7 +353,7 @@ export function BudgetsScreen({
                     <div
                       className={`w-10 h-10 rounded-xl ${b.iconBg} flex items-center justify-center ${b.iconColor} shrink-0`}
                     >
-                      <span className="material-symbols-outlined text-[21px]">{b.icon}</span>
+                      <AppIcon name={b.icon} className="text-[21px]" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <h4 className="text-[14px] leading-snug font-semibold text-on-surface break-words">
@@ -369,7 +372,7 @@ export function BudgetsScreen({
                       onClick={() => openEditBudgetModal(b)}
                       type="button"
                     >
-                      <span className="material-symbols-outlined text-[17px]">edit</span>
+                      <AppIcon name="edit" className="text-[17px]" />
                     </button>
                     <button
                       aria-label={`Remover orçamento ${b.category}`}
@@ -388,7 +391,7 @@ export function BudgetsScreen({
                       }
                       type="button"
                     >
-                      <span className="material-symbols-outlined text-[17px]">delete</span>
+                      <AppIcon name="delete" className="text-[17px]" />
                     </button>
                   </div>
                 </div>
@@ -441,7 +444,7 @@ export function BudgetsScreen({
             onClick={() => setIsGoalModalOpen(true)}
             type="button"
           >
-            <span className="material-symbols-outlined text-[20px]">add</span>
+            <AppIcon name="add" className="text-[20px]" />
           </button>
         </div>
 
@@ -449,7 +452,7 @@ export function BudgetsScreen({
           {goals.length === 0 ? (
             <div className="bg-surface-container-lowest rounded-2xl p-5 text-center space-y-2 shadow-sm">
               <div className="w-11 h-11 rounded-full bg-surface-container mx-auto flex items-center justify-center text-on-surface-variant">
-                <span className="material-symbols-outlined text-[22px]">flag</span>
+                <AppIcon name="flag" className="text-[22px]" />
               </div>
               <p className="text-[13.5px] font-bold text-on-surface">
                 Nenhuma meta financeira ainda
@@ -476,7 +479,7 @@ export function BudgetsScreen({
                     />
                   ) : (
                     <div className="w-11 h-11 rounded-xl bg-primary-fixed text-primary flex items-center justify-center shrink-0">
-                      <span className="material-symbols-outlined text-[22px]">flag</span>
+                      <AppIcon name="flag" className="text-[22px]" />
                     </div>
                   )}
                   <div className="min-w-0 flex-1 flex flex-col gap-0.5">
@@ -533,7 +536,7 @@ export function BudgetsScreen({
                     }
                     type="button"
                   >
-                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                    <AppIcon name="delete" className="text-[16px]" />
                   </button>
                 </div>
               </div>
@@ -558,7 +561,7 @@ export function BudgetsScreen({
             <div className="flex items-center justify-between gap-2 border-b border-surface-container pb-space-sm">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <div className="w-9 h-9 rounded-full bg-primary-fixed flex items-center justify-center text-primary shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">tune</span>
+                  <AppIcon name="tune" className="text-[20px]" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3
@@ -578,7 +581,7 @@ export function BudgetsScreen({
                 onClick={() => setIsBudgetModalOpen(false)}
                 type="button"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <AppIcon name="close" className="text-[20px]" />
               </button>
             </div>
 
@@ -604,9 +607,7 @@ export function BudgetsScreen({
                         </option>
                       ))}
                     </select>
-                    <span className="material-symbols-outlined absolute right-3 top-3.5 text-on-surface-variant pointer-events-none text-[20px]">
-                      expand_more
-                    </span>
+                    <AppIcon name="expand_more" className="absolute right-3 top-3.5 text-on-surface-variant pointer-events-none text-[20px]" />
                   </div>
                 </div>
               )}
@@ -721,7 +722,7 @@ export function BudgetsScreen({
                 onClick={() => setIsGoalModalOpen(false)}
                 type="button"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <AppIcon name="close" className="text-[20px]" />
               </button>
             </div>
             <form className="space-y-space-md" onSubmit={handleGoalSubmit}>
@@ -824,7 +825,7 @@ export function BudgetsScreen({
                 onClick={() => setContributingGoal(null)}
                 type="button"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <AppIcon name="close" className="text-[20px]" />
               </button>
             </div>
             <form className="space-y-space-md" onSubmit={handleContributionSubmit}>

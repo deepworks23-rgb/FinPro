@@ -44,6 +44,7 @@ async function apiRequest<T>(
     method?: string;
     token?: string | null;
     body?: unknown;
+    keepalive?: boolean;
   } = {}
 ): Promise<T> {
   const headers: Record<string, string> = {};
@@ -60,6 +61,7 @@ async function apiRequest<T>(
       method: options.method ?? 'GET',
       headers,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      keepalive: options.keepalive,
     });
   } catch {
     throw new Error(
@@ -112,11 +114,16 @@ export const authApi = {
       body: data,
     }),
 
-  saveWorkspace: (token: string, workspace: UserWorkspacePayload) =>
+  saveWorkspace: (
+    token: string,
+    workspace: UserWorkspacePayload,
+    opts?: { keepalive?: boolean }
+  ) =>
     apiRequest<{ workspace: UserWorkspacePayload }>('/api/workspace', {
       method: 'PUT',
       token,
       body: workspace,
+      keepalive: opts?.keepalive,
     }),
 
   submitSupportTicket: (token: string, data: CreateSupportTicketRequest) =>

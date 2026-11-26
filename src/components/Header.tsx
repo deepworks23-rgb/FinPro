@@ -1,3 +1,4 @@
+import { AppIcon } from './AppIcon';
 import { useEffect, useMemo, useState } from 'react';
 import type { AppScreen, CurrencyCode } from '../types/finance';
 import { formatHeaderDateLabel, getUserInitials } from '../utils/finance';
@@ -57,7 +58,7 @@ export function Header({
               onClick={onBack}
               type="button"
             >
-              <span className="material-symbols-outlined text-[20px]">arrow_back_ios_new</span>
+              <AppIcon name="arrow_back_ios_new" className="text-[20px]" />
             </button>
             <div className="min-w-0">
               <span className="text-[11px] text-on-surface-variant font-medium leading-tight block">
@@ -94,9 +95,7 @@ export function Header({
               <option value="MZN">MZN</option>
               <option value="USD">USD</option>
             </select>
-            <span className="material-symbols-outlined pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[15px] text-on-surface-variant">
-              expand_more
-            </span>
+            <AppIcon name="expand_more" className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[15px] text-on-surface-variant" />
           </div>
 
           <button
@@ -111,9 +110,7 @@ export function Header({
             onClick={onOpenNotifications}
             type="button"
           >
-            <span className="material-symbols-outlined text-[19px]">
-              {hasCriticalAlert || balanceAlertStatus ? 'notifications_active' : 'notifications'}
-            </span>
+            <AppIcon name={hasCriticalAlert || balanceAlertStatus ? 'notifications_active' : 'notifications'} className="text-[19px]" />
             {unreadNotificationsCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-tertiary-container text-on-tertiary text-[9.5px] font-bold flex items-center justify-center tabular-nums shadow-xs">
                 {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}

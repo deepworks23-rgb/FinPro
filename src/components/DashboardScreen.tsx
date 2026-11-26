@@ -1,3 +1,4 @@
+import { AppIcon } from './AppIcon';
 import { useMemo, useState } from 'react';
 import { CATEGORY_STYLE_META, DASHBOARD_BASELINE_HISTORY } from '../data/seed';
 import type {
@@ -178,9 +179,7 @@ export function DashboardScreen({
             title={isBalanceHidden ? 'Mostrar valores' : 'Ocultar valores'}
             type="button"
           >
-            <span className="material-symbols-outlined text-[19px]">
-              {isBalanceHidden ? 'visibility_off' : 'visibility'}
-            </span>
+            <AppIcon name={isBalanceHidden ? 'visibility_off' : 'visibility'} className="text-[19px]" />
           </button>
         </div>
 
@@ -202,9 +201,7 @@ export function DashboardScreen({
                 : 'bg-error-container text-on-error-container'
             }`}
           >
-            <span className="material-symbols-outlined text-[13px]">
-              {momDelta.isPositive ? 'arrow_upward' : 'arrow_downward'}
-            </span>
+            <AppIcon name={momDelta.isPositive ? 'arrow_upward' : 'arrow_downward'} className="text-[13px]" />
             {momDelta.pctText}
           </span>
         </div>
@@ -220,14 +217,14 @@ export function DashboardScreen({
             type="button"
           >
             <span className="flex items-center gap-1.5 min-w-0">
-              <span className="material-symbols-outlined text-[15px] shrink-0">warning</span>
+              <AppIcon name="warning" className="text-[15px] shrink-0" />
               <span className="break-words">
                 {isCriticalBalance
                   ? 'Alerta crítico: saldo atingiu limite definido'
                   : `Saldo a esgotar (margem: ${isBalanceHidden ? '••••' : formatMoney(alertSettings.lowBalanceThreshold, currency)})`}
               </span>
             </span>
-            <span className="material-symbols-outlined text-[15px] shrink-0">chevron_right</span>
+            <AppIcon name="chevron_right" className="text-[15px] shrink-0" />
           </button>
         )}
 
@@ -236,7 +233,7 @@ export function DashboardScreen({
           <div className="flex gap-2">
             <div className="flex-1 min-w-0 bg-surface-container-low p-2.5 rounded-xl flex flex-col justify-between gap-0.5">
               <div className="flex items-center gap-1 text-secondary text-[11px] font-semibold">
-                <span className="material-symbols-outlined text-[14px] shrink-0">trending_up</span>
+                <AppIcon name="trending_up" className="text-[14px] shrink-0" />
                 <span className="whitespace-nowrap">Entradas</span>
               </div>
               <span
@@ -252,9 +249,7 @@ export function DashboardScreen({
 
             <div className="flex-1 min-w-0 bg-surface-container-low p-2.5 rounded-xl flex flex-col justify-between gap-0.5">
               <div className="flex items-center gap-1 text-tertiary text-[11px] font-semibold">
-                <span className="material-symbols-outlined text-[14px] shrink-0">
-                  trending_down
-                </span>
+                <AppIcon name="trending_down" className="text-[14px] shrink-0" />
                 <span className="whitespace-nowrap">Saídas</span>
               </div>
               <span
@@ -271,7 +266,7 @@ export function DashboardScreen({
 
           <div className="bg-primary-fixed/40 px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 text-primary text-[11.5px] font-semibold min-w-0">
-              <span className="material-symbols-outlined text-[15px] shrink-0">savings</span>
+              <AppIcon name="savings" className="text-[15px] shrink-0" />
               <span className="whitespace-nowrap">Economia do mês</span>
             </div>
             <div className="flex items-center gap-1.5 text-[11.5px] shrink-0 whitespace-nowrap">
@@ -300,7 +295,7 @@ export function DashboardScreen({
             type="button"
           >
             <div className="w-8 h-8 rounded-full bg-secondary-container/60 text-secondary flex items-center justify-center mb-1 group-hover:scale-110 transition-transform shrink-0">
-              <span className="material-symbols-outlined text-[18px]">add_circle</span>
+              <AppIcon name="add_circle" className="text-[18px]" />
             </div>
             <span className="text-[10.5px] font-semibold text-on-surface text-center whitespace-nowrap">
               + Receita
@@ -313,7 +308,7 @@ export function DashboardScreen({
             type="button"
           >
             <div className="w-8 h-8 rounded-full bg-tertiary-fixed/70 text-tertiary flex items-center justify-center mb-1 group-hover:scale-110 transition-transform shrink-0">
-              <span className="material-symbols-outlined text-[18px]">remove_circle</span>
+              <AppIcon name="remove_circle" className="text-[18px]" />
             </div>
             <span className="text-[10.5px] font-semibold text-on-surface text-center whitespace-nowrap">
               - Despesa
@@ -329,7 +324,7 @@ export function DashboardScreen({
             type="button"
           >
             <div className="w-8 h-8 rounded-full bg-primary-fixed text-primary flex items-center justify-center mb-1 group-hover:scale-110 transition-transform shrink-0">
-              <span className="material-symbols-outlined text-[18px]">flag</span>
+              <AppIcon name="flag" className="text-[18px]" />
             </div>
             <span className="text-[10.5px] font-semibold text-on-surface text-center whitespace-nowrap">
               Definir Meta
@@ -342,7 +337,7 @@ export function DashboardScreen({
             type="button"
           >
             <div className="w-8 h-8 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center mb-1 group-hover:scale-110 transition-transform shrink-0">
-              <span className="material-symbols-outlined text-[18px]">download</span>
+              <AppIcon name="download" className="text-[18px]" />
             </div>
             <span className="text-[10.5px] font-semibold text-on-surface text-center whitespace-nowrap">
               Extrato CSV
@@ -378,7 +373,7 @@ export function DashboardScreen({
             viewBox="0 0 320 120"
           >
             <line
-              stroke="#f2f3ff"
+              stroke="#f1f5f9"
               strokeDasharray="4"
               strokeWidth="1"
               x1="0"
@@ -387,7 +382,7 @@ export function DashboardScreen({
               y2="20"
             />
             <line
-              stroke="#f2f3ff"
+              stroke="#f1f5f9"
               strokeDasharray="4"
               strokeWidth="1"
               x1="0"
@@ -395,7 +390,7 @@ export function DashboardScreen({
               y1="65"
               y2="65"
             />
-            <line stroke="#dae2fd" strokeWidth="1" x1="0" x2="320" y1="110" y2="110" />
+            <line stroke="#e2e8f0" strokeWidth="1" x1="0" x2="320" y1="110" y2="110" />
 
             {cashFlowSeries.map((m, idx) => {
               const xBase = 15 + idx * 53;
@@ -419,7 +414,7 @@ export function DashboardScreen({
                   tabIndex={0}
                 >
                   <rect
-                    fill={isSelected ? '#eaedff' : 'transparent'}
+                    fill={isSelected ? '#e2e8f0' : 'transparent'}
                     height="116"
                     rx="6"
                     width="38"
@@ -428,9 +423,9 @@ export function DashboardScreen({
                   />
                   <rect
                     className="transition-all duration-300"
-                    fill="#006c49"
+                    fill="#047857"
                     height={incHeight}
-                    opacity={isSelected ? 1 : 0.82}
+                    opacity={isSelected ? 1 : 0.85}
                     rx="4"
                     width="12"
                     x={xBase}
@@ -438,16 +433,16 @@ export function DashboardScreen({
                   />
                   <rect
                     className="transition-all duration-300"
-                    fill="#ba1a1a"
+                    fill="#dc2626"
                     height={expHeight}
-                    opacity={isSelected ? 1 : 0.82}
+                    opacity={isSelected ? 1 : 0.85}
                     rx="4"
                     width="12"
                     x={xBase + 15}
                     y={110 - expHeight}
                   />
                   <text
-                    fill={isSelected ? '#3525cd' : '#777587'}
+                    fill={isSelected ? '#0f172a' : '#64748b'}
                     fontFamily="Inter"
                     fontSize="9.5"
                     fontWeight={isSelected ? '700' : '500'}
@@ -524,7 +519,7 @@ export function DashboardScreen({
           <div className="flex items-center justify-between gap-3">
             <div className="relative w-28 h-28 flex items-center justify-center shrink-0">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" fill="transparent" r="38" stroke="#f2f3ff" strokeWidth="12" />
+                <circle cx="50" cy="50" fill="transparent" r="38" stroke="#f1f5f9" strokeWidth="12" />
                 {donutSegments.map((seg) => {
                   const isActive = activeDonutItem?.name === seg.name;
                   return (
@@ -613,7 +608,7 @@ export function DashboardScreen({
         {sortedRecentTransactions.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-6 bg-surface-container-lowest rounded-2xl text-center space-y-2.5">
             <div className="w-14 h-14 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant">
-              <span className="material-symbols-outlined text-[28px]">receipt_long</span>
+              <AppIcon name="receipt_long" className="text-[28px]" />
             </div>
             <div className="flex flex-col">
               <h4 className="text-[15px] font-bold text-on-surface">Nenhuma transação ainda</h4>
@@ -626,7 +621,7 @@ export function DashboardScreen({
               onClick={() => onOpenNewTransaction('income')}
               type="button"
             >
-              <span className="material-symbols-outlined text-[18px]">add</span> Adicionar Primeira
+              <AppIcon name="add" className="text-[18px]" /> Adicionar Primeira
               Transação
             </button>
           </div>
@@ -660,9 +655,7 @@ export function DashboardScreen({
                     onClick={() => onEditTransaction(item)}
                     type="button"
                   >
-                    <span className="material-symbols-outlined text-[19px]">
-                      {catConfig.icon}
-                    </span>
+                    <AppIcon name={catConfig.icon} className="text-[19px]" />
                   </button>
 
                   <div className="flex-1 min-w-0 flex flex-col gap-0.5">
@@ -706,9 +699,7 @@ export function DashboardScreen({
                         title="Clique para alterar o status em tempo real"
                         type="button"
                       >
-                        <span className="material-symbols-outlined text-[12px]">
-                          {item.status === 'pending' ? 'schedule' : 'check_circle'}
-                        </span>
+                        <AppIcon name={item.status === 'pending' ? 'schedule' : 'check_circle'} className="text-[12px]" />
                         <span>{statusLabel}</span>
                       </button>
                     </div>

@@ -1,3 +1,4 @@
+import { AppIcon } from './AppIcon';
 import { useState, type FormEvent } from 'react';
 import { authApi, type AuthResponse } from '../services/api';
 import { isValidEmail, isValidPhoneMZ } from '../utils/finance';
@@ -114,12 +115,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
         {/* Header / Brand Mark */}
         <div className="flex flex-col items-center text-center mb-5">
           <div className="w-14 h-14 rounded-2xl bg-primary text-on-primary flex items-center justify-center shadow-lg shadow-primary/20 mb-3">
-            <span
-              className="material-symbols-outlined text-[28px]"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              account_balance_wallet
-            </span>
+            <AppIcon name="account_balance_wallet" className="text-[28px]" filled />
           </div>
           <h1 className="text-[22px] leading-tight text-on-surface font-bold tracking-tight">
             {mode === 'login' ? 'Aceder à sua conta' : 'Criar Conta FinTrack'}
@@ -164,7 +160,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
               className="p-2.5 rounded-xl bg-error-container text-on-error-container flex items-start gap-2 text-[12px] font-medium"
               role="alert"
             >
-              <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">error</span>
+              <AppIcon name="error" className="text-[18px] shrink-0 mt-0.5" />
               <span className="leading-snug break-words">{errorMsg}</span>
             </div>
           )}
@@ -179,9 +175,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
                   Número de Telemóvel ou E-mail
                 </label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-3 text-outline text-[19px] pointer-events-none">
-                    person
-                  </span>
+                  <AppIcon name="person" className="absolute left-3 text-outline text-[19px] pointer-events-none" />
                   <input
                     autoComplete="username"
                     className="w-full h-11 pl-10 pr-3 rounded-xl bg-surface-container-low text-on-surface text-[13.5px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
@@ -203,9 +197,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
                   Senha
                 </label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-3 text-outline text-[19px] pointer-events-none">
-                    lock
-                  </span>
+                  <AppIcon name="lock" className="absolute left-3 text-outline text-[19px] pointer-events-none" />
                   <input
                     autoComplete="current-password"
                     className="w-full h-11 pl-10 pr-11 rounded-xl bg-surface-container-low text-on-surface text-[13.5px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
@@ -222,9 +214,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
                     onClick={() => setShowLoginPassword((v) => !v)}
                     type="button"
                   >
-                    <span className="material-symbols-outlined text-[19px]">
-                      {showLoginPassword ? 'visibility_off' : 'visibility'}
-                    </span>
+                    <AppIcon name={showLoginPassword ? 'visibility_off' : 'visibility'} className="text-[19px]" />
                   </button>
                 </div>
               </div>
@@ -235,9 +225,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
                 type="submit"
               >
                 <span>{loadingMode === 'submit' ? 'A entrar...' : 'Entrar na Conta'}</span>
-                <span className="material-symbols-outlined text-[19px]">
-                  {loadingMode === 'submit' ? 'progress_activity' : 'arrow_forward'}
-                </span>
+                <AppIcon name={loadingMode === 'submit' ? 'progress_activity' : 'arrow_forward'} className="text-[19px]" />
               </button>
             </form>
           ) : (
@@ -250,9 +238,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
                   Nome Completo *
                 </label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-3 text-outline text-[19px] pointer-events-none">
-                    badge
-                  </span>
+                  <AppIcon name="badge" className="absolute left-3 text-outline text-[19px] pointer-events-none" />
                   <input
                     autoComplete="name"
                     className="w-full h-11 pl-10 pr-3 rounded-xl bg-surface-container-low text-on-surface text-[13.5px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
@@ -274,9 +260,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
                   Número de Telemóvel *
                 </label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-3 text-outline text-[19px] pointer-events-none">
-                    call
-                  </span>
+                  <AppIcon name="call" className="absolute left-3 text-outline text-[19px] pointer-events-none" />
                   <input
                     autoComplete="tel"
                     className="w-full h-11 pl-10 pr-3 rounded-xl bg-surface-container-low text-on-surface text-[13.5px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
@@ -299,9 +283,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
                   <span className="text-[11px] font-normal text-outline">Opcional</span>
                 </label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-3 text-outline text-[19px] pointer-events-none">
-                    mail
-                  </span>
+                  <AppIcon name="mail" className="absolute left-3 text-outline text-[19px] pointer-events-none" />
                   <input
                     autoComplete="email"
                     className="w-full h-11 pl-10 pr-3 rounded-xl bg-surface-container-low text-on-surface text-[13.5px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
@@ -322,9 +304,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
                   Endereço *
                 </label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-3 text-outline text-[19px] pointer-events-none">
-                    location_on
-                  </span>
+                  <AppIcon name="location_on" className="absolute left-3 text-outline text-[19px] pointer-events-none" />
                   <input
                     autoComplete="street-address"
                     className="w-full h-11 pl-10 pr-3 rounded-xl bg-surface-container-low text-on-surface text-[13.5px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
@@ -347,9 +327,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
                     Senha *
                   </label>
                   <div className="relative flex items-center">
-                    <span className="material-symbols-outlined absolute left-3 text-outline text-[18px] pointer-events-none">
-                      lock
-                    </span>
+                    <AppIcon name="lock" className="absolute left-3 text-outline text-[18px] pointer-events-none" />
                     <input
                       autoComplete="new-password"
                       className="w-full h-11 pl-9 pr-10 rounded-xl bg-surface-container-low text-on-surface text-[13px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
@@ -366,9 +344,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
                       onClick={() => setShowRegPassword((v) => !v)}
                       type="button"
                     >
-                      <span className="material-symbols-outlined text-[18px]">
-                        {showRegPassword ? 'visibility_off' : 'visibility'}
-                      </span>
+                      <AppIcon name={showRegPassword ? 'visibility_off' : 'visibility'} className="text-[18px]" />
                     </button>
                   </div>
                 </div>
@@ -381,9 +357,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
                     Confirmar Senha *
                   </label>
                   <div className="relative flex items-center">
-                    <span className="material-symbols-outlined absolute left-3 text-outline text-[18px] pointer-events-none">
-                      verified_user
-                    </span>
+                    <AppIcon name="verified_user" className="absolute left-3 text-outline text-[18px] pointer-events-none" />
                     <input
                       autoComplete="new-password"
                       className="w-full h-11 pl-9 pr-10 rounded-xl bg-surface-container-low text-on-surface text-[13px] placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
@@ -400,9 +374,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
                       onClick={() => setShowRegConfirm((v) => !v)}
                       type="button"
                     >
-                      <span className="material-symbols-outlined text-[18px]">
-                        {showRegConfirm ? 'visibility_off' : 'visibility'}
-                      </span>
+                      <AppIcon name={showRegConfirm ? 'visibility_off' : 'visibility'} className="text-[18px]" />
                     </button>
                   </div>
                 </div>
@@ -447,16 +419,14 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
                 type="submit"
               >
                 <span>{loadingMode === 'submit' ? 'A criar conta...' : 'Criar Minha Conta'}</span>
-                <span className="material-symbols-outlined text-[19px]">
-                  {loadingMode === 'submit' ? 'progress_activity' : 'person_add'}
-                </span>
+                <AppIcon name={loadingMode === 'submit' ? 'progress_activity' : 'person_add'} className="text-[19px]" />
               </button>
             </form>
           )}
         </div>
 
         <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-on-surface-variant text-center">
-          <span className="material-symbols-outlined text-[15px] text-secondary shrink-0">verified_user</span>
+          <AppIcon name="verified_user" className="text-[15px] text-secondary shrink-0" />
           <span>Autenticação protegida com encriptação de senha no servidor</span>
         </div>
       </div>
@@ -483,7 +453,7 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
                 onClick={() => setTermsModalOpen(false)}
                 type="button"
               >
-                <span className="material-symbols-outlined text-[18px]">close</span>
+                <AppIcon name="close" className="text-[18px]" />
               </button>
             </div>
             <div className="text-[12px] text-on-surface-variant space-y-2 max-h-60 overflow-y-auto leading-relaxed pr-1">

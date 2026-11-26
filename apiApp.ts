@@ -325,6 +325,7 @@ const requireAuth = asyncHandler(async (req, res, next) => {
  */
 export function createApiApp(): express.Express {
   const app = express();
+  app.set('trust proxy', 1);
   const loginRateLimiter = new LoginRateLimiter();
 
   app.use((_req, res, next) => {

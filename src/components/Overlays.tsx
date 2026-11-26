@@ -1,3 +1,4 @@
+import { AppIcon } from './AppIcon';
 import { useEffect, useState, type FormEvent } from 'react';
 import { CURRENCY_CONFIG } from '../data/seed';
 import type { AlertSettings, AppScreen, CurrencyCode, RealTimeAlert } from '../types/finance';
@@ -144,7 +145,7 @@ export function NotificationsModal({
         <div className="flex items-center justify-between gap-2 border-b border-surface-container pb-2.5 shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-primary-fixed text-primary flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[20px]">notifications_active</span>
+              <AppIcon name="notifications_active" className="text-[20px]" />
             </div>
             <div className="min-w-0">
               <h3 className="text-[16px] font-bold text-on-surface" id="notifTitle">
@@ -164,7 +165,7 @@ export function NotificationsModal({
             onClick={onClose}
             type="button"
           >
-            <span className="material-symbols-outlined text-[19px]">close</span>
+            <AppIcon name="close" className="text-[19px]" />
           </button>
         </div>
 
@@ -179,7 +180,7 @@ export function NotificationsModal({
             onClick={() => setActiveTab('alerts')}
             type="button"
           >
-            <span className="material-symbols-outlined text-[16px]">campaign</span>
+            <AppIcon name="campaign" className="text-[16px]" />
             <span>Alertas ({alerts.length})</span>
           </button>
           <button
@@ -191,7 +192,7 @@ export function NotificationsModal({
             onClick={() => setActiveTab('settings')}
             type="button"
           >
-            <span className="material-symbols-outlined text-[16px]">tune</span>
+            <AppIcon name="tune" className="text-[16px]" />
             <span>Configurar Limites</span>
           </button>
         </div>
@@ -208,7 +209,7 @@ export function NotificationsModal({
                   onClick={onMarkAllRead}
                   type="button"
                 >
-                  <span className="material-symbols-outlined text-[14px]">done_all</span>
+                  <AppIcon name="done_all" className="text-[14px]" />
                   Marcar tudo como lido
                 </button>
               </div>
@@ -218,7 +219,7 @@ export function NotificationsModal({
               {alerts.length === 0 ? (
                 <div className="py-8 text-center space-y-2">
                   <div className="w-12 h-12 rounded-full bg-secondary-container/60 text-secondary flex items-center justify-center mx-auto">
-                    <span className="material-symbols-outlined text-[24px]">verified</span>
+                    <AppIcon name="verified" className="text-[24px]" />
                   </div>
                   <p className="text-[13.5px] font-semibold text-on-surface">
                     Tudo sob controlo em tempo real!
@@ -247,7 +248,7 @@ export function NotificationsModal({
                       <div
                         className={`w-9 h-9 rounded-lg ${style.iconBg} ${style.iconColor} flex items-center justify-center shrink-0 mt-0.5`}
                       >
-                        <span className="material-symbols-outlined text-[18px]">{alert.icon}</span>
+                        <AppIcon name={alert.icon} className="text-[18px]" />
                       </div>
                       <div className="min-w-0 flex-1 space-y-0.5">
                         <div className="flex items-center justify-between gap-2">

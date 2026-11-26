@@ -1,3 +1,4 @@
+import { AppIcon } from './AppIcon';
 import { useMemo, useState } from 'react';
 import {
   CATEGORY_STYLE_META,
@@ -224,7 +225,7 @@ export function ReportsScreen({
               onClick={handleExportPDF}
               type="button"
             >
-              <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+              <AppIcon name="picture_as_pdf" className="text-[18px]" />
               <span className="text-[12.5px] font-semibold">Exportar PDF</span>
             </button>
             <button
@@ -232,7 +233,7 @@ export function ReportsScreen({
               onClick={handleExportCSV}
               type="button"
             >
-              <span className="material-symbols-outlined text-[18px]">table_view</span>
+              <AppIcon name="table_view" className="text-[18px]" />
               <span className="text-[12.5px] font-semibold">Exportar CSV</span>
             </button>
           </div>
@@ -260,9 +261,7 @@ export function ReportsScreen({
                 </option>
               ))}
             </select>
-            <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-primary">
-              expand_more
-            </span>
+            <AppIcon name="expand_more" className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-primary" />
           </div>
 
           <div className="relative flex-1 min-w-[148px]">
@@ -282,9 +281,7 @@ export function ReportsScreen({
                 </option>
               ))}
             </select>
-            <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant">
-              expand_more
-            </span>
+            <AppIcon name="expand_more" className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant" />
           </div>
 
           <div className="relative flex-1 min-w-[148px]">
@@ -301,9 +298,7 @@ export function ReportsScreen({
               <option value="completed">Liquidados</option>
               <option value="pending">Pendentes</option>
             </select>
-            <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant">
-              expand_more
-            </span>
+            <AppIcon name="expand_more" className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant" />
           </div>
         </div>
 
@@ -349,7 +344,7 @@ export function ReportsScreen({
         <div className="flex items-center justify-between gap-2">
           <span className="text-[15px] font-bold text-on-surface">Resumo Executivo</span>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary-container text-on-secondary-container text-[11px] font-bold whitespace-nowrap shrink-0">
-            <span className="material-symbols-outlined text-[14px]">trending_up</span>
+            <AppIcon name="trending_up" className="text-[14px]" />
             {metrics.trendBadge}
           </span>
         </div>
@@ -380,7 +375,7 @@ export function ReportsScreen({
                 </div>
               </div>
               <div className="w-9 h-9 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[19px]">savings</span>
+                <AppIcon name="savings" className="text-[19px]" />
               </div>
             </div>
             <div className="mt-2.5 pt-2 border-t border-surface-container flex items-center justify-between gap-2 text-on-surface-variant text-[11.5px]">
@@ -398,7 +393,7 @@ export function ReportsScreen({
                   Maior Gasto
                 </span>
                 <div className="w-7 h-7 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed-variant flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[15px]">home</span>
+                  <AppIcon name="home" className="text-[15px]" />
                 </div>
               </div>
               <div className="min-w-0">
@@ -420,7 +415,7 @@ export function ReportsScreen({
                   Média Diária
                 </span>
                 <div className="w-7 h-7 rounded-lg bg-primary-fixed text-on-primary-fixed flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[15px]">calendar_today</span>
+                  <AppIcon name="calendar_today" className="text-[15px]" />
                 </div>
               </div>
               <div className="min-w-0">
@@ -572,20 +567,9 @@ export function ReportsScreen({
             className="w-full h-40 overflow-visible"
             viewBox="0 0 320 155"
           >
-            <defs>
-              <linearGradient id="grad-green" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="#006c49" stopOpacity="0.95" />
-                <stop offset="100%" stopColor="#006c49" stopOpacity="0.5" />
-              </linearGradient>
-              <linearGradient id="grad-red" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="#bc1d25" stopOpacity="0.9" />
-                <stop offset="100%" stopColor="#bc1d25" stopOpacity="0.4" />
-              </linearGradient>
-            </defs>
-
-            <line stroke="#eaedff" strokeDasharray="3,3" strokeWidth="1" x1="0" x2="320" y1="30" y2="30" />
-            <line stroke="#eaedff" strokeDasharray="3,3" strokeWidth="1" x1="0" x2="320" y1="80" y2="80" />
-            <line stroke="#eaedff" strokeWidth="1" x1="0" x2="320" y1="130" y2="130" />
+            <line stroke="#e2e8f0" strokeDasharray="3,3" strokeWidth="1" x1="0" x2="320" y1="30" y2="30" />
+            <line stroke="#e2e8f0" strokeDasharray="3,3" strokeWidth="1" x1="0" x2="320" y1="80" y2="80" />
+            <line stroke="#e2e8f0" strokeWidth="1" x1="0" x2="320" y1="130" y2="130" />
 
             {monthlySeries.map((m, idx) => {
               const xBase = 16 + idx * 52;
@@ -609,7 +593,7 @@ export function ReportsScreen({
                   tabIndex={0}
                 >
                   <rect
-                    fill={isSelected ? '#eaedff' : 'transparent'}
+                    fill={isSelected ? '#e2e8f0' : 'transparent'}
                     height="148"
                     rx="7"
                     width="42"
@@ -618,9 +602,9 @@ export function ReportsScreen({
                   />
                   <rect
                     className="transition-all duration-300"
-                    fill="url(#grad-green)"
+                    fill="#047857"
                     height={incH}
-                    opacity={isSelected ? 1 : 0.8}
+                    opacity={isSelected ? 1 : 0.85}
                     rx="4"
                     width="14"
                     x={xBase}
@@ -628,9 +612,9 @@ export function ReportsScreen({
                   />
                   <rect
                     className="transition-all duration-300"
-                    fill="url(#grad-red)"
+                    fill="#dc2626"
                     height={expH}
-                    opacity={isSelected ? 1 : 0.8}
+                    opacity={isSelected ? 1 : 0.85}
                     rx="4"
                     width="14"
                     x={xBase + 17}
@@ -655,9 +639,7 @@ export function ReportsScreen({
         {activeSeriesItem && (
           <div className="p-2.5 rounded-xl bg-surface-container flex items-center justify-between gap-2 flex-wrap text-on-surface">
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="material-symbols-outlined text-primary text-[17px] shrink-0">
-                insights
-              </span>
+              <AppIcon name="insights" className="text-primary text-[17px] shrink-0" />
               <span className="text-[11.5px] font-semibold break-words">
                 {activeSeriesItem.month}/{activeSeriesItem.year}:
               </span>
@@ -700,7 +682,7 @@ export function ReportsScreen({
                       <div
                         className={`w-8 h-8 rounded-lg ${style.bg} ${style.color} flex items-center justify-center shrink-0`}
                       >
-                        <span className="material-symbols-outlined text-[18px]">{style.icon}</span>
+                        <AppIcon name={style.icon} className="text-[18px]" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <span className="text-[13px] font-semibold text-on-surface block leading-snug break-words">
@@ -762,7 +744,7 @@ export function ReportsScreen({
                   <span
                     className={`w-6 h-6 rounded-md ${src.badge} flex items-center justify-center shrink-0`}
                   >
-                    <span className="material-symbols-outlined text-[14px]">{src.icon}</span>
+                    <AppIcon name={src.icon} className="text-[14px]" />
                   </span>
                 </div>
                 <div className="min-w-0">

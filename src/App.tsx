@@ -1,3 +1,4 @@
+import { AppIcon } from './components/AppIcon';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import { BudgetsScreen } from './components/BudgetsScreen';
@@ -32,6 +33,13 @@ import {
   syncBudgetsWithTransactions,
   toLocalISODate,
 } from './utils/finance';
+
+function makeEntityId(prefix: string): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${prefix}_${crypto.randomUUID()}`;
+  }
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 const AUTH_TOKEN_STORAGE_KEY = 'fintrack_auth_token';
 
@@ -119,6 +127,9 @@ export default function App() {
     setReadAlertSignatures(Array.isArray(ws.readAlertSignatures) ? ws.readAlertSignatures : []);
   }, []);
 
+  // Track unsaved workspace payload so page refresh/close flushes immediately
+  const pendingWorkspaceFlushRef = useRef<UserWorkspacePayload | null>(null);
+
   // Persist workspace mutations to backend for authenticated user
   useEffect(() => {
     if (!authToken || !currentUser) return;
@@ -127,18 +138,22 @@ export default function App() {
       return;
     }
 
+    const payload: UserWorkspacePayload = {
+      transactions,
+      budgets,
+      goals,
+      currency,
+      isBalanceHidden,
+      alertSettings,
+      readAlertSignatures,
+    };
+    pendingWorkspaceFlushRef.current = payload;
+
     const timer = window.setTimeout(() => {
-      void authApi
-        .saveWorkspace(authToken, {
-          transactions,
-          budgets,
-          goals,
-          currency,
-          isBalanceHidden,
-          alertSettings,
-          readAlertSignatures,
-        })
-        .catch(() => {});
+      pendingWorkspaceFlushRef.current = null;
+      void authApi.saveWorkspace(authToken, payload).catch(() => {
+        showToast('Erro ao guardar dados no servidor. Verifique a ligação.');
+      });
     }, 250);
 
     return () => window.clearTimeout(timer);
@@ -152,7 +167,33 @@ export default function App() {
     isBalanceHidden,
     alertSettings,
     readAlertSignatures,
+    showToast,
   ]);
+
+  // Flush any pending workspace write when tab hides or page unloads
+  useEffect(() => {
+    if (!authToken || !currentUser) return;
+
+    const flushPending = () => {
+      const pending = pendingWorkspaceFlushRef.current;
+      if (!pending) return;
+      pendingWorkspaceFlushRef.current = null;
+      void authApi.saveWorkspace(authToken, pending, { keepalive: true }).catch(() => {});
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushPending();
+      }
+    };
+
+    window.addEventListener('beforeunload', flushPending);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('beforeunload', flushPending);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [authToken, currentUser]);
 
   // Restore persisted session on page load via /api/auth/me
   useEffect(() => {
@@ -312,7 +353,7 @@ export default function App() {
       } else {
         const newTx: Transaction = {
           ...payload,
-          id: `tx_${Date.now()}`,
+          id: makeEntityId('tx'),
         };
         setTransactions((prev) => [newTx, ...prev]);
         showToast('Transação registada com sucesso!');
@@ -380,7 +421,7 @@ export default function App() {
       const newBudget: BudgetCategory = {
         ...budget,
         manualSpentOffset: Math.round((budget.spent - realSpent) * 100) / 100,
-        id: `cat_${Date.now()}`,
+        id: makeEntityId('cat'),
       };
       setBudgets((prev) => [newBudget, ...prev]);
     },
@@ -418,7 +459,7 @@ export default function App() {
   const handleAddGoal = useCallback((goal: Omit<FinancialGoal, 'id'>) => {
     const newGoal: FinancialGoal = {
       ...goal,
-      id: `goal_${Date.now()}`,
+      id: makeEntityId('goal'),
     };
     setGoals((prev) => [...prev, newGoal]);
   }, []);
@@ -678,7 +719,7 @@ export default function App() {
             className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface px-4 py-2 rounded-full font-label-sm text-label-sm shadow-xl flex items-center gap-2 z-[70] whitespace-nowrap"
             role="status"
           >
-            <span className="material-symbols-outlined text-secondary text-[18px]">verified</span>
+            <AppIcon name="verified" className="text-secondary text-[18px]" />
             <span>{toastMsg}</span>
           </div>
         )}

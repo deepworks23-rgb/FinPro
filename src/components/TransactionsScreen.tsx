@@ -1,3 +1,4 @@
+import { AppIcon } from './AppIcon';
 import { useMemo, useState } from 'react';
 import {
   CATEGORY_STYLE_META,
@@ -153,9 +154,7 @@ export function TransactionsScreen({
               <label className="sr-only" htmlFor="filterMonthSelect">
                 Selecionar mês
               </label>
-              <span className="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-primary">
-                calendar_month
-              </span>
+              <AppIcon name="calendar_month" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-primary" />
               <select
                 className="w-full h-9 pl-9 pr-6 rounded-xl bg-surface-container-low text-on-surface text-[12.5px] font-bold appearance-none focus:outline-none focus:ring-2 focus:ring-primary/25 cursor-pointer"
                 id="filterMonthSelect"
@@ -172,9 +171,7 @@ export function TransactionsScreen({
                   </option>
                 ))}
               </select>
-              <span className="material-symbols-outlined pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant">
-                expand_more
-              </span>
+              <AppIcon name="expand_more" className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant" />
             </div>
 
             <div className="relative w-24 shrink-0">
@@ -197,9 +194,7 @@ export function TransactionsScreen({
                   </option>
                 ))}
               </select>
-              <span className="material-symbols-outlined pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant">
-                expand_more
-              </span>
+              <AppIcon name="expand_more" className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant" />
             </div>
 
             {!isCurrentMonth && (
@@ -216,9 +211,7 @@ export function TransactionsScreen({
           <div className="flex gap-2">
             <div className="flex-1 min-w-0 bg-secondary/5 rounded-xl p-2.5 flex flex-col justify-between gap-0.5">
               <div className="flex items-center gap-1 text-secondary">
-                <span className="material-symbols-outlined text-[15px] shrink-0">
-                  arrow_downward_alt
-                </span>
+                <AppIcon name="arrow_downward_alt" className="text-[15px] shrink-0" />
                 <span className="text-[11.5px] font-semibold whitespace-nowrap">Entradas</span>
               </div>
               <span className="text-[14.5px] leading-snug text-secondary font-bold tabular-nums tracking-tight break-words">
@@ -231,9 +224,7 @@ export function TransactionsScreen({
 
             <div className="flex-1 min-w-0 bg-tertiary-container/10 rounded-xl p-2.5 flex flex-col justify-between gap-0.5">
               <div className="flex items-center gap-1 text-tertiary">
-                <span className="material-symbols-outlined text-[15px] shrink-0">
-                  arrow_upward_alt
-                </span>
+                <AppIcon name="arrow_upward_alt" className="text-[15px] shrink-0" />
                 <span className="text-[11.5px] font-semibold whitespace-nowrap">Saídas</span>
               </div>
               <span className="text-[14.5px] leading-snug text-tertiary font-bold tabular-nums tracking-tight break-words">
@@ -256,7 +247,7 @@ export function TransactionsScreen({
               Buscar por descrição
             </label>
             <span className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-on-surface-variant">
-              <span className="material-symbols-outlined text-[20px]">search</span>
+              <AppIcon name="search" className="text-[20px]" />
             </span>
             <input
               className="w-full h-11 pl-10 pr-10 bg-surface-container-lowest text-on-surface placeholder:text-on-surface-variant/60 rounded-xl text-[14px] shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -273,7 +264,7 @@ export function TransactionsScreen({
                 onClick={() => setSearchQuery('')}
                 type="button"
               >
-                <span className="material-symbols-outlined text-[18px]">cancel</span>
+                <AppIcon name="cancel" className="text-[18px]" />
               </button>
             )}
           </div>
@@ -282,7 +273,7 @@ export function TransactionsScreen({
             onClick={onOpenNew}
             type="button"
           >
-            <span className="material-symbols-outlined text-[19px]">add</span>
+            <AppIcon name="add" className="text-[19px]" />
             <span>Nova</span>
           </button>
         </div>
@@ -307,9 +298,7 @@ export function TransactionsScreen({
               <option value="completed">Liquidados (Pago/Recebido)</option>
               <option value="pending">Pendentes / A Receber</option>
             </select>
-            <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant">
-              expand_more
-            </span>
+            <AppIcon name="expand_more" className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant" />
           </div>
 
           <div className="relative flex-1 min-w-[148px]">
@@ -329,9 +318,7 @@ export function TransactionsScreen({
                 </option>
               ))}
             </select>
-            <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant">
-              expand_more
-            </span>
+            <AppIcon name="expand_more" className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant" />
           </div>
 
           <div className="relative flex-1 min-w-[148px]">
@@ -351,9 +338,7 @@ export function TransactionsScreen({
                 </option>
               ))}
             </select>
-            <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant">
-              expand_more
-            </span>
+            <AppIcon name="expand_more" className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant" />
           </div>
         </div>
 
@@ -368,7 +353,7 @@ export function TransactionsScreen({
               onClick={handleClearFilters}
               type="button"
             >
-              <span className="material-symbols-outlined text-[14px]">filter_alt_off</span>
+              <AppIcon name="filter_alt_off" className="text-[14px]" />
               <span>Limpar filtros</span>
             </button>
           </div>
@@ -379,7 +364,7 @@ export function TransactionsScreen({
       {grouped.length === 0 ? (
         <section className="px-3 py-8 flex flex-col items-center text-center">
           <div className="w-16 h-16 rounded-full bg-primary-fixed flex items-center justify-center mb-3 shadow-inner text-primary">
-            <span className="material-symbols-outlined text-[32px]">savings</span>
+            <AppIcon name="savings" className="text-[32px]" />
           </div>
           <h3 className="text-[15.5px] font-bold text-on-surface mb-1">
             Nenhuma movimentação encontrada
@@ -411,7 +396,7 @@ export function TransactionsScreen({
               onClick={onOpenNew}
               type="button"
             >
-              <span className="material-symbols-outlined text-[18px]">add_circle</span>
+              <AppIcon name="add_circle" className="text-[18px]" />
               <span>Adicionar Transação</span>
             </button>
           </div>
@@ -461,7 +446,7 @@ export function TransactionsScreen({
                         <div
                           className={`w-10 h-10 rounded-xl ${meta.bg} ${meta.color} flex items-center justify-center shrink-0`}
                         >
-                          <span className="material-symbols-outlined text-[20px]">{meta.icon}</span>
+                          <AppIcon name={meta.icon} className="text-[20px]" />
                         </div>
 
                         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
@@ -500,13 +485,13 @@ export function TransactionsScreen({
                         <div className="rounded-xl bg-surface-container-low/80 px-2.5 py-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-on-surface-variant">
                           {tx.recurrence && tx.recurrence !== 'none' && (
                             <span className="inline-flex items-center gap-1 text-primary font-semibold">
-                              <span className="material-symbols-outlined text-[13px]">repeat</span>
+                              <AppIcon name="repeat" className="text-[13px]" />
                               {RECURRENCE_LABEL[tx.recurrence] ?? tx.recurrence}
                             </span>
                           )}
                           {isPending && tx.dueDate && (
                             <span className="inline-flex items-center gap-1 text-amber-800 font-medium">
-                              <span className="material-symbols-outlined text-[13px]">event</span>
+                              <AppIcon name="event" className="text-[13px]" />
                               Venc: {tx.dueDate.split('-').reverse().slice(0, 2).join('/')}
                             </span>
                           )}
@@ -530,9 +515,7 @@ export function TransactionsScreen({
                           title="Clique para alterar o status em tempo real"
                           type="button"
                         >
-                          <span className="material-symbols-outlined text-[14px]">
-                            {isPending ? 'schedule' : 'check_circle'}
-                          </span>
+                          <AppIcon name={isPending ? 'schedule' : 'check_circle'} className="text-[14px]" />
                           <span>{statusText}</span>
                         </button>
 
@@ -543,7 +526,7 @@ export function TransactionsScreen({
                             onClick={() => onEditTransaction(tx)}
                             type="button"
                           >
-                            <span className="material-symbols-outlined text-[14px]">edit</span>
+                            <AppIcon name="edit" className="text-[14px]" />
                             <span>Editar</span>
                           </button>
                           <button
@@ -563,7 +546,7 @@ export function TransactionsScreen({
                             }
                             type="button"
                           >
-                            <span className="material-symbols-outlined text-[15px]">delete</span>
+                            <AppIcon name="delete" className="text-[15px]" />
                           </button>
                         </div>
                       </div>

@@ -1,3 +1,4 @@
+import { AppIcon } from './AppIcon';
 import type { AppScreen } from '../types/finance';
 
 interface BottomNavProps {
@@ -30,16 +31,7 @@ export function BottomNav({
           onClick={() => onNavigate('dashboard-inicio')}
           type="button"
         >
-          <span
-            className="material-symbols-outlined text-[24px]"
-            style={
-              activeScreen === 'dashboard-inicio'
-                ? { fontVariationSettings: "'FILL' 1" }
-                : undefined
-            }
-          >
-            dashboard
-          </span>
+          <AppIcon name="dashboard" className="text-[24px]" filled={activeScreen === 'dashboard-inicio'} />
           <span className="font-label-sm text-[10px] leading-tight mt-0.5">Início</span>
         </button>
 
@@ -49,16 +41,7 @@ export function BottomNav({
           onClick={() => onNavigate('transacoes')}
           type="button"
         >
-          <span
-            className="material-symbols-outlined text-[24px]"
-            style={
-              activeScreen === 'transacoes'
-                ? { fontVariationSettings: "'FILL' 1" }
-                : undefined
-            }
-          >
-            receipt_long
-          </span>
+          <AppIcon name="receipt_long" className="text-[24px]" filled={activeScreen === 'transacoes'} />
           <span className="font-label-sm text-[10px] leading-tight mt-0.5">Extrato</span>
         </button>
 
@@ -69,7 +52,7 @@ export function BottomNav({
             onClick={onOpenNewTransaction}
             type="button"
           >
-            <span className="material-symbols-outlined text-[26px]">add</span>
+            <AppIcon name="add" className="text-[26px]" />
           </button>
         </div>
 
@@ -79,16 +62,7 @@ export function BottomNav({
           onClick={() => onNavigate('orcamentos')}
           type="button"
         >
-          <span
-            className="material-symbols-outlined text-[24px]"
-            style={
-              activeScreen === 'orcamentos'
-                ? { fontVariationSettings: "'FILL' 1" }
-                : undefined
-            }
-          >
-            pie_chart
-          </span>
+          <AppIcon name="pie_chart" className="text-[24px]" filled={activeScreen === 'orcamentos'} />
           <span className="font-label-sm text-[10px] leading-tight mt-0.5">Metas</span>
         </button>
 
@@ -98,16 +72,7 @@ export function BottomNav({
           onClick={() => onNavigate('relatorios')}
           type="button"
         >
-          <span
-            className="material-symbols-outlined text-[24px]"
-            style={
-              activeScreen === 'relatorios'
-                ? { fontVariationSettings: "'FILL' 1" }
-                : undefined
-            }
-          >
-            analytics
-          </span>
+          <AppIcon name="analytics" className="text-[24px]" filled={activeScreen === 'relatorios'} />
           <span className="font-label-sm text-[10px] leading-tight mt-0.5">Relatórios</span>
         </button>
       </div>

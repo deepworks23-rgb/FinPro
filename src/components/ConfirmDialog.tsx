@@ -1,3 +1,4 @@
+import { AppIcon } from './AppIcon';
 import { useEffect } from 'react';
 
 export interface ConfirmDialogRequest {
@@ -67,7 +68,7 @@ export function ConfirmDialog({ request, onClose }: ConfirmDialogProps) {
         <div
           className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${style.iconWrap}`}
         >
-          <span className="material-symbols-outlined text-[24px]">{iconName}</span>
+          <AppIcon name={iconName} className="text-[24px]" />
         </div>
 
         <div className="space-y-1 w-full">

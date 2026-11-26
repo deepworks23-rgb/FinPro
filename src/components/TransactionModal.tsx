@@ -1,3 +1,4 @@
+import { AppIcon } from './AppIcon';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   CURRENCY_CONFIG,
@@ -326,9 +327,7 @@ export function TransactionModal({
                   : 'bg-primary-fixed text-primary'
               }`}
             >
-              <span className="material-symbols-outlined text-[20px]">
-                {editingTransaction ? 'edit_note' : type === 'income' ? 'add_card' : 'receipt_long'}
-              </span>
+              <AppIcon name={editingTransaction ? 'edit_note' : type === 'income' ? 'add_card' : 'receipt_long'} className="text-[20px]" />
             </div>
             <div className="min-w-0">
               <h2 className="text-[16px] font-bold text-on-surface leading-tight" id="modalTitle">
@@ -349,7 +348,7 @@ export function TransactionModal({
             onClick={onClose}
             type="button"
           >
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <AppIcon name="close" className="text-[20px]" />
           </button>
         </div>
 
@@ -365,7 +364,7 @@ export function TransactionModal({
               onClick={() => handleTypeSwitch('expense')}
               type="button"
             >
-              <span className="material-symbols-outlined text-[18px]">trending_down</span>
+              <AppIcon name="trending_down" className="text-[18px]" />
               <span>Despesa</span>
             </button>
             <button
@@ -377,7 +376,7 @@ export function TransactionModal({
               onClick={() => handleTypeSwitch('income')}
               type="button"
             >
-              <span className="material-symbols-outlined text-[18px]">trending_up</span>
+              <AppIcon name="trending_up" className="text-[18px]" />
               <span>Receita</span>
             </button>
           </div>
@@ -558,7 +557,7 @@ export function TransactionModal({
                 onClick={() => setStatus('completed')}
                 type="button"
               >
-                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                <AppIcon name="check_circle" className="text-[16px]" />
                 <span>{type === 'income' ? 'Recebido' : 'Pago'}</span>
               </button>
               <button
@@ -570,7 +569,7 @@ export function TransactionModal({
                 onClick={() => setStatus('pending')}
                 type="button"
               >
-                <span className="material-symbols-outlined text-[16px]">schedule</span>
+                <AppIcon name="schedule" className="text-[16px]" />
                 <span>{type === 'income' ? 'A Receber' : 'Pendente'}</span>
               </button>
             </div>
@@ -583,7 +582,7 @@ export function TransactionModal({
                 className="text-[11.5px] font-semibold text-amber-900 flex items-center gap-1"
                 htmlFor="txDueDateInput"
               >
-                <span className="material-symbols-outlined text-[15px]">event</span>
+                <AppIcon name="event" className="text-[15px]" />
                 {type === 'income' ? 'Previsão de Recebimento' : 'Data de Vencimento'}
               </label>
               <input
@@ -735,7 +734,7 @@ export function TransactionModal({
               className="flex-1 h-11 rounded-xl bg-primary text-on-primary text-[13px] font-semibold shadow-md shadow-primary/25 hover:bg-primary-container transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               type="submit"
             >
-              <span className="material-symbols-outlined text-[19px]">check</span>
+              <AppIcon name="check" className="text-[19px]" />
               <span>{editingTransaction ? 'Guardar Alterações' : 'Guardar Lançamento'}</span>
             </button>
           </div>

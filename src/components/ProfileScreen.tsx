@@ -1,3 +1,4 @@
+import { AppIcon } from './AppIcon';
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { authApi } from '../services/api';
 import type { CurrencyCode, SupportTicket, UserProfile } from '../types/finance';
@@ -338,7 +339,7 @@ export function ProfileScreen({
               onClick={() => fileInputRef.current?.click()}
               type="button"
             >
-              <span className="material-symbols-outlined text-[15px]">photo_camera</span>
+              <AppIcon name="photo_camera" className="text-[15px]" />
             </button>
           </div>
 
@@ -372,7 +373,7 @@ export function ProfileScreen({
             onClick={() => fileInputRef.current?.click()}
             type="button"
           >
-            <span className="material-symbols-outlined text-[18px]">upload</span>
+            <AppIcon name="upload" className="text-[18px]" />
             <span>Carregar Foto</span>
           </button>
           {showPhoto && (
@@ -381,7 +382,7 @@ export function ProfileScreen({
               onClick={handleRemovePhoto}
               type="button"
             >
-              <span className="material-symbols-outlined text-[17px]">delete</span>
+              <AppIcon name="delete" className="text-[17px]" />
               <span>Remover</span>
             </button>
           )}
@@ -391,7 +392,7 @@ export function ProfileScreen({
       {/* Dados Pessoais & Configurações */}
       <section className="p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm space-y-3">
         <div className="flex items-center gap-2 border-b border-surface-container pb-2">
-          <span className="material-symbols-outlined text-primary text-[20px]">manage_accounts</span>
+          <AppIcon name="manage_accounts" className="text-primary text-[20px]" />
           <h3 className="text-[14.5px] font-bold text-on-surface">Dados do Perfil</h3>
         </div>
 
@@ -400,7 +401,7 @@ export function ProfileScreen({
             className="p-2.5 rounded-xl bg-error-container text-on-error-container text-[12px] font-medium flex items-center gap-2"
             role="alert"
           >
-            <span className="material-symbols-outlined text-[17px] shrink-0">error</span>
+            <AppIcon name="error" className="text-[17px] shrink-0" />
             <span>{profileError}</span>
           </div>
         )}
@@ -492,7 +493,7 @@ export function ProfileScreen({
             disabled={savingProfile}
             type="submit"
           >
-            <span className="material-symbols-outlined text-[19px]">save</span>
+            <AppIcon name="save" className="text-[19px]" />
             <span>{savingProfile ? 'A guardar...' : 'Guardar Dados do Perfil'}</span>
           </button>
         </form>
@@ -501,7 +502,7 @@ export function ProfileScreen({
       {/* Segurança & Alteração de Senha */}
       <section className="p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm space-y-3">
         <div className="flex items-center gap-2 border-b border-surface-container pb-2">
-          <span className="material-symbols-outlined text-primary text-[20px]">lock</span>
+          <AppIcon name="lock" className="text-primary text-[20px]" />
           <h3 className="text-[14.5px] font-bold text-on-surface">Segurança e Senha</h3>
         </div>
 
@@ -510,7 +511,7 @@ export function ProfileScreen({
             className="p-2.5 rounded-xl bg-error-container text-on-error-container text-[12px] font-medium flex items-center gap-2"
             role="alert"
           >
-            <span className="material-symbols-outlined text-[17px] shrink-0">error</span>
+            <AppIcon name="error" className="text-[17px] shrink-0" />
             <span>{passwordError}</span>
           </div>
         )}
@@ -540,9 +541,7 @@ export function ProfileScreen({
                   onClick={() => setShowCurrentPwd((v) => !v)}
                   type="button"
                 >
-                  <span className="material-symbols-outlined text-[18px]">
-                    {showCurrentPwd ? 'visibility_off' : 'visibility'}
-                  </span>
+                  <AppIcon name={showCurrentPwd ? 'visibility_off' : 'visibility'} className="text-[18px]" />
                 </button>
               </div>
             </div>
@@ -572,9 +571,7 @@ export function ProfileScreen({
                   onClick={() => setShowNewPwd((v) => !v)}
                   type="button"
                 >
-                  <span className="material-symbols-outlined text-[18px]">
-                    {showNewPwd ? 'visibility_off' : 'visibility'}
-                  </span>
+                  <AppIcon name={showNewPwd ? 'visibility_off' : 'visibility'} className="text-[18px]" />
                 </button>
               </div>
             </div>
@@ -603,7 +600,7 @@ export function ProfileScreen({
             disabled={savingPassword}
             type="submit"
           >
-            <span className="material-symbols-outlined text-[18px]">key</span>
+            <AppIcon name="key" className="text-[18px]" />
             <span>{savingPassword ? 'A alterar...' : 'Alterar Senha'}</span>
           </button>
         </form>
@@ -614,7 +611,7 @@ export function ProfileScreen({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-secondary-container/70 text-secondary flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[21px]">support_agent</span>
+              <AppIcon name="support_agent" className="text-[21px]" />
             </div>
             <div className="min-w-0">
               <h3 className="text-[14.5px] font-bold text-on-surface leading-tight">
@@ -632,7 +629,7 @@ export function ProfileScreen({
           onClick={() => setSupportOpen(true)}
           type="button"
         >
-          <span className="material-symbols-outlined text-[19px]">headset_mic</span>
+          <AppIcon name="headset_mic" className="text-[19px]" />
           <span>Contactar Suporte</span>
         </button>
       </section>
@@ -657,7 +654,7 @@ export function ProfileScreen({
           }
           type="button"
         >
-          <span className="material-symbols-outlined text-[19px]">logout</span>
+          <AppIcon name="logout" className="text-[19px]" />
           <span>Terminar Sessão (Sair)</span>
         </button>
       </section>
@@ -677,7 +674,7 @@ export function ProfileScreen({
             <div className="flex items-center justify-between border-b border-surface-container pb-2.5 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="w-9 h-9 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[20px]">support_agent</span>
+                  <AppIcon name="support_agent" className="text-[20px]" />
                 </div>
                 <div>
                   <h3 className="text-[15.5px] font-bold text-on-surface" id="supportModalTitle">
@@ -694,7 +691,7 @@ export function ProfileScreen({
                 onClick={() => setSupportOpen(false)}
                 type="button"
               >
-                <span className="material-symbols-outlined text-[19px]">close</span>
+                <AppIcon name="close" className="text-[19px]" />
               </button>
             </div>
 
@@ -800,7 +797,7 @@ export function ProfileScreen({
                   disabled={sendingSupport}
                   type="submit"
                 >
-                  <span className="material-symbols-outlined text-[18px]">send</span>
+                  <AppIcon name="send" className="text-[18px]" />
                   <span>{sendingSupport ? 'A enviar...' : 'Enviar Pedido de Suporte'}</span>
                 </button>
               </form>
