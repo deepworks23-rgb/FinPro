@@ -1,4 +1,5 @@
 import type {
+  AlertSettings,
   BudgetCategory,
   CurrencyCode,
   FinancialGoal,
@@ -29,6 +30,15 @@ export const CURRENCY_CONFIG: Record<
   USD: { symbol: '$', position: 'left', rateFromBase: 1 / 64 },
 };
 
+export const DEFAULT_ALERT_SETTINGS: AlertSettings = {
+  lowBalanceThreshold: 5000,
+  negativeAlertThreshold: 0,
+  enableBudgetAlerts: true,
+  enableGoalAlerts: true,
+  enableLowBalanceAlerts: true,
+  enablePendingAlerts: true,
+};
+
 function currentMonthOffsetDate(daysAgo: number, ref: Date = new Date()): string {
   const targetDay = ref.getDate() - daysAgo;
   if (targetDay >= 1) {
@@ -42,78 +52,78 @@ export function getInitialTransactions(referenceDate: Date = new Date()): Transa
     {
       id: 'tx_1',
       type: 'income',
-      description: 'Salário Tech Corp',
-      amount: 9500.0,
+      description: 'Salário Mensal — Maputo',
+      amount: 45000.0,
       category: 'Salário',
       date: currentMonthOffsetDate(0, referenceDate),
       time: '09:30',
-      account: 'Nubank Débito',
+      account: 'Millennium bim',
       status: 'completed',
     },
     {
       id: 'tx_2',
       type: 'expense',
-      description: 'Supermercado St. Marche',
-      amount: 489.2,
+      description: 'Supermercado Shoprite',
+      amount: 3450.0,
       category: 'Alimentação',
       date: currentMonthOffsetDate(0, referenceDate),
       time: '11:15',
-      account: 'Nubank Débito',
+      account: 'M-Pesa',
       status: 'completed',
     },
     {
       id: 'tx_3',
       type: 'expense',
-      description: 'Aluguel Apartamento',
-      amount: 2400.0,
+      description: 'Renda de Apartamento (Polana)',
+      amount: 18000.0,
       category: 'Moradia',
       date: currentMonthOffsetDate(1, referenceDate),
       time: '14:00',
-      account: 'Itaú Corrente',
+      account: 'BCI',
       status: 'completed',
     },
     {
       id: 'tx_4',
       type: 'income',
-      description: 'Rendimento Dividendos',
-      amount: 2800.0,
+      description: 'Consultoria & Freelance',
+      amount: 12500.0,
       category: 'Investimentos',
       date: currentMonthOffsetDate(1, referenceDate),
       time: '10:20',
-      account: 'Itaú Corrente',
+      account: 'e-Mola',
       status: 'completed',
     },
     {
       id: 'tx_5',
       type: 'expense',
-      description: 'Uber Viagens',
-      amount: 62.4,
+      description: 'Yango & Transporte Urbano',
+      amount: 650.0,
       category: 'Transporte',
       date: currentMonthOffsetDate(2, referenceDate),
       time: '18:45',
-      account: 'Cartão Mastercard Black',
+      account: 'M-Pesa',
       status: 'completed',
     },
     {
       id: 'tx_6',
       type: 'expense',
-      description: 'Assinatura Streaming & Internet',
-      amount: 199.4,
+      description: 'TVCabo & Internet Vodacom',
+      amount: 2400.0,
       category: 'Lazer',
       date: currentMonthOffsetDate(6, referenceDate),
       time: '08:10',
-      account: 'Cartão de Crédito',
+      account: 'Millennium bim',
       status: 'pending',
     },
     {
       id: 'tx_7',
       type: 'expense',
-      description: 'Farmácia Drogasil',
-      amount: 189.8,
+      description: 'Energia EDM (Credelec) & Farmácia',
+      amount: 1850.0,
       category: 'Saúde',
       date: currentMonthOffsetDate(8, referenceDate),
       time: '16:20',
-      account: 'Carteira Móvel/Pix',
+      account: 'mKesh',
       status: 'completed',
     },
   ];
@@ -121,12 +131,46 @@ export function getInitialTransactions(referenceDate: Date = new Date()): Transa
 
 export const INITIAL_TRANSACTIONS: Transaction[] = getInitialTransactions();
 
+export const MOZAMBIQUE_ACCOUNTS = [
+  'M-Pesa',
+  'e-Mola',
+  'mKesh',
+  'Millennium bim',
+  'BCI',
+  'Standard Bank MZ',
+  'Absa Moçambique',
+  'Numerário',
+] as const;
+
+export const EXPENSE_CATEGORIES = [
+  'Alimentação',
+  'Moradia',
+  'Transporte',
+  'Energia & Água',
+  'Comunicação',
+  'Saúde',
+  'Lazer',
+  'Educação',
+  'Vestuário',
+  'Assinaturas',
+  'Outros',
+] as const;
+
+export const INCOME_CATEGORIES = [
+  'Salário',
+  'Consultoria & Freelance',
+  'Negócio / Vendas',
+  'Investimentos',
+  'Subsídios / Bónus',
+  'Outros',
+] as const;
+
 export const INITIAL_BUDGET_CATEGORIES: BudgetCategory[] = [
   {
     id: 'cat_alimentacao',
     category: 'Alimentação',
-    limit: 1500,
-    spent: 1350,
+    limit: 8000,
+    spent: 3450,
     icon: 'restaurant',
     iconBg: 'bg-orange-100',
     iconColor: 'text-orange-700',
@@ -134,8 +178,8 @@ export const INITIAL_BUDGET_CATEGORIES: BudgetCategory[] = [
   {
     id: 'cat_transporte',
     category: 'Transporte',
-    limit: 600,
-    spent: 380,
+    limit: 3000,
+    spent: 650,
     icon: 'directions_car',
     iconBg: 'bg-secondary-fixed',
     iconColor: 'text-on-secondary-container',
@@ -143,8 +187,8 @@ export const INITIAL_BUDGET_CATEGORIES: BudgetCategory[] = [
   {
     id: 'cat_moradia',
     category: 'Moradia & Contas',
-    limit: 1800,
-    spent: 1450,
+    limit: 20000,
+    spent: 18000,
     icon: 'home',
     iconBg: 'bg-surface-container',
     iconColor: 'text-primary',
@@ -152,8 +196,8 @@ export const INITIAL_BUDGET_CATEGORIES: BudgetCategory[] = [
   {
     id: 'cat_lazer',
     category: 'Lazer & Entretenimento',
-    limit: 500,
-    spent: 480,
+    limit: 2500,
+    spent: 0,
     icon: 'movie',
     iconBg: 'bg-tertiary-fixed',
     iconColor: 'text-tertiary',
@@ -161,8 +205,8 @@ export const INITIAL_BUDGET_CATEGORIES: BudgetCategory[] = [
   {
     id: 'cat_saude',
     category: 'Saúde & Bem-estar',
-    limit: 600,
-    spent: 189.8,
+    limit: 4000,
+    spent: 1850,
     icon: 'favorite',
     iconBg: 'bg-teal-100',
     iconColor: 'text-teal-800',
@@ -175,26 +219,26 @@ export function getInitialGoals(referenceDate: Date = new Date()): FinancialGoal
     {
       id: 'goal_1',
       title: 'Reserva de Emergência',
-      current: 15000,
-      target: 20000,
+      current: 65000,
+      target: 120000,
       imageUrl: ASSETS.goalEmergency,
       barColor: 'bg-secondary',
       accentColor: 'text-secondary',
     },
     {
       id: 'goal_2',
-      title: `Viagem Europa ${year}`,
-      current: 7800,
-      target: 15000,
+      title: `Férias em Vilankulo & Tofo ${year}`,
+      current: 28000,
+      target: 50000,
       imageUrl: ASSETS.goalEurope,
       barColor: 'bg-primary',
       accentColor: 'text-primary',
     },
     {
       id: 'goal_3',
-      title: `Investimento ${year}`,
-      current: 12000,
-      target: 30000,
+      title: `Investimento em Negócio ${year}`,
+      current: 45000,
+      target: 150000,
       imageUrl: ASSETS.goalInvest,
       barColor: 'bg-primary-container',
       accentColor: 'text-primary',
@@ -205,21 +249,21 @@ export function getInitialGoals(referenceDate: Date = new Date()): FinancialGoal
 export const INITIAL_GOALS: FinancialGoal[] = getInitialGoals();
 
 export const DASHBOARD_BASELINE_HISTORY: Array<{ income: number; expense: number }> = [
-  { income: 10200, expense: 4100 },
-  { income: 9800, expense: 3900 },
-  { income: 11500, expense: 5200 },
-  { income: 10900, expense: 4400 },
-  { income: 12100, expense: 4700 },
-  { income: 12300, expense: 3849 },
+  { income: 48000, expense: 25400 },
+  { income: 45000, expense: 23900 },
+  { income: 54000, expense: 28100 },
+  { income: 51500, expense: 24800 },
+  { income: 56000, expense: 27200 },
+  { income: 57500, expense: 26350 },
 ];
 
 export const REPORTS_BASELINE_HISTORY: Array<{ income: number; expense: number }> = [
-  { income: 11200, expense: 8900 },
-  { income: 12800, expense: 9400 },
-  { income: 13500, expense: 10100 },
-  { income: 12400, expense: 8600 },
-  { income: 13100, expense: 9800 },
-  { income: 14120, expense: 9300 },
+  { income: 48000, expense: 25400 },
+  { income: 45000, expense: 23900 },
+  { income: 54000, expense: 28100 },
+  { income: 51500, expense: 24800 },
+  { income: 56000, expense: 27200 },
+  { income: 57500, expense: 26350 },
 ];
 
 export interface ReportMetricsSummary {
@@ -251,6 +295,24 @@ export function getReportPeriodMetrics(
   const activeSet = period === 'mes' ? curMonthTxs : scopedTransactions;
   const summary = computeTransactionSummary(activeSet);
 
+  // Previous month dynamic baseline comparison
+  const prevDate = new Date(year, monthIdx - 1, 1);
+  const prevMonthTxs = filterTransactionsByMonth(
+    transactions,
+    prevDate.getFullYear(),
+    prevDate.getMonth()
+  );
+  const prevSummary = computeTransactionSummary(prevMonthTxs);
+  const prevFallback = REPORTS_BASELINE_HISTORY[REPORTS_BASELINE_HISTORY.length - 2] ?? {
+    income: 56000,
+    expense: 27200,
+  };
+  const prevNet =
+    prevMonthTxs.length > 0 ? prevSummary.netBalance : prevFallback.income - prevFallback.expense;
+  const netDeltaPct =
+    Math.abs(prevNet) > 0 ? ((summary.netBalance - prevNet) / Math.abs(prevNet)) * 100 : 0;
+  const formattedDelta = `${netDeltaPct >= 0 ? '+' : ''}${netDeltaPct.toFixed(1)}%`;
+
   // Top expense category
   const expenseMap = new Map<string, number>();
   for (const t of activeSet) {
@@ -269,27 +331,33 @@ export function getReportPeriodMetrics(
 
   const daysDivisor =
     period === 'mes' ? currentDay : period === 'trimestre' ? 90 : period === 'ano' ? 365 : Math.max(currentDay, 1);
+  const dailyAvg = summary.totalExpense / daysDivisor;
+  const prevDailyRef =
+    (prevMonthTxs.length > 0 ? prevSummary.totalExpense : prevFallback.expense) / 30;
+  const dailyDiffPct =
+    prevDailyRef > 0 ? ((dailyAvg - prevDailyRef) / prevDailyRef) * 100 : 0;
+  const dailyDiffLabel = `${dailyDiffPct >= 0 ? '+' : ''}${dailyDiffPct.toFixed(1)}% vs mês ant.`;
 
   const highlightMap: Record<ReportPeriod, { badge: string; label: string; delta: string }> = {
     mes: {
-      badge: '+12.4% vs mês anterior',
+      badge: `${formattedDelta} vs mês anterior`,
       label: `Poupança em ${currentMonthName}:`,
-      delta: '-4.1% que a meta',
+      delta: dailyDiffLabel,
     },
     trimestre: {
-      badge: '+8.7% vs trim. anterior',
+      badge: `${summary.savingRate}% poupados`,
       label: 'Poupança no Trimestre:',
-      delta: '-2.5% que a meta',
+      delta: `${activeSet.length} lançamentos`,
     },
     ano: {
-      badge: `+15.9% vs ${year - 1}`,
+      badge: `${summary.savingRate}% poupados em ${year}`,
       label: `Poupança em ${year}:`,
-      delta: '-6.0% que a meta',
+      delta: `${activeSet.length} lançamentos`,
     },
     custom: {
-      badge: 'Período selecionado',
+      badge: `${activeSet.length} lançamentos`,
       label: 'Poupança no Período:',
-      delta: `${activeSet.length} lançamentos`,
+      delta: `${summary.pendingCount} pendentes`,
     },
   };
 
@@ -300,7 +368,7 @@ export function getReportPeriodMetrics(
     topExpenseTitle,
     topExpenseAmount,
     topExpenseShare,
-    dailyAvg: summary.totalExpense / daysDivisor,
+    dailyAvg,
     dailyDelta: highlightMap[period].delta,
     highlightMonthText: highlightMap[period].label,
     incomeTotal: summary.totalIncome,
@@ -315,9 +383,14 @@ export const CATEGORY_STYLE_META: Record<
   Alimentação: { icon: 'restaurant', bg: 'bg-orange-500/10', color: 'text-orange-600' },
   Transporte: { icon: 'directions_car', bg: 'bg-blue-500/10', color: 'text-blue-600' },
   Moradia: { icon: 'home', bg: 'bg-indigo-500/10', color: 'text-indigo-600' },
+  'Energia & Água': { icon: 'bolt', bg: 'bg-amber-500/10', color: 'text-amber-600' },
+  Comunicação: { icon: 'wifi', bg: 'bg-sky-500/10', color: 'text-sky-600' },
   Lazer: { icon: 'celebration', bg: 'bg-pink-500/10', color: 'text-pink-600' },
   Saúde: { icon: 'favorite', bg: 'bg-tertiary-fixed', color: 'text-tertiary' },
   Salário: { icon: 'payments', bg: 'bg-secondary-container/70', color: 'text-secondary' },
+  'Consultoria & Freelance': { icon: 'work', bg: 'bg-secondary-container/70', color: 'text-secondary' },
+  'Negócio / Vendas': { icon: 'storefront', bg: 'bg-secondary-container/70', color: 'text-secondary' },
+  'Subsídios / Bónus': { icon: 'redeem', bg: 'bg-secondary-container/70', color: 'text-secondary' },
   Investimentos: { icon: 'trending_up', bg: 'bg-purple-500/10', color: 'text-purple-600' },
   Educação: { icon: 'school', bg: 'bg-primary-fixed', color: 'text-primary' },
   Vestuário: { icon: 'checkroom', bg: 'bg-primary-fixed', color: 'text-primary' },

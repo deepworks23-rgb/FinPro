@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import { BudgetsScreen } from './components/BudgetsScreen';
+import { ConfirmDialog, type ConfirmDialogRequest } from './components/ConfirmDialog';
 import { DashboardScreen } from './components/DashboardScreen';
 import { Header } from './components/Header';
 import { LoginScreen } from './components/LoginScreen';
@@ -9,11 +10,13 @@ import { ReportsScreen } from './components/ReportsScreen';
 import { TransactionModal } from './components/TransactionModal';
 import { TransactionsScreen } from './components/TransactionsScreen';
 import {
+  DEFAULT_ALERT_SETTINGS,
   getInitialGoals,
   getInitialTransactions,
   INITIAL_BUDGET_CATEGORIES,
 } from './data/seed';
 import type {
+  AlertSettings,
   AppScreen,
   BudgetCategory,
   CurrencyCode,
@@ -21,16 +24,26 @@ import type {
   Transaction,
   TransactionType,
 } from './types/finance';
-import { buildTransactionsCSV, evaluateBudgetStatus, toLocalISODate } from './utils/finance';
+import {
+  buildTransactionsCSV,
+  computeRealMonthExpenseByBudgetCategory,
+  computeRealTimeAlerts,
+  computeTransactionSummary,
+  formatMoney,
+  syncBudgetsWithTransactions,
+  toLocalISODate,
+} from './utils/finance';
 
 const STORAGE_KEYS = {
-  transactions: 'fintrack_transactions_v3',
-  budgets: 'fintrack_budgets_v2',
-  goals: 'fintrack_goals_v3',
-  currency: 'fintrack_currency_v2',
-  hideBalance: 'fintrack_hide_balance',
-  userEmail: 'fintrack_user_email',
-  userName: 'fintrack_user_name',
+  transactions: 'fintrack_mz_transactions_v1',
+  budgets: 'fintrack_mz_budgets_v2',
+  goals: 'fintrack_mz_goals_v1',
+  currency: 'fintrack_mz_currency_v1',
+  hideBalance: 'fintrack_mz_hide_balance',
+  userEmail: 'fintrack_mz_user_email',
+  userName: 'fintrack_mz_user_name',
+  alertSettings: 'fintrack_mz_alert_settings_v1',
+  readAlerts: 'fintrack_mz_read_alerts_v1',
 };
 
 function readStoredJSON<T>(key: string, fallback: T): T {
@@ -69,6 +82,7 @@ function getInitialScreen(): AppScreen {
 export default function App() {
   const [screen, setScreen] = useState<AppScreen>(getInitialScreen);
   const [previousScreen, setPreviousScreen] = useState<AppScreen>('dashboard-inicio');
+  const [nowTick, setNowTick] = useState<Date>(() => new Date());
 
   const [transactions, setTransactions] = useState<Transaction[]>(() =>
     readStoredJSON(STORAGE_KEYS.transactions, getInitialTransactions())
@@ -85,10 +99,17 @@ export default function App() {
     () => localStorage.getItem(STORAGE_KEYS.hideBalance) === 'true'
   );
   const [userEmail, setUserEmail] = useState<string>(
-    () => localStorage.getItem(STORAGE_KEYS.userEmail) || 'lucas.silva@fintrack.com'
+    () => localStorage.getItem(STORAGE_KEYS.userEmail) || 'edson.machava@fintrack.co.mz'
   );
   const [userName, setUserName] = useState<string>(
-    () => localStorage.getItem(STORAGE_KEYS.userName) || 'Lucas Silva'
+    () => localStorage.getItem(STORAGE_KEYS.userName) || 'Edson Machava'
+  );
+  const [alertSettings, setAlertSettings] = useState<AlertSettings>(() => ({
+    ...DEFAULT_ALERT_SETTINGS,
+    ...readStoredJSON<Partial<AlertSettings>>(STORAGE_KEYS.alertSettings, {}),
+  }));
+  const [readAlertSignatures, setReadAlertSignatures] = useState<string[]>(() =>
+    readStoredJSON<string[]>(STORAGE_KEYS.readAlerts, [])
   );
 
   // Modals & Overlays
@@ -97,7 +118,40 @@ export default function App() {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [confirmRequest, setConfirmRequest] = useState<ConfirmDialogRequest | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Real-time clock tick (every 30s) & cross-tab storage synchronization
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNowTick(new Date());
+    }, 30000);
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEYS.transactions && e.newValue) {
+        setTransactions(JSON.parse(e.newValue) as Transaction[]);
+      } else if (e.key === STORAGE_KEYS.budgets && e.newValue) {
+        setBudgets(JSON.parse(e.newValue) as BudgetCategory[]);
+      } else if (e.key === STORAGE_KEYS.goals && e.newValue) {
+        setGoals(JSON.parse(e.newValue) as FinancialGoal[]);
+      } else if (e.key === STORAGE_KEYS.currency && (e.newValue === 'MZN' || e.newValue === 'USD')) {
+        setCurrency(e.newValue);
+      } else if (e.key === STORAGE_KEYS.alertSettings && e.newValue) {
+        setAlertSettings({
+          ...DEFAULT_ALERT_SETTINGS,
+          ...(JSON.parse(e.newValue) as Partial<AlertSettings>),
+        });
+      } else if (e.key === STORAGE_KEYS.readAlerts && e.newValue) {
+        setReadAlertSignatures(JSON.parse(e.newValue) as string[]);
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(transactions));
@@ -126,6 +180,35 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.userName, userName);
   }, [userName]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.alertSettings, JSON.stringify(alertSettings));
+  }, [alertSettings]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.readAlerts, JSON.stringify(readAlertSignatures));
+  }, [readAlertSignatures]);
+
+  // Real-time budgets derived dynamically from transactions of the current month
+  const liveBudgets = useMemo(
+    () => syncBudgetsWithTransactions(budgets, transactions, nowTick),
+    [budgets, transactions, nowTick]
+  );
+
+  const summary = useMemo(() => computeTransactionSummary(transactions), [transactions]);
+
+  const realTimeAlerts = useMemo(
+    () =>
+      computeRealTimeAlerts({
+        transactions,
+        budgets: liveBudgets,
+        goals,
+        settings: alertSettings,
+        currency,
+        now: nowTick,
+      }),
+    [transactions, liveBudgets, goals, alertSettings, currency, nowTick]
+  );
 
   const showToast = useCallback((msg: string) => {
     setToastMsg(msg);
@@ -161,45 +244,108 @@ export default function App() {
 
   const handleSaveTransaction = useCallback(
     (payload: Omit<Transaction, 'id'> & { id?: string }) => {
+      setNowTick(new Date());
       if (payload.id) {
         setTransactions((prev) =>
           prev.map((t) => (t.id === payload.id ? { ...payload, id: payload.id } : t))
         );
-        showToast('Transação atualizada com sucesso!');
+        showToast('Transação atualizada em tempo real!');
       } else {
         const newTx: Transaction = {
           ...payload,
           id: `tx_${Date.now()}`,
         };
         setTransactions((prev) => [newTx, ...prev]);
-        showToast('Transação adicionada com sucesso!');
+        showToast('Transação registada com sucesso!');
       }
     },
     [showToast]
   );
 
+  const requestConfirm = useCallback((req: ConfirmDialogRequest) => {
+    setConfirmRequest(req);
+  }, []);
+
+  const handleToggleTransactionStatus = useCallback(
+    (id: string) => {
+      const target = transactions.find((t) => t.id === id);
+      if (!target) return;
+
+      const nextStatus = target.status === 'completed' ? 'pending' : 'completed';
+      const nextLabel =
+        nextStatus === 'completed'
+          ? target.type === 'income'
+            ? 'Recebido'
+            : 'Pago'
+          : 'Pendente';
+      const toastText =
+        nextStatus === 'completed'
+          ? target.type === 'income'
+            ? 'Marcada como Recebida!'
+            : 'Marcada como Paga!'
+          : 'Alterada para Pendente!';
+
+      requestConfirm({
+        variant: 'primary',
+        icon: nextStatus === 'completed' ? 'check_circle' : 'schedule',
+        title: `Marcar como ${nextLabel}?`,
+        message: `Deseja alterar o estado desta transação para "${nextLabel}"?`,
+        details: `${target.description} · ${target.type === 'income' ? '+' : '-'}${formatMoney(target.amount, currency)}`,
+        confirmLabel: `Sim, ${nextLabel}`,
+        cancelLabel: 'Voltar',
+        onConfirm: () => {
+          setNowTick(new Date());
+          setTransactions((prev) =>
+            prev.map((t) => (t.id === id ? { ...t, status: nextStatus } : t))
+          );
+          showToast(toastText);
+        },
+      });
+    },
+    [transactions, currency, requestConfirm, showToast]
+  );
+
   const handleDeleteTransaction = useCallback(
     (id: string) => {
+      setNowTick(new Date());
       setTransactions((prev) => prev.filter((t) => t.id !== id));
       showToast('Transação excluída.');
     },
     [showToast]
   );
 
-  const handleAddBudget = useCallback((budget: Omit<BudgetCategory, 'id'>) => {
-    const newBudget: BudgetCategory = {
-      ...budget,
-      id: `cat_${Date.now()}`,
-    };
-    setBudgets((prev) => [newBudget, ...prev]);
-  }, []);
+  const handleAddBudget = useCallback(
+    (budget: Omit<BudgetCategory, 'id'>) => {
+      const realMap = computeRealMonthExpenseByBudgetCategory(transactions, nowTick);
+      const realSpent = realMap.get(budget.category) ?? 0;
+      const newBudget: BudgetCategory = {
+        ...budget,
+        manualSpentOffset: Math.round((budget.spent - realSpent) * 100) / 100,
+        id: `cat_${Date.now()}`,
+      };
+      setBudgets((prev) => [newBudget, ...prev]);
+    },
+    [transactions, nowTick]
+  );
 
   const handleUpdateBudget = useCallback(
     (id: string, updates: Pick<BudgetCategory, 'limit' | 'spent'>) => {
-      setBudgets((prev) => prev.map((b) => (b.id === id ? { ...b, ...updates } : b)));
+      const realMap = computeRealMonthExpenseByBudgetCategory(transactions, nowTick);
+      setBudgets((prev) =>
+        prev.map((b) => {
+          if (b.id !== id) return b;
+          const realSpent = realMap.get(b.category) ?? 0;
+          return {
+            ...b,
+            limit: updates.limit,
+            spent: updates.spent,
+            manualSpentOffset: Math.round((updates.spent - realSpent) * 100) / 100,
+          };
+        })
+      );
       showToast('Orçamento atualizado!');
     },
-    [showToast]
+    [transactions, nowTick, showToast]
   );
 
   const handleDeleteBudget = useCallback(
@@ -223,7 +369,7 @@ export default function App() {
       setGoals((prev) =>
         prev.map((g) => (g.id === id ? { ...g, current: Math.max(0, g.current + addedAmountBase) } : g))
       );
-      showToast('Aporte registrado na meta!');
+      showToast('Reforço registado na meta!');
     },
     [showToast]
   );
@@ -251,27 +397,76 @@ export default function App() {
   }, [transactions, showToast]);
 
   const handleResetDemo = useCallback(() => {
-    setTransactions(getInitialTransactions());
+    const now = new Date();
+    setNowTick(now);
+    setTransactions(getInitialTransactions(now));
     setBudgets(INITIAL_BUDGET_CATEGORIES);
-    setGoals(getInitialGoals());
+    setGoals(getInitialGoals(now));
     setCurrency('MZN');
     setIsBalanceHidden(false);
-    setUserName('Lucas Silva');
-    setUserEmail('lucas.silva@fintrack.com');
+    setUserName('Edson Machava');
+    setUserEmail('edson.machava@fintrack.co.mz');
+    setAlertSettings(DEFAULT_ALERT_SETTINGS);
+    setReadAlertSignatures([]);
     showToast('Dados de demonstração restaurados!');
   }, [showToast]);
 
-  const unreadAlertsCount = budgets.filter(
-    (b) => evaluateBudgetStatus(b.spent, b.limit, currency).percentage >= 75
-  ).length;
+  const handleUpdateAlertSettings = useCallback(
+    (next: AlertSettings) => {
+      setAlertSettings(next);
+      showToast('Limites de alerta atualizados!');
+    },
+    [showToast]
+  );
 
-  const firstName = userName.trim().split(' ')[0] || 'Lucas';
+  const handleMarkAlertRead = useCallback((signature: string) => {
+    setReadAlertSignatures((prev) => (prev.includes(signature) ? prev : [...prev, signature]));
+  }, []);
+
+  const handleMarkAllAlertsRead = useCallback(() => {
+    setReadAlertSignatures((prev) => {
+      const merged = new Set([...prev, ...realTimeAlerts.map((a) => a.signature)]);
+      return Array.from(merged);
+    });
+    showToast('Alertas marcados como lidos.');
+  }, [realTimeAlerts, showToast]);
+
+  const unreadAlertsCount = useMemo(
+    () => realTimeAlerts.filter((a) => !readAlertSignatures.includes(a.signature)).length,
+    [realTimeAlerts, readAlertSignatures]
+  );
+
+  const hasCriticalAlert = useMemo(
+    () =>
+      realTimeAlerts.some(
+        (a) => a.severity === 'critical' && !readAlertSignatures.includes(a.signature)
+      ),
+    [realTimeAlerts, readAlertSignatures]
+  );
+
+  const balanceAlertStatus: 'critical' | 'warning' | null = useMemo(() => {
+    if (!alertSettings.enableLowBalanceAlerts) return null;
+    if (summary.netBalance <= alertSettings.negativeAlertThreshold) return 'critical';
+    if (summary.netBalance <= alertSettings.lowBalanceThreshold) return 'warning';
+    return null;
+  }, [alertSettings, summary.netBalance]);
+
+  const firstName = userName.trim().split(' ')[0] || 'Edson';
 
   return (
     <div className="min-h-screen w-full bg-surface-container-low/60 flex justify-center">
       <div className="relative w-full max-w-[440px] min-h-screen bg-surface flex flex-col shadow-[0_0_40px_rgba(19,27,46,0.06)]">
         <Header
+          balanceAlertStatus={balanceAlertStatus}
+          currency={currency}
+          firstName={firstName}
+          hasCriticalAlert={hasCriticalAlert}
+          now={nowTick}
           onBack={() => navigateTo(previousScreen === 'login' ? 'dashboard-inicio' : previousScreen)}
+          onChangeCurrency={(next) => {
+            setCurrency(next);
+            showToast(`Moeda alterada para ${next}`);
+          }}
           onOpenNotifications={() => setNotificationsOpen(true)}
           onOpenProfile={() => setProfileOpen(true)}
           screen={screen}
@@ -279,22 +474,24 @@ export default function App() {
         />
 
         <main
-          className={`flex flex-col relative w-full flex-1 pt-16 bg-surface ${
-            screen === 'login' ? 'pb-safe' : 'pb-28'
+          className={`flex flex-col relative w-full flex-1 bg-surface ${
+            screen === 'login' ? 'pt-14 pb-safe' : 'pt-16 pb-20'
           }`}
         >
           {screen === 'dashboard-inicio' && (
             <DashboardScreen
+              alertSettings={alertSettings}
               currency={currency}
-              firstName={firstName}
               isBalanceHidden={isBalanceHidden}
-              onChangeCurrency={setCurrency}
+              now={nowTick}
               onEditTransaction={handleEditTransaction}
               onExportCSV={handleExportCSV}
               onNavigate={navigateTo}
               onNotify={showToast}
               onOpenNewTransaction={handleOpenNewTransaction}
+              onOpenNotifications={() => setNotificationsOpen(true)}
               onToggleHideBalance={() => setIsBalanceHidden((v) => !v)}
+              onToggleStatus={handleToggleTransactionStatus}
               transactions={transactions}
             />
           )}
@@ -305,13 +502,15 @@ export default function App() {
               onDeleteTransaction={handleDeleteTransaction}
               onEditTransaction={handleEditTransaction}
               onOpenNew={() => handleOpenNewTransaction('expense')}
+              onRequestConfirm={requestConfirm}
+              onToggleStatus={handleToggleTransactionStatus}
               transactions={transactions}
             />
           )}
 
           {screen === 'orcamentos' && (
             <BudgetsScreen
-              budgets={budgets}
+              budgets={liveBudgets}
               currency={currency}
               goals={goals}
               onAddBudget={handleAddBudget}
@@ -320,6 +519,7 @@ export default function App() {
               onDeleteBudget={handleDeleteBudget}
               onDeleteGoal={handleDeleteGoal}
               onNotify={showToast}
+              onRequestConfirm={requestConfirm}
               onUpdateBudget={handleUpdateBudget}
             />
           )}
@@ -354,6 +554,7 @@ export default function App() {
         />
 
         <TransactionModal
+          budgets={liveBudgets}
           currency={currency}
           editingTransaction={editingTx}
           initialType={txModalType}
@@ -362,15 +563,23 @@ export default function App() {
             setTxModalOpen(false);
             setEditingTx(null);
           }}
+          onRequestConfirm={requestConfirm}
           onSave={handleSaveTransaction}
         />
 
         <NotificationsModal
-          budgets={budgets}
+          alertSettings={alertSettings}
+          alerts={realTimeAlerts}
           currency={currency}
           isOpen={notificationsOpen}
+          netBalanceBase={summary.netBalance}
           onClose={() => setNotificationsOpen(false)}
-          onGoToBudgets={() => navigateTo('orcamentos')}
+          onMarkAlertRead={handleMarkAlertRead}
+          onMarkAllRead={handleMarkAllAlertsRead}
+          onNavigate={navigateTo}
+          onRequestConfirm={requestConfirm}
+          onUpdateAlertSettings={handleUpdateAlertSettings}
+          readSignatures={readAlertSignatures}
         />
 
         <ProfileModal
@@ -382,6 +591,7 @@ export default function App() {
           }}
           onClose={() => setProfileOpen(false)}
           onOpenLogin={() => navigateTo('login')}
+          onRequestConfirm={requestConfirm}
           onResetDemo={handleResetDemo}
           onUpdateName={(nextName) => {
             setUserName(nextName);
@@ -390,6 +600,8 @@ export default function App() {
           userEmail={userEmail}
           userName={userName}
         />
+
+        <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
 
         {/* Toast Notification Box */}
         {toastMsg && (

@@ -1,5 +1,22 @@
 import { CURRENCY_CONFIG } from '../data/seed';
-import type { BudgetCategory, CurrencyCode, Transaction } from '../types/finance';
+import type {
+  AlertSettings,
+  BudgetCategory,
+  CurrencyCode,
+  FinancialGoal,
+  RealTimeAlert,
+  Transaction,
+} from '../types/finance';
+
+const WEEKDAYS_PT = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'] as const;
+
+export function formatHeaderDateLabel(date: Date = new Date()): string {
+  const weekday = WEEKDAYS_PT[date.getDay()];
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  return `Hoje, ${weekday}, ${dd}/${mm}/${yyyy}`;
+}
 
 export function formatMoney(
   amountBase: number,
@@ -46,6 +63,11 @@ export interface TransactionSummary {
   savingRate: string;
   incomeCount: number;
   expenseCount: number;
+  completedIncome: number;
+  completedExpense: number;
+  pendingIncome: number;
+  pendingExpense: number;
+  pendingCount: number;
 }
 
 export function computeTransactionSummary(transactions: Transaction[]): TransactionSummary {
@@ -53,14 +75,26 @@ export function computeTransactionSummary(transactions: Transaction[]): Transact
   let totalExpense = 0;
   let incomeCount = 0;
   let expenseCount = 0;
+  let completedIncome = 0;
+  let completedExpense = 0;
+  let pendingIncome = 0;
+  let pendingExpense = 0;
+  let pendingCount = 0;
 
   for (const t of transactions) {
+    const amt = Number(t.amount);
+    if (t.status === 'pending') pendingCount += 1;
+
     if (t.type === 'income') {
-      totalIncome += Number(t.amount);
+      totalIncome += amt;
       incomeCount += 1;
+      if (t.status === 'completed') completedIncome += amt;
+      else pendingIncome += amt;
     } else if (t.type === 'expense') {
-      totalExpense += Number(t.amount);
+      totalExpense += amt;
       expenseCount += 1;
+      if (t.status === 'completed') completedExpense += amt;
+      else pendingExpense += amt;
     }
   }
 
@@ -75,6 +109,11 @@ export function computeTransactionSummary(transactions: Transaction[]): Transact
     savingRate,
     incomeCount,
     expenseCount,
+    completedIncome,
+    completedExpense,
+    pendingIncome,
+    pendingExpense,
+    pendingCount,
   };
 }
 
@@ -90,7 +129,9 @@ export function filterTransactions(
         const matchDesc = t.description.toLowerCase().includes(q);
         const matchCat = t.category.toLowerCase().includes(q);
         const matchAccount = t.account.toLowerCase().includes(q);
-        if (!matchDesc && !matchCat && !matchAccount) return false;
+        const matchRef = t.reference?.toLowerCase().includes(q) ?? false;
+        const matchNotes = t.notes?.toLowerCase().includes(q) ?? false;
+        if (!matchDesc && !matchCat && !matchAccount && !matchRef && !matchNotes) return false;
       }
       if (filter === 'income' && t.type !== 'income') return false;
       if (filter === 'expense' && t.type !== 'expense') return false;
@@ -98,6 +139,43 @@ export function filterTransactions(
       if (!['all', 'income', 'expense', 'pending'].includes(filter)) {
         if (t.category !== filter) return false;
       }
+      return true;
+    })
+    .sort((a, b) => {
+      const aKey = `${a.date}T${a.time ?? '00:00'}`;
+      const bKey = `${b.date}T${b.time ?? '00:00'}`;
+      return bKey.localeCompare(aKey);
+    });
+}
+
+export interface TransactionDropdownFilters {
+  typeStatus: 'all' | 'income' | 'expense' | 'completed' | 'pending';
+  category: string;
+  account: string;
+  searchQuery: string;
+}
+
+export function filterTransactionsByDropdowns(
+  transactions: Transaction[],
+  filters: TransactionDropdownFilters
+): Transaction[] {
+  const q = filters.searchQuery.toLowerCase().trim();
+  return transactions
+    .filter((t) => {
+      if (q) {
+        const matchDesc = t.description.toLowerCase().includes(q);
+        const matchCat = t.category.toLowerCase().includes(q);
+        const matchAccount = t.account.toLowerCase().includes(q);
+        const matchRef = t.reference?.toLowerCase().includes(q) ?? false;
+        const matchNotes = t.notes?.toLowerCase().includes(q) ?? false;
+        if (!matchDesc && !matchCat && !matchAccount && !matchRef && !matchNotes) return false;
+      }
+      if (filters.typeStatus === 'income' && t.type !== 'income') return false;
+      if (filters.typeStatus === 'expense' && t.type !== 'expense') return false;
+      if (filters.typeStatus === 'completed' && t.status !== 'completed') return false;
+      if (filters.typeStatus === 'pending' && t.status !== 'pending') return false;
+      if (filters.category !== 'all' && t.category !== filters.category) return false;
+      if (filters.account !== 'all' && t.account !== filters.account) return false;
       return true;
     })
     .sort((a, b) => {
@@ -163,6 +241,14 @@ export function getShortMonthLabel(monthIndex: number): string {
 export function getFullMonthName(monthIndex: number): string {
   const normalizedMonth = ((monthIndex % 12) + 12) % 12;
   return PT_MONTHS_FULL[normalizedMonth];
+}
+
+export function getMonthDropdownOptions(): Array<{ value: number; label: string; short: string }> {
+  return PT_MONTHS_FULL.map((label, idx) => ({
+    value: idx,
+    label,
+    short: PT_MONTHS_SHORT[idx],
+  }));
 }
 
 export function getMonthCycleInfo(referenceDate: Date = new Date()) {
@@ -319,7 +405,7 @@ export function getDateGroupLabel(dateStr: string, referenceDate = new Date()): 
   if (diffDays === 0) return 'Hoje';
   if (diffDays === 1) return 'Ontem';
 
-  return txDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  return txDate.toLocaleDateString('pt-MZ', { day: '2-digit', month: 'short' });
 }
 
 export function groupTransactionsByDate(
@@ -411,6 +497,55 @@ export function computeBudgetTotals(budgets: BudgetCategory[]) {
   return { totalLimit, totalSpent, available, percentage };
 }
 
+export function mapTransactionCategoryToBudget(txCategory: string): string {
+  switch (txCategory) {
+    case 'Moradia':
+    case 'Energia & Água':
+      return 'Moradia & Contas';
+    case 'Lazer':
+    case 'Comunicação':
+      return 'Lazer & Entretenimento';
+    case 'Saúde':
+      return 'Saúde & Bem-estar';
+    default:
+      return txCategory;
+  }
+}
+
+export function computeRealMonthExpenseByBudgetCategory(
+  transactions: Transaction[],
+  referenceDate: Date = new Date()
+): Map<string, number> {
+  const monthTxs = filterTransactionsByMonth(
+    transactions,
+    referenceDate.getFullYear(),
+    referenceDate.getMonth()
+  );
+  const totals = new Map<string, number>();
+  for (const tx of monthTxs) {
+    if (tx.type !== 'expense' || tx.status !== 'completed') continue;
+    const budgetCat = mapTransactionCategoryToBudget(tx.category);
+    totals.set(budgetCat, (totals.get(budgetCat) ?? 0) + Number(tx.amount));
+  }
+  return totals;
+}
+
+export function syncBudgetsWithTransactions(
+  budgets: BudgetCategory[],
+  transactions: Transaction[],
+  referenceDate: Date = new Date()
+): BudgetCategory[] {
+  const spentMap = computeRealMonthExpenseByBudgetCategory(transactions, referenceDate);
+  return budgets.map((b) => {
+    const realSpent = spentMap.get(b.category) ?? 0;
+    const offset = b.manualSpentOffset ?? 0;
+    return {
+      ...b,
+      spent: Math.max(Math.round((realSpent + offset) * 100) / 100, 0),
+    };
+  });
+}
+
 export function buildTransactionsCSV(
   transactions: Transaction[],
   options: { includeIncome?: boolean; includeExpense?: boolean; includeInvestments?: boolean } = {}
@@ -487,6 +622,195 @@ export function buildSimplePDF(title: string, lines: string[]): Blob {
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
 
   return new Blob([pdf], { type: 'application/pdf' });
+}
+
+export function computeMonthOverMonthDelta(series: MonthlyCashFlowItem[]): {
+  pctText: string;
+  isPositive: boolean;
+} {
+  if (series.length < 2) {
+    return { pctText: '0.0%', isPositive: true };
+  }
+  const prev = series[series.length - 2];
+  const cur = series[series.length - 1];
+  const prevNet = prev.income - prev.expense;
+  const curNet = cur.income - cur.expense;
+  if (Math.abs(prevNet) < 0.01) {
+    return { pctText: curNet >= 0 ? '+0.0%' : '-0.0%', isPositive: curNet >= 0 };
+  }
+  const delta = ((curNet - prevNet) / Math.abs(prevNet)) * 100;
+  return {
+    pctText: `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`,
+    isPositive: delta >= 0,
+  };
+}
+
+function formatSignedMoney(amountBase: number, currency: CurrencyCode): string {
+  const prefix = amountBase < 0 ? '-' : '';
+  return `${prefix}${formatMoney(Math.abs(amountBase), currency)}`;
+}
+
+export function computeRealTimeAlerts(params: {
+  transactions: Transaction[];
+  budgets: BudgetCategory[];
+  goals: FinancialGoal[];
+  settings: AlertSettings;
+  currency: CurrencyCode;
+  now?: Date;
+}): RealTimeAlert[] {
+  const { transactions, budgets, goals, settings, currency, now = new Date() } = params;
+  const alerts: RealTimeAlert[] = [];
+  const summary = computeTransactionSummary(transactions);
+  const todayIso = toLocalISODate(now);
+
+  // 1. Saldo negativo personalizado & Saldo a esgotar
+  if (settings.enableLowBalanceAlerts) {
+    const net = summary.netBalance;
+    const negLimit = settings.negativeAlertThreshold;
+    const lowLimit = Math.max(settings.lowBalanceThreshold, negLimit);
+
+    if (net <= negLimit) {
+      const title = net < 0 ? 'Saldo Negativo Crítico' : 'Saldo no Limite Crítico';
+      const desc = `Saldo atual (${formatSignedMoney(net, currency)}) atingiu o limite definido de ${formatSignedMoney(negLimit, currency)}.`;
+      alerts.push({
+        id: 'alert_balance_negative',
+        signature: `bal_neg:${net.toFixed(2)}:${negLimit.toFixed(2)}`,
+        category: 'balance',
+        severity: 'critical',
+        title,
+        description: desc,
+        icon: 'warning',
+        targetScreen: 'transacoes',
+        metricBadge: formatSignedMoney(net, currency),
+      });
+    } else if (net <= lowLimit) {
+      alerts.push({
+        id: 'alert_balance_low',
+        signature: `bal_low:${net.toFixed(2)}:${lowLimit.toFixed(2)}`,
+        category: 'balance',
+        severity: 'warning',
+        title: 'Saldo a Esgotar',
+        description: `Saldo em ${formatSignedMoney(net, currency)} — abaixo da margem de segurança (${formatMoney(lowLimit, currency)}).`,
+        icon: 'account_balance_wallet',
+        targetScreen: 'transacoes',
+        metricBadge: formatSignedMoney(net, currency),
+      });
+    }
+
+    const projected = net - summary.pendingExpense;
+    if (summary.pendingExpense > 0 && net > negLimit && projected <= negLimit) {
+      alerts.push({
+        id: 'alert_balance_projected',
+        signature: `bal_proj:${projected.toFixed(2)}:${negLimit.toFixed(2)}`,
+        category: 'balance',
+        severity: 'warning',
+        title: 'Risco de Saldo Negativo',
+        description: `Ao pagar ${formatMoney(summary.pendingExpense, currency)} pendentes, o saldo cairá para ${formatSignedMoney(projected, currency)}.`,
+        icon: 'trending_down',
+        targetScreen: 'transacoes',
+        metricBadge: formatSignedMoney(projected, currency),
+      });
+    }
+  }
+
+  // 2. Orçamentos (>= 75%)
+  if (settings.enableBudgetAlerts) {
+    for (const b of budgets) {
+      const info = evaluateBudgetStatus(b.spent, b.limit, currency);
+      if (info.percentage >= 75) {
+        alerts.push({
+          id: `alert_budget_${b.id}`,
+          signature: `budget:${b.id}:${info.percentage}`,
+          category: 'budget',
+          severity: info.percentage >= 90 ? 'critical' : 'warning',
+          title: `Orçamento: ${b.category} (${info.percentage}%)`,
+          description: `${formatMoney(b.spent, currency)} de ${formatMoney(b.limit, currency)} · ${info.tagText}`,
+          icon: b.icon,
+          targetScreen: 'orcamentos',
+          metricBadge: `${info.percentage}%`,
+        });
+      }
+    }
+  }
+
+  // 3. Metas Financeiras
+  if (settings.enableGoalAlerts) {
+    for (const goal of goals) {
+      const pct = goal.target > 0 ? Math.min(Math.round((goal.current / goal.target) * 100), 100) : 0;
+      const missing = Math.max(goal.target - goal.current, 0);
+      if (pct >= 100) {
+        alerts.push({
+          id: `alert_goal_${goal.id}`,
+          signature: `goal:${goal.id}:done`,
+          category: 'goal',
+          severity: 'success',
+          title: `Meta Concluída: ${goal.title}`,
+          description: `Objetivo de ${formatMoney(goal.target, currency)} atingido em 100%!`,
+          icon: 'emoji_events',
+          targetScreen: 'orcamentos',
+          metricBadge: '100%',
+        });
+      } else if (pct >= 80) {
+        alerts.push({
+          id: `alert_goal_${goal.id}`,
+          signature: `goal:${goal.id}:near:${pct}`,
+          category: 'goal',
+          severity: 'info',
+          title: `Meta Quase Lá: ${goal.title}`,
+          description: `Em ${pct}% — faltam apenas ${formatMoney(missing, currency)}.`,
+          icon: 'flag',
+          targetScreen: 'orcamentos',
+          metricBadge: `${pct}%`,
+        });
+      } else if (pct < 40) {
+        alerts.push({
+          id: `alert_goal_${goal.id}`,
+          signature: `goal:${goal.id}:low:${pct}`,
+          category: 'goal',
+          severity: 'warning',
+          title: `Meta Precisa de Aporte: ${goal.title}`,
+          description: `Progresso em ${pct}% (${formatMoney(goal.current, currency)} de ${formatMoney(goal.target, currency)}).`,
+          icon: 'savings',
+          targetScreen: 'orcamentos',
+          metricBadge: `${pct}%`,
+        });
+      }
+    }
+  }
+
+  // 4. Pagamentos / Recebimentos Pendentes
+  if (settings.enablePendingAlerts) {
+    for (const tx of transactions) {
+      if (tx.status !== 'pending') continue;
+      const due = tx.dueDate || tx.date;
+      const isOverdueOrToday = due <= todayIso;
+      alerts.push({
+        id: `alert_pending_${tx.id}`,
+        signature: `pending:${tx.id}:${due}:${tx.amount}`,
+        category: 'pending',
+        severity: isOverdueOrToday && tx.type === 'expense' ? 'warning' : 'info',
+        title:
+          tx.type === 'expense'
+            ? isOverdueOrToday
+              ? `Conta a Vencer / Vencida: ${tx.description}`
+              : `Despesa Pendente: ${tx.description}`
+            : `Valor a Receber: ${tx.description}`,
+        description: `${formatMoney(tx.amount, currency)} · ${tx.account} (${due.split('-').reverse().slice(0, 2).join('/')})`,
+        icon: 'schedule',
+        targetScreen: 'transacoes',
+        metricBadge: tx.type === 'expense' ? 'Pagar' : 'Receber',
+      });
+    }
+  }
+
+  const severityRank: Record<RealTimeAlert['severity'], number> = {
+    critical: 0,
+    warning: 1,
+    info: 2,
+    success: 3,
+  };
+
+  return alerts.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
 }
 
 export function isValidEmail(email: string): boolean {

@@ -7,6 +7,7 @@ import {
   formatMoney,
   getMonthCycleInfo,
 } from '../utils/finance';
+import type { ConfirmDialogRequest } from './ConfirmDialog';
 
 interface BudgetsScreenProps {
   budgets: BudgetCategory[];
@@ -19,10 +20,13 @@ interface BudgetsScreenProps {
   onContributeGoal: (id: string, addedAmountBase: number) => void;
   onDeleteGoal: (id: string) => void;
   onNotify: (msg: string) => void;
+  onRequestConfirm: (req: ConfirmDialogRequest) => void;
 }
 
 const CUSTOM_CATEGORY_OPTIONS = [
   { value: 'Educação', label: 'Educação e Cursos', icon: 'school' },
+  { value: 'Energia & Água', label: 'Energia & Água (EDM/FIPAG)', icon: 'bolt' },
+  { value: 'Comunicação', label: 'Comunicação & Dados', icon: 'wifi' },
   { value: 'Vestuário', label: 'Vestuário e Compras', icon: 'checkroom' },
   { value: 'Assinaturas', label: 'Assinaturas e Streaming', icon: 'subscriptions' },
   { value: 'Pets', label: 'Cuidados com Pets', icon: 'pets' },
@@ -41,6 +45,7 @@ export function BudgetsScreen({
   onContributeGoal,
   onDeleteGoal,
   onNotify,
+  onRequestConfirm,
 }: BudgetsScreenProps) {
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<BudgetCategory | null>(null);
@@ -87,27 +92,39 @@ export function BudgetsScreen({
 
     const limitBase = Math.round((limitDisplay / cfg.rateFromBase) * 100) / 100;
     const spentBase = Math.round((spentDisplay / cfg.rateFromBase) * 100) / 100;
+    const categoryName = editingBudget ? editingBudget.category : selectedCategory;
 
-    if (editingBudget) {
-      onUpdateBudget(editingBudget.id, { limit: limitBase, spent: spentBase });
-    } else {
-      const option = CUSTOM_CATEGORY_OPTIONS.find((o) => o.value === selectedCategory);
-      onAddBudget({
-        category: selectedCategory,
-        limit: limitBase,
-        spent: spentBase,
-        icon: option?.icon ?? 'category',
-        iconBg: 'bg-primary-fixed',
-        iconColor: 'text-primary',
-        isCustom: true,
-      });
-      onNotify(`Orçamento para ${selectedCategory} salvo!`);
-    }
+    onRequestConfirm({
+      variant: 'primary',
+      icon: 'save',
+      title: editingBudget ? 'Atualizar Orçamento?' : 'Salvar Novo Orçamento?',
+      message: `Deseja guardar este limite mensal para ${categoryName}?`,
+      details: `${categoryName} · Limite: ${formatMoney(limitBase, currency)}`,
+      confirmLabel: 'Sim, Salvar',
+      cancelLabel: 'Voltar',
+      onConfirm: () => {
+        if (editingBudget) {
+          onUpdateBudget(editingBudget.id, { limit: limitBase, spent: spentBase });
+        } else {
+          const option = CUSTOM_CATEGORY_OPTIONS.find((o) => o.value === selectedCategory);
+          onAddBudget({
+            category: selectedCategory,
+            limit: limitBase,
+            spent: spentBase,
+            icon: option?.icon ?? 'category',
+            iconBg: 'bg-primary-fixed',
+            iconColor: 'text-primary',
+            isCustom: true,
+          });
+          onNotify(`Orçamento para ${selectedCategory} salvo!`);
+        }
 
-    setEditingBudget(null);
-    setLimitInput('');
-    setSpentInput('');
-    setIsBudgetModalOpen(false);
+        setEditingBudget(null);
+        setLimitInput('');
+        setSpentInput('');
+        setIsBudgetModalOpen(false);
+      },
+    });
   };
 
   const handleGoalSubmit = (e: FormEvent) => {
@@ -118,21 +135,33 @@ export function BudgetsScreen({
 
     const targetBase = Math.round((targetDisplay / cfg.rateFromBase) * 100) / 100;
     const currentBase = Math.round((currentDisplay / cfg.rateFromBase) * 100) / 100;
+    const cleanTitle = goalTitle.trim();
 
-    onAddGoal({
-      title: goalTitle.trim(),
-      current: currentBase,
-      target: targetBase,
-      imageUrl: ASSETS.goalInvest,
-      barColor: 'bg-primary',
-      accentColor: 'text-primary',
+    onRequestConfirm({
+      variant: 'primary',
+      icon: 'flag',
+      title: 'Criar Meta Financeira?',
+      message: 'Deseja adicionar este objetivo financeiro ao seu planeamento?',
+      details: `${cleanTitle} · Alvo: ${formatMoney(targetBase, currency)}`,
+      confirmLabel: 'Sim, Criar',
+      cancelLabel: 'Voltar',
+      onConfirm: () => {
+        onAddGoal({
+          title: cleanTitle,
+          current: currentBase,
+          target: targetBase,
+          imageUrl: ASSETS.goalInvest,
+          barColor: 'bg-primary',
+          accentColor: 'text-primary',
+        });
+
+        setGoalTitle('');
+        setGoalCurrent('');
+        setGoalTarget('');
+        setIsGoalModalOpen(false);
+        onNotify('Nova meta financeira criada!');
+      },
     });
-
-    setGoalTitle('');
-    setGoalCurrent('');
-    setGoalTarget('');
-    setIsGoalModalOpen(false);
-    onNotify('Nova meta financeira criada!');
   };
 
   const handleContributionSubmit = (e: FormEvent) => {
@@ -141,29 +170,42 @@ export function BudgetsScreen({
     const val = parseFloat(contributionInput);
     if (Number.isNaN(val) || val <= 0) return;
     const amountBase = Math.round((val / cfg.rateFromBase) * 100) / 100;
-    onContributeGoal(contributingGoal.id, amountBase);
-    setContributionInput('');
-    setContributingGoal(null);
+    const goalRef = contributingGoal;
+
+    onRequestConfirm({
+      variant: 'primary',
+      icon: 'savings',
+      title: 'Confirmar Aporte na Meta?',
+      message: `Deseja reforçar a meta "${goalRef.title}" com este valor?`,
+      details: `+${formatMoney(amountBase, currency)}`,
+      confirmLabel: 'Sim, Aportar',
+      cancelLabel: 'Voltar',
+      onConfirm: () => {
+        onContributeGoal(goalRef.id, amountBase);
+        setContributionInput('');
+        setContributingGoal(null);
+      },
+    });
   };
 
   return (
-    <div className="flex flex-col w-full px-margin space-y-space-lg pb-space-xl">
+    <div className="flex flex-col w-full px-3 space-y-3 pb-2">
       {/* Status Chip & Header Subtitle */}
-      <div className="flex items-center justify-between gap-2 pt-space-xs">
+      <div className="flex items-center justify-between gap-2 pt-1.5">
         <div className="min-w-0 flex-1">
-          <span className="text-[16px] font-bold text-on-surface block truncate">
+          <span className="text-[15.5px] font-bold text-on-surface block break-words">
             Planejamento Ativo
           </span>
-          <p className="text-[12px] text-on-surface-variant truncate">{cycleInfo.cycleLabel}</p>
+          <p className="text-[11.5px] text-on-surface-variant break-words">{cycleInfo.cycleLabel}</p>
         </div>
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-secondary-fixed text-on-secondary-fixed text-[11px] font-bold shadow-sm whitespace-nowrap shrink-0">
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-secondary-fixed text-on-secondary-fixed text-[11px] font-bold shadow-xs whitespace-nowrap shrink-0">
           <span className="material-symbols-outlined text-[14px]">schedule</span>
           {cycleInfo.daysRemainingLabel}
         </span>
       </div>
 
       {/* 1. Card Resumo do Orçamento Geral */}
-      <div className="relative overflow-hidden bg-surface-container-lowest rounded-2xl p-4 shadow-sm">
+      <div className="relative overflow-hidden bg-surface-container-lowest rounded-2xl p-3 shadow-sm">
         <div className="absolute -right-10 -top-10 w-36 h-36 bg-primary-fixed/40 rounded-full blur-2xl pointer-events-none" />
         <div className="flex items-start justify-between gap-3 relative z-10">
           <div className="min-w-0 flex-1">
@@ -198,43 +240,43 @@ export function BudgetsScreen({
         </div>
 
         {/* Indicadores de Saldo */}
-        <div className="flex gap-2.5 mt-4 pt-3 border-t border-surface-container">
-          <div className="flex-1 min-w-0 p-2.5 rounded-xl bg-surface-container-low flex flex-col gap-0.5">
+        <div className="flex gap-2 mt-3 pt-2.5 border-t border-surface-container">
+          <div className="flex-1 min-w-0 p-2 rounded-xl bg-surface-container-low flex flex-col gap-0.5">
             <div className="flex items-center gap-1 text-on-surface-variant text-[11px] font-semibold">
               <span className="material-symbols-outlined text-[15px] text-tertiary shrink-0">
                 arrow_upward
               </span>
               <span className="whitespace-nowrap">Gasto Total</span>
             </div>
-            <p className="text-[15px] leading-snug text-tertiary font-bold tabular-nums break-words">
+            <p className="text-[14.5px] leading-snug text-tertiary font-bold tabular-nums break-words">
               {formatMoney(totals.totalSpent, currency)}
             </p>
           </div>
-          <div className="flex-1 min-w-0 p-2.5 rounded-xl bg-surface-container-low flex flex-col gap-0.5">
+          <div className="flex-1 min-w-0 p-2 rounded-xl bg-surface-container-low flex flex-col gap-0.5">
             <div className="flex items-center gap-1 text-on-surface-variant text-[11px] font-semibold">
               <span className="material-symbols-outlined text-[15px] text-secondary shrink-0">
                 savings
               </span>
               <span className="whitespace-nowrap">Disponível</span>
             </div>
-            <p className="text-[15px] leading-snug text-secondary font-bold tabular-nums break-words">
+            <p className="text-[14.5px] leading-snug text-secondary font-bold tabular-nums break-words">
               {formatMoney(totals.available, currency)}
             </p>
           </div>
         </div>
 
         <button
-          className="w-full mt-3.5 py-2.5 px-4 rounded-xl bg-primary text-on-primary text-[13px] font-semibold flex items-center justify-center gap-2 shadow-md shadow-primary/20 active:scale-[0.98] transition-transform cursor-pointer whitespace-nowrap"
+          className="w-full mt-3 py-2 px-3 rounded-xl bg-primary text-on-primary text-[12.5px] font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-primary/20 active:scale-[0.98] transition-transform cursor-pointer whitespace-nowrap"
           onClick={openNewBudgetModal}
           type="button"
         >
-          <span className="material-symbols-outlined text-[19px]">add_circle</span>
+          <span className="material-symbols-outlined text-[18px]">add_circle</span>
           Novo Orçamento por Categoria
         </button>
       </div>
 
       {/* 2. Legenda de Regras de Cores Visuais */}
-      <div className="bg-surface-container-low rounded-xl p-3.5 space-y-2">
+      <div className="bg-surface-container-low rounded-xl p-2.5 space-y-1.5">
         <span className="text-[11px] text-on-surface-variant uppercase tracking-wider block font-bold">
           Diretrizes de Consumo
         </span>
@@ -243,7 +285,7 @@ export function BudgetsScreen({
             <span className="w-2 h-2 rounded-full bg-secondary shrink-0" />
             <div className="leading-tight min-w-0">
               <p className="text-[11px] font-bold text-on-surface whitespace-nowrap">&lt; 70%</p>
-              <span className="text-[10px] text-on-surface-variant block truncate">
+              <span className="text-[10px] text-on-surface-variant block leading-tight">
                 No controle
               </span>
             </div>
@@ -252,14 +294,14 @@ export function BudgetsScreen({
             <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
             <div className="leading-tight min-w-0">
               <p className="text-[11px] font-bold text-on-surface whitespace-nowrap">70% - 90%</p>
-              <span className="text-[10px] text-on-surface-variant block truncate">Atenção</span>
+              <span className="text-[10px] text-on-surface-variant block leading-tight">Atenção</span>
             </div>
           </div>
           <div className="flex-1 min-w-0 flex items-center gap-1.5 p-2 rounded-lg bg-surface-container-lowest">
             <span className="w-2 h-2 rounded-full bg-tertiary-container shrink-0" />
             <div className="leading-tight min-w-0">
               <p className="text-[11px] font-bold text-on-surface whitespace-nowrap">&gt; 90%</p>
-              <span className="text-[10px] text-on-surface-variant block truncate">
+              <span className="text-[10px] text-on-surface-variant block leading-tight">
                 Alerta crítico
               </span>
             </div>
@@ -270,7 +312,7 @@ export function BudgetsScreen({
       {/* 3. Lista de Cards de Orçamento por Categoria */}
       <div className="space-y-2.5">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-[16px] font-bold text-on-surface truncate">
+          <h3 className="text-[16px] font-bold text-on-surface">
             Categorias em Monitoramento
           </h3>
           <span className="text-[12px] text-on-surface-variant whitespace-nowrap shrink-0">
@@ -278,13 +320,13 @@ export function BudgetsScreen({
           </span>
         </div>
 
-        <div className="space-y-2.5" data-testid="budgets-list">
+        <div className="space-y-2" data-testid="budgets-list">
           {budgets.map((b) => {
             const info = evaluateBudgetStatus(b.spent, b.limit, currency);
             return (
               <div
                 key={b.id}
-                className={`bg-surface-container-lowest rounded-2xl p-3.5 shadow-sm flex flex-col gap-2.5 ${
+                className={`bg-surface-container-lowest rounded-2xl p-3 shadow-sm flex flex-col gap-2 ${
                   b.isCustom ? 'ring-1 ring-primary/25' : ''
                 }`}
               >
@@ -296,7 +338,7 @@ export function BudgetsScreen({
                       <span className="material-symbols-outlined text-[21px]">{b.icon}</span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h4 className="text-[14px] leading-snug font-semibold text-on-surface truncate">
+                      <h4 className="text-[14px] leading-snug font-semibold text-on-surface break-words">
                         {b.category}
                       </h4>
                       <p className="text-[11px] text-on-surface-variant tabular-nums">
@@ -317,7 +359,18 @@ export function BudgetsScreen({
                     <button
                       aria-label={`Remover orçamento ${b.category}`}
                       className="w-8 h-8 rounded-full text-on-surface-variant hover:text-tertiary hover:bg-surface-container flex items-center justify-center transition-colors cursor-pointer"
-                      onClick={() => onDeleteBudget(b.id)}
+                      onClick={() =>
+                        onRequestConfirm({
+                          variant: 'danger',
+                          icon: 'delete_forever',
+                          title: 'Remover Orçamento?',
+                          message: 'Tem certeza que deseja excluir esta categoria de orçamento?',
+                          details: `${b.category} · Limite: ${formatMoney(b.limit, currency)}`,
+                          confirmLabel: 'Sim, Remover',
+                          cancelLabel: 'Voltar',
+                          onConfirm: () => onDeleteBudget(b.id),
+                        })
+                      }
                       type="button"
                     >
                       <span className="material-symbols-outlined text-[17px]">delete</span>
@@ -326,12 +379,12 @@ export function BudgetsScreen({
                 </div>
 
                 <div className="space-y-1.5">
-                  <div className="flex items-baseline justify-between gap-2 text-[12px]">
+                  <div className="flex items-baseline justify-between gap-2 flex-wrap text-[12px]">
                     <span className={`${info.amountColor} font-bold tabular-nums whitespace-nowrap`}>
                       {formatMoney(b.spent, currency)}
                     </span>
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className={`${info.amountColor} text-[11px] font-semibold truncate`}>
+                      <span className={`${info.amountColor} text-[11px] font-semibold break-words`}>
                         {info.tagText}
                       </span>
                       <span aria-hidden="true" className="text-on-surface-variant/50 text-[11px]">
@@ -359,8 +412,8 @@ export function BudgetsScreen({
       <div className="space-y-2.5 pt-space-xs">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <h3 className="text-[16px] font-bold text-on-surface truncate">Metas Financeiras</h3>
-            <p className="text-[12px] text-on-surface-variant truncate">
+            <h3 className="text-[16px] font-bold text-on-surface">Metas Financeiras</h3>
+            <p className="text-[12px] text-on-surface-variant">
               Objetivos de médio e longo prazo
             </p>
           </div>
@@ -374,13 +427,13 @@ export function BudgetsScreen({
           </button>
         </div>
 
-        <div className="space-y-2.5" data-testid="goals-list">
+        <div className="space-y-2" data-testid="goals-list">
           {goals.map((goal) => {
             const pct = Math.min(Math.round((goal.current / goal.target) * 100), 100);
             return (
               <div
                 key={goal.id}
-                className="bg-surface-container-lowest rounded-2xl p-3.5 shadow-sm flex flex-col gap-2.5"
+                className="bg-surface-container-lowest rounded-2xl p-3 shadow-sm flex flex-col gap-2"
               >
                 <div className="flex items-center gap-3">
                   <img
@@ -390,7 +443,7 @@ export function BudgetsScreen({
                   />
                   <div className="min-w-0 flex-1 flex flex-col gap-0.5">
                     <div className="flex items-baseline justify-between gap-2">
-                      <h4 className="text-[14px] leading-snug font-semibold text-on-surface truncate flex-1 min-w-0">
+                      <h4 className="text-[14px] leading-snug font-semibold text-on-surface break-words flex-1 min-w-0">
                         {goal.title}
                       </h4>
                       <span
@@ -426,7 +479,18 @@ export function BudgetsScreen({
                   <button
                     aria-label={`Remover meta ${goal.title}`}
                     className="w-7 h-7 rounded-lg bg-surface-container text-on-surface-variant hover:text-tertiary flex items-center justify-center cursor-pointer shrink-0"
-                    onClick={() => onDeleteGoal(goal.id)}
+                    onClick={() =>
+                      onRequestConfirm({
+                        variant: 'danger',
+                        icon: 'delete_forever',
+                        title: 'Excluir Meta Financeira?',
+                        message: 'Deseja remover permanentemente esta meta e o seu progresso?',
+                        details: `${goal.title} · ${formatMoney(goal.current, currency)} de ${formatMoney(goal.target, currency)}`,
+                        confirmLabel: 'Sim, Excluir',
+                        cancelLabel: 'Voltar',
+                        onConfirm: () => onDeleteGoal(goal.id),
+                      })
+                    }
                     type="button"
                   >
                     <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -457,12 +521,12 @@ export function BudgetsScreen({
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3
-                    className="text-[16px] font-bold text-on-surface truncate"
+                    className="text-[16px] font-bold text-on-surface break-words"
                     id="budgetModalTitle"
                   >
                     {editingBudget ? `Editar: ${editingBudget.category}` : 'Configurar Orçamento'}
                   </h3>
-                  <p className="text-[12px] text-on-surface-variant truncate">
+                  <p className="text-[12px] text-on-surface-variant">
                     Ajuste os tetos da categoria
                   </p>
                 </div>
@@ -708,7 +772,7 @@ export function BudgetsScreen({
           <div className="w-full max-w-md bg-surface-container-lowest rounded-t-3xl sm:rounded-2xl p-space-lg shadow-xl space-y-space-md">
             <div className="flex items-center justify-between gap-2 border-b border-surface-container pb-space-sm">
               <h3
-                className="text-[16px] font-bold text-on-surface truncate min-w-0 flex-1"
+                className="text-[16px] font-bold text-on-surface break-words min-w-0 flex-1"
                 id="contributeGoalTitle"
               >
                 Aportar: {contributingGoal.title}

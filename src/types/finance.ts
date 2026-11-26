@@ -2,6 +2,7 @@ export type CurrencyCode = 'MZN' | 'USD';
 
 export type TransactionType = 'income' | 'expense';
 export type TransactionStatus = 'completed' | 'pending';
+export type TransactionRecurrence = 'none' | 'weekly' | 'monthly' | 'yearly';
 
 export type AppScreen =
   | 'dashboard-inicio'
@@ -22,6 +23,11 @@ export interface Transaction {
   time?: string; // e.g. "09:30"
   account: string;
   status: TransactionStatus;
+  paymentMethod?: string;
+  recurrence?: TransactionRecurrence;
+  reference?: string;
+  dueDate?: string;
+  notes?: string;
 }
 
 export interface BudgetCategory {
@@ -29,6 +35,7 @@ export interface BudgetCategory {
   category: string;
   limit: number;
   spent: number;
+  manualSpentOffset?: number;
   icon: string;
   iconBg: string;
   iconColor: string;
@@ -50,4 +57,28 @@ export interface CashFlowMonth {
   income: number;
   expense: number;
   highlight?: boolean;
+}
+
+export interface AlertSettings {
+  lowBalanceThreshold: number;
+  negativeAlertThreshold: number;
+  enableBudgetAlerts: boolean;
+  enableGoalAlerts: boolean;
+  enableLowBalanceAlerts: boolean;
+  enablePendingAlerts: boolean;
+}
+
+export type RealTimeAlertSeverity = 'critical' | 'warning' | 'info' | 'success';
+export type RealTimeAlertCategory = 'balance' | 'budget' | 'goal' | 'pending';
+
+export interface RealTimeAlert {
+  id: string;
+  signature: string;
+  category: RealTimeAlertCategory;
+  severity: RealTimeAlertSeverity;
+  title: string;
+  description: string;
+  icon: string;
+  targetScreen: AppScreen;
+  metricBadge?: string;
 }

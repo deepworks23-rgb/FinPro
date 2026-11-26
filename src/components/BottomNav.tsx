@@ -23,7 +23,7 @@ export function BottomNav({
       aria-label="Navegação principal"
       className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[440px] z-40 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.05)]"
     >
-      <div className="flex items-center justify-around h-20 px-space-xs relative">
+      <div className="flex items-center justify-around h-16 px-space-xs relative">
         <button
           aria-current={activeScreen === 'dashboard-inicio' ? 'page' : undefined}
           className={navItemClass('dashboard-inicio')}
@@ -62,7 +62,7 @@ export function BottomNav({
           <span className="font-label-sm text-[10px] leading-tight mt-0.5">Extrato</span>
         </button>
 
-        <div className="relative flex items-center justify-center w-14 h-14 -mt-5">
+        <div className="relative flex items-center justify-center w-14 h-14 -mt-4">
           <button
             aria-label="Nova Transação"
             className="w-12 h-12 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg shadow-primary/25 hover:bg-primary-container transition-transform active:scale-95 cursor-pointer"

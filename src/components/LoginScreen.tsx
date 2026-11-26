@@ -42,7 +42,7 @@ export function LoginScreen({ initialEmail = '', onAuthenticated }: LoginScreenP
     setFeedbackMsg('Identidade biométrica confirmada!');
     setTimeout(() => {
       setAuthStatus('success');
-      onAuthenticated(email.trim() || 'lucas.silva@fintrack.com');
+      onAuthenticated(email.trim() || 'edson.machava@fintrack.co.mz');
     }, 550);
   };
 
@@ -52,7 +52,7 @@ export function LoginScreen({ initialEmail = '', onAuthenticated }: LoginScreenP
     setFeedbackMsg(`Iniciando sessão com ${provider}...`);
     setTimeout(() => {
       setAuthStatus('success');
-      onAuthenticated(`lucas.${provider.toLowerCase()}@fintrack.com`);
+      onAuthenticated(`edson.${provider.toLowerCase()}@fintrack.co.mz`);
     }, 550);
   };
 
@@ -120,7 +120,7 @@ export function LoginScreen({ initialEmail = '', onAuthenticated }: LoginScreenP
                   className="w-full h-12 pl-11 pr-4 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary-container transition-all"
                   id="emailInput"
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="exemplo@email.com"
+                  placeholder="exemplo@fintrack.co.mz"
                   required
                   type="email"
                   value={email}

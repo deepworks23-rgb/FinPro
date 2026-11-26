@@ -34,9 +34,11 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
   const todayIso = useMemo(() => toLocalISODate(), []);
 
   const [period, setPeriod] = useState<ReportPeriod>('mes');
+  const [accountFilter, setAccountFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'pending'>('all');
   const [customStart, setCustomStart] = useState(firstOfMonthIso);
   const [customEnd, setCustomEnd] = useState(todayIso);
-  const [tooltipText, setTooltipText] = useState<string | null>(null);
+  const [selectedSeriesKey, setSelectedSeriesKey] = useState<string | null>(null);
   const [exportFormat, setExportFormat] = useState<'csv' | 'pdf'>('csv');
   const [includeIncome, setIncludeIncome] = useState(true);
   const [includeExpense, setIncludeExpense] = useState(true);
@@ -50,29 +52,68 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
     { id: 'custom', label: 'Personalizado' },
   ];
 
+  const accountOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const tx of transactions) {
+      set.add(tx.account);
+    }
+    return Array.from(set);
+  }, [transactions]);
+
+  const filteredBaseTransactions = useMemo(() => {
+    return transactions.filter((t) => {
+      if (accountFilter !== 'all' && t.account !== accountFilter) return false;
+      if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+      return true;
+    });
+  }, [transactions, accountFilter, statusFilter]);
+
   const scopedTransactions = useMemo(() => {
     if (period === 'mes') {
-      return filterTransactionsByMonth(transactions, cycleInfo.year, cycleInfo.monthIndex);
+      return filterTransactionsByMonth(
+        filteredBaseTransactions,
+        cycleInfo.year,
+        cycleInfo.monthIndex
+      );
     }
     if (period === 'trimestre') {
       const start = new Date(cycleInfo.year, cycleInfo.monthIndex - 2, 1);
-      return filterTransactionsByDateRange(transactions, toLocalISODate(start), todayIso);
+      return filterTransactionsByDateRange(
+        filteredBaseTransactions,
+        toLocalISODate(start),
+        todayIso
+      );
     }
     if (period === 'ano') {
-      return transactions.filter((t) => t.date.startsWith(`${cycleInfo.year}-`));
+      return filteredBaseTransactions.filter((t) => t.date.startsWith(`${cycleInfo.year}-`));
     }
-    return filterTransactionsByDateRange(transactions, customStart, customEnd);
-  }, [period, transactions, cycleInfo.year, cycleInfo.monthIndex, todayIso, customStart, customEnd]);
+    return filterTransactionsByDateRange(filteredBaseTransactions, customStart, customEnd);
+  }, [
+    period,
+    filteredBaseTransactions,
+    cycleInfo.year,
+    cycleInfo.monthIndex,
+    todayIso,
+    customStart,
+    customEnd,
+  ]);
 
   const metrics = useMemo(
-    () => getReportPeriodMetrics(period, transactions, scopedTransactions),
-    [period, transactions, scopedTransactions]
+    () => getReportPeriodMetrics(period, filteredBaseTransactions, scopedTransactions),
+    [period, filteredBaseTransactions, scopedTransactions]
   );
 
   const monthlySeries = useMemo(
-    () => computeDynamicSixMonthSeries(transactions, REPORTS_BASELINE_HISTORY),
-    [transactions]
+    () => computeDynamicSixMonthSeries(filteredBaseTransactions, REPORTS_BASELINE_HISTORY),
+    [filteredBaseTransactions]
   );
+
+  const activeSeriesItem = useMemo(() => {
+    return (
+      monthlySeries.find((m) => m.key === selectedSeriesKey) ??
+      monthlySeries[monthlySeries.length - 1]
+    );
+  }, [monthlySeries, selectedSeriesKey]);
 
   const maxSeriesValue = useMemo(() => {
     const peak = monthlySeries.reduce(
@@ -159,9 +200,9 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
   };
 
   return (
-    <div className="flex flex-col w-full px-margin space-y-space-lg pb-space-xl">
+    <div className="flex flex-col w-full px-3 space-y-3 pb-2">
       {/* Top Action & Period Control Filter */}
-      <section className="flex flex-col space-y-3 pt-2">
+      <section className="flex flex-col space-y-2.5 pt-1.5">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center justify-between gap-2">
             <h1 className="text-[15.5px] leading-snug font-bold text-on-surface whitespace-nowrap">
@@ -181,26 +222,69 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
           </span>
         </div>
 
-        {/* Period Selectors Horizontal Scroll */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-          {periodChips.map((chip) => {
-            const active = period === chip.id;
-            return (
-              <button
-                key={chip.id}
-                aria-pressed={active}
-                className={
-                  active
-                    ? 'px-3 py-1.5 rounded-lg text-[11.5px] font-semibold bg-primary text-on-primary shadow-sm transition-colors whitespace-nowrap shrink-0 cursor-pointer'
-                    : 'px-3 py-1.5 rounded-lg text-[11.5px] font-semibold bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-colors whitespace-nowrap shrink-0 cursor-pointer'
-                }
-                onClick={() => setPeriod(chip.id)}
-                type="button"
-              >
-                {chip.label}
-              </button>
-            );
-          })}
+        {/* Dropdown Selectors */}
+        <div className="flex flex-wrap gap-2">
+          <div className="relative flex-1 min-w-[148px]">
+            <label className="sr-only" htmlFor="reportPeriodSelect">
+              Selecionar período
+            </label>
+            <select
+              className="w-full h-9 pl-3 pr-7 rounded-xl bg-primary text-on-primary text-[12px] font-semibold shadow-sm appearance-none focus:outline-none cursor-pointer"
+              id="reportPeriodSelect"
+              onChange={(e) => setPeriod(e.target.value as ReportPeriod)}
+              value={period}
+            >
+              {periodChips.map((chip) => (
+                <option key={chip.id} className="bg-surface-container-lowest text-on-surface" value={chip.id}>
+                  {chip.label}
+                </option>
+              ))}
+            </select>
+            <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-primary">
+              expand_more
+            </span>
+          </div>
+
+          <div className="relative flex-1 min-w-[148px]">
+            <label className="sr-only" htmlFor="reportAccountFilter">
+              Filtrar por conta
+            </label>
+            <select
+              className="w-full h-9 pl-3 pr-7 rounded-xl bg-surface-container-lowest text-on-surface text-[12px] font-semibold shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-primary/25 cursor-pointer"
+              id="reportAccountFilter"
+              onChange={(e) => setAccountFilter(e.target.value)}
+              value={accountFilter}
+            >
+              <option value="all">Conta: Todas</option>
+              {accountOptions.map((acc) => (
+                <option key={acc} value={acc}>
+                  {acc}
+                </option>
+              ))}
+            </select>
+            <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant">
+              expand_more
+            </span>
+          </div>
+
+          <div className="relative flex-1 min-w-[148px]">
+            <label className="sr-only" htmlFor="reportStatusFilter">
+              Filtrar por estado
+            </label>
+            <select
+              className="w-full h-9 pl-3 pr-7 rounded-xl bg-surface-container-lowest text-on-surface text-[12px] font-semibold shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-primary/25 cursor-pointer"
+              id="reportStatusFilter"
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'completed' | 'pending')}
+              value={statusFilter}
+            >
+              <option value="all">Estado: Todos</option>
+              <option value="completed">Liquidados</option>
+              <option value="pending">Pendentes</option>
+            </select>
+            <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[16px] text-on-surface-variant">
+              expand_more
+            </span>
+          </div>
         </div>
 
         {/* Interactive Custom Range Picker */}
@@ -250,15 +334,15 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
           </span>
         </div>
 
-        <div className="flex flex-col gap-2.5">
-          <div className="p-4 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between relative overflow-hidden">
-            <div className="absolute right-0 top-0 w-32 h-32 bg-secondary/5 rounded-full blur-2xl pointer-events-none" />
-            <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-2">
+          <div className="p-3 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between relative overflow-hidden">
+            <div className="absolute right-0 top-0 w-28 h-28 bg-secondary/5 rounded-full blur-2xl pointer-events-none" />
+            <div className="flex items-start justify-between gap-2.5">
               <div className="space-y-0.5 min-w-0 flex-1">
                 <span className="text-[12px] text-on-surface-variant font-medium block">
                   Economia Total Líquida
                 </span>
-                <div className="text-[26px] leading-[32px] sm:text-[30px] font-bold text-on-surface flex items-baseline gap-1.5 tabular-nums break-words flex-wrap">
+                <div className="text-[24px] leading-[30px] sm:text-[28px] font-bold text-on-surface flex items-baseline gap-1.5 tabular-nums break-words flex-wrap">
                   {convertedSavings < 0 && <span>-</span>}
                   {cfg.position === 'left' && (
                     <span className="text-[15px] text-secondary font-semibold">{cfg.symbol}</span>
@@ -269,11 +353,11 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
                   )}
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[20px]">savings</span>
+              <div className="w-9 h-9 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[19px]">savings</span>
               </div>
             </div>
-            <div className="mt-3 pt-2.5 border-t border-surface-container flex items-center justify-between gap-2 text-on-surface-variant text-[12px]">
+            <div className="mt-2.5 pt-2 border-t border-surface-container flex items-center justify-between gap-2 text-on-surface-variant text-[11.5px]">
               <span>Taxa média de poupança</span>
               <span className="text-secondary font-bold tabular-nums whitespace-nowrap">
                 {metrics.savingsRate}
@@ -281,10 +365,10 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
             </div>
           </div>
 
-          <div className="flex gap-2.5">
-            <div className="flex-1 min-w-0 p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-2">
+          <div className="flex gap-2">
+            <div className="flex-1 min-w-0 p-3 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-1.5">
               <div className="flex items-center justify-between gap-1">
-                <span className="text-[11px] text-on-surface-variant font-medium truncate">
+                <span className="text-[11px] text-on-surface-variant font-medium leading-tight">
                   Maior Gasto
                 </span>
                 <div className="w-7 h-7 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed-variant flex items-center justify-center shrink-0">
@@ -292,21 +376,21 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
                 </div>
               </div>
               <div className="min-w-0">
-                <span className="text-[13px] font-semibold text-on-surface block truncate">
+                <span className="text-[12.5px] font-semibold text-on-surface block break-words leading-snug">
                   {metrics.topExpenseTitle}
                 </span>
-                <span className="text-[15px] leading-snug text-tertiary font-bold tabular-nums block break-words">
+                <span className="text-[14.5px] leading-snug text-tertiary font-bold tabular-nums block break-words">
                   {formatMoney(metrics.topExpenseAmount, currency)}
                 </span>
-                <span className="text-[11px] text-on-surface-variant block mt-0.5 truncate">
+                <span className="text-[10.5px] text-on-surface-variant block mt-0.5 leading-tight">
                   {metrics.topExpenseShare}
                 </span>
               </div>
             </div>
 
-            <div className="flex-1 min-w-0 p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-2">
+            <div className="flex-1 min-w-0 p-3 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-1.5">
               <div className="flex items-center justify-between gap-1">
-                <span className="text-[11px] text-on-surface-variant font-medium truncate">
+                <span className="text-[11px] text-on-surface-variant font-medium leading-tight">
                   Média Diária
                 </span>
                 <div className="w-7 h-7 rounded-lg bg-primary-fixed text-on-primary-fixed flex items-center justify-center shrink-0">
@@ -314,13 +398,13 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
                 </div>
               </div>
               <div className="min-w-0">
-                <span className="text-[13px] font-semibold text-on-surface block truncate">
+                <span className="text-[12.5px] font-semibold text-on-surface block break-words leading-snug">
                   Saída por Dia
                 </span>
-                <span className="text-[15px] leading-snug text-on-surface font-bold tabular-nums block break-words">
+                <span className="text-[14.5px] leading-snug text-on-surface font-bold tabular-nums block break-words">
                   {formatMoney(metrics.dailyAvg, currency)}
                 </span>
-                <span className="text-[11px] text-secondary font-medium block mt-0.5 truncate">
+                <span className="text-[10.5px] text-secondary font-medium block mt-0.5 leading-tight">
                   {metrics.dailyDelta}
                 </span>
               </div>
@@ -330,10 +414,10 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
       </section>
 
       {/* Interactive Cash Flow Chart (Income vs Expense) */}
-      <section className="p-4 rounded-2xl bg-surface-container-lowest shadow-sm space-y-3.5">
+      <section className="p-3 rounded-2xl bg-surface-container-lowest shadow-sm space-y-2.5">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[16px] font-bold text-on-surface truncate">
+            <span className="text-[16px] font-bold text-on-surface">
               Evolução Mensal
             </span>
             <div className="flex items-center gap-2.5 shrink-0">
@@ -347,24 +431,16 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
               </div>
             </div>
           </div>
-          <span className="text-[12px] text-on-surface-variant">
-            Receitas vs. Despesas (Últimos 6 meses)
+          <span className="text-[11.5px] text-on-surface-variant">
+            Toque num mês para ver os detalhes (Últimos 6 meses)
           </span>
         </div>
 
         <div className="relative w-full">
-          <div
-            className={`absolute -top-7 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-inverse-surface text-inverse-on-surface text-[11px] font-semibold shadow-md transition-all duration-200 pointer-events-none whitespace-nowrap ${
-              tooltipText ? 'opacity-100' : 'opacity-0'
-            }`}
-          >
-            {tooltipText ?? ''}
-          </div>
-
           <svg
             aria-label="Evolução mensal receitas e despesas"
-            className="w-full h-44 overflow-visible"
-            viewBox="0 0 320 160"
+            className="w-full h-40 overflow-visible"
+            viewBox="0 0 320 155"
           >
             <defs>
               <linearGradient id="grad-green" x1="0" x2="0" y1="0" y2="1">
@@ -407,38 +483,49 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
                 Math.round((m.expense / maxSeriesValue) * 100),
                 m.expense > 0 ? 4 : 0
               );
-              const tip = `${m.label}: +${formatMoney(m.income, currency)} | -${formatMoney(m.expense, currency)} (${m.savePct} poupados)`;
+              const isSelected = activeSeriesItem?.key === m.key;
 
               return (
                 <g
                   key={m.key}
+                  aria-label={`Inspecionar ${m.month}`}
                   className="cursor-pointer"
-                  onClick={() => setTooltipText((prev) => (prev === tip ? null : tip))}
-                  onMouseEnter={() => setTooltipText(tip)}
-                  onMouseLeave={() => setTooltipText(null)}
+                  onClick={() => setSelectedSeriesKey(m.key)}
+                  role="button"
+                  tabIndex={0}
                 >
                   <rect
-                    className="transition-opacity hover:opacity-80"
+                    fill={isSelected ? '#eaedff' : 'transparent'}
+                    height="148"
+                    rx="7"
+                    width="42"
+                    x={xBase - 5}
+                    y="6"
+                  />
+                  <rect
+                    className="transition-all duration-300"
                     fill="url(#grad-green)"
                     height={incH}
+                    opacity={isSelected ? 1 : 0.8}
                     rx="4"
                     width="14"
                     x={xBase}
                     y={130 - incH}
                   />
                   <rect
-                    className="transition-opacity hover:opacity-80"
+                    className="transition-all duration-300"
                     fill="url(#grad-red)"
                     height={expH}
+                    opacity={isSelected ? 1 : 0.8}
                     rx="4"
                     width="14"
                     x={xBase + 17}
                     y={130 - expH}
                   />
                   <text
-                    fill={m.highlight ? '#3525cd' : '#464555'}
+                    fill={isSelected ? '#3525cd' : '#464555'}
                     fontSize="11"
-                    fontWeight={m.highlight ? '700' : '500'}
+                    fontWeight={isSelected ? '700' : '500'}
                     textAnchor="middle"
                     x={xBase + 15}
                     y="148"
@@ -451,24 +538,35 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
           </svg>
         </div>
 
-        <div className="p-2.5 rounded-xl bg-surface-container flex items-center justify-between gap-2 flex-wrap text-on-surface">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="material-symbols-outlined text-primary text-[18px] shrink-0">
-              insights
-            </span>
-            <span className="text-[12px] font-medium truncate">{metrics.highlightMonthText}</span>
+        {activeSeriesItem && (
+          <div className="p-2.5 rounded-xl bg-surface-container flex items-center justify-between gap-2 flex-wrap text-on-surface">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="material-symbols-outlined text-primary text-[17px] shrink-0">
+                insights
+              </span>
+              <span className="text-[11.5px] font-semibold break-words">
+                {activeSeriesItem.month}/{activeSeriesItem.year}:
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap text-[11.5px] tabular-nums">
+              <span className="text-secondary font-bold">
+                +{formatMoney(activeSeriesItem.income, currency)}
+              </span>
+              <span className="text-tertiary font-bold">
+                -{formatMoney(activeSeriesItem.expense, currency)}
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-surface-container-lowest font-bold text-primary">
+                {activeSeriesItem.savePct}
+              </span>
+            </div>
           </div>
-          <span className="text-[12px] font-bold text-secondary tabular-nums whitespace-nowrap">
-            {metrics.netSavings < 0 ? '-' : ''}
-            {formatMoney(metrics.netSavings, currency)} ({metrics.savingsRate})
-          </span>
-        </div>
+        )}
       </section>
 
       {/* Expense Breakdown by Category */}
-      <section className="space-y-2.5">
+      <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[16px] font-bold text-on-surface truncate">
+          <span className="text-[15px] font-bold text-on-surface">
             Despesas por Categoria
           </span>
           <button
@@ -480,7 +578,7 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
           </button>
         </div>
 
-        <div className="p-4 rounded-2xl bg-surface-container-lowest shadow-sm space-y-3">
+        <div className="p-3 rounded-2xl bg-surface-container-lowest shadow-sm space-y-2.5">
           {expenseCategories.length === 0 ? (
             <p className="text-[12px] text-on-surface-variant text-center py-4">
               Nenhuma despesa registrada no período selecionado.
@@ -500,7 +598,7 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
                         </span>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <span className="text-[13px] font-semibold text-on-surface block leading-tight truncate">
+                        <span className="text-[13px] font-semibold text-on-surface block leading-snug break-words">
                           {cat.name}
                         </span>
                         <span className="text-[11px] text-on-surface-variant font-medium">
@@ -533,7 +631,7 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
       {/* Income Sources Breakdown */}
       <section className="space-y-2.5">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[16px] font-bold text-on-surface truncate">Fontes de Receita</span>
+          <span className="text-[16px] font-bold text-on-surface">Fontes de Receita</span>
           <span className="text-[12px] text-secondary font-bold tabular-nums whitespace-nowrap shrink-0">
             {formatMoney(metrics.incomeTotal, currency)} Total
           </span>
@@ -546,14 +644,14 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 gap-2">
             {incomeSources.map((src) => (
               <div
                 key={src.title}
-                className="min-w-0 p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-2"
+                className="min-w-0 p-3 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between gap-1.5"
               >
                 <div className="flex items-center justify-between gap-1.5">
-                  <span className="text-[11px] text-on-surface-variant uppercase tracking-wider font-semibold truncate">
+                  <span className="text-[10.5px] text-on-surface-variant uppercase tracking-wider font-semibold break-words leading-tight">
                     {src.title}
                   </span>
                   <span
@@ -563,10 +661,10 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
                   </span>
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[15px] leading-snug text-on-surface font-bold tabular-nums block break-words">
+                  <span className="text-[14.5px] leading-snug text-on-surface font-bold tabular-nums block break-words">
                     {formatMoney(src.amount, currency)}
                   </span>
-                  <span className="text-[11px] text-on-surface-variant block truncate">
+                  <span className="text-[10.5px] text-on-surface-variant block leading-tight">
                     {src.share}
                   </span>
                 </div>
@@ -577,13 +675,13 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
       </section>
 
       {/* Complete Export Control Panel */}
-      <section className="p-4 rounded-2xl bg-surface-container-lowest shadow-sm space-y-3.5">
+      <section className="p-3 rounded-2xl bg-surface-container-lowest shadow-sm space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <span className="text-[16px] font-bold text-on-surface block truncate">
+            <span className="text-[16px] font-bold text-on-surface block">
               Central de Exportação
             </span>
-            <span className="text-[12px] text-on-surface-variant block truncate">
+            <span className="text-[12px] text-on-surface-variant block">
               Baixe os registros contábeis originais
             </span>
           </div>
@@ -609,11 +707,11 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
               >
                 <span className="material-symbols-outlined text-[19px] shrink-0">table_view</span>
                 <div className="min-w-0 flex-1">
-                  <span className="text-[12px] font-semibold block leading-tight truncate">
+                  <span className="text-[12px] font-semibold block leading-tight">
                     Planilha CSV
                   </span>
                   <span
-                    className={`text-[10px] leading-tight block truncate ${
+                    className={`text-[10px] leading-tight block ${
                       exportFormat === 'csv' ? 'text-on-primary-container' : 'text-on-surface-variant'
                     }`}
                   >
@@ -635,11 +733,11 @@ export function ReportsScreen({ transactions, currency, onNavigate }: ReportsScr
                   picture_as_pdf
                 </span>
                 <div className="min-w-0 flex-1">
-                  <span className="text-[12px] font-semibold block leading-tight truncate">
+                  <span className="text-[12px] font-semibold block leading-tight">
                     Resumo PDF
                   </span>
                   <span
-                    className={`text-[10px] leading-tight block truncate ${
+                    className={`text-[10px] leading-tight block ${
                       exportFormat === 'pdf' ? 'text-on-primary-container' : 'text-on-surface-variant'
                     }`}
                   >
