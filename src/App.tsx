@@ -636,7 +636,7 @@ export default function App() {
           className={`flex-1 w-full max-w-7xl mx-auto flex flex-col ${
             activeScreen === 'login'
               ? 'p-0 justify-center items-center'
-              : 'pt-18 md:pt-4 px-3 sm:px-6 lg:px-8 pb-24 md:pb-12'
+              : 'pt-18 md:pt-6 px-4 sm:px-6 lg:px-8 pb-24 md:pb-12'
           }`}
         >
           {isRestoringSession ? (

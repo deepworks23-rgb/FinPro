@@ -315,7 +315,7 @@ export function ProfileScreen({
   const showPhoto = Boolean(avatarPreview) && !avatarLoadError;
 
   return (
-    <div className="flex flex-col w-full px-3 pt-2 space-y-3 pb-4">
+    <div className="flex flex-col w-full space-y-4 pb-4">
       {/* Top Profile Identity & Photo Upload Card */}
       <section className="p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col gap-3">
         <div className="flex items-center gap-3">

@@ -146,7 +146,7 @@ export function TransactionsScreen({
   return (
     <div className="flex flex-col w-full pb-2">
       {/* Top Balance Quick View & Month/Year Dropdowns */}
-      <section className="px-3 pt-2 pb-2.5">
+      <section className="pt-1 pb-2.5">
         <div className="bg-surface-container-lowest rounded-2xl p-3 shadow-sm space-y-2.5">
           {/* Date Period Dropdown Controls */}
           <div className="flex items-center gap-2">
@@ -240,7 +240,7 @@ export function TransactionsScreen({
       </section>
 
       {/* Action Bar, Search & Dropdown Filters */}
-      <section className="px-3 flex flex-col gap-2">
+      <section className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <div className="relative flex-1 min-w-0">
             <label className="sr-only" htmlFor="searchTransactionsInput">
@@ -362,7 +362,7 @@ export function TransactionsScreen({
 
       {/* Transactions Stream Grouped or Empty State */}
       {grouped.length === 0 ? (
-        <section className="px-3 py-8 flex flex-col items-center text-center">
+        <section className="py-8 flex flex-col items-center text-center">
           <div className="w-16 h-16 rounded-full bg-primary-fixed flex items-center justify-center mb-3 shadow-inner text-primary">
             <AppIcon name="savings" className="text-[32px]" />
           </div>
@@ -403,7 +403,7 @@ export function TransactionsScreen({
         </section>
       ) : (
         <section
-          className="px-3 mt-3 flex flex-col gap-3"
+          className="mt-3 flex flex-col gap-3"
           data-testid="transactions-groups"
         >
           {grouped.map((group) => (

@@ -192,7 +192,7 @@ export function BudgetsScreen({
   };
 
   return (
-    <div className="flex flex-col w-full px-3 space-y-3 pb-2">
+    <div className="flex flex-col w-full space-y-4 pb-2">
       {/* Status Chip & Header Subtitle */}
       <div className="flex items-center justify-between gap-2 pt-1.5">
         <div className="min-w-0 flex-1">

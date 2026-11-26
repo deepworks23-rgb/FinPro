@@ -159,7 +159,7 @@ export function DashboardScreen({
     summary.netBalance <= Math.max(alertSettings.lowBalanceThreshold, alertSettings.negativeAlertThreshold);
 
   return (
-    <div className="flex flex-col w-full px-3 pt-2 space-y-3 pb-2">
+    <div className="flex flex-col w-full space-y-4 pb-2">
       {/* Card Principal de Saldo Total */}
       <section className="bg-surface-container-lowest rounded-2xl p-3 shadow-sm relative overflow-hidden flex flex-col gap-2.5">
         <div className="absolute -right-12 -top-12 w-32 h-32 bg-primary-fixed/30 rounded-full blur-2xl pointer-events-none" />
