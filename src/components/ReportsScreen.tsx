@@ -458,14 +458,14 @@ export function ReportsScreen({
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-primary text-on-primary text-[11px] font-semibold">
-                <th className="py-2.5 px-2.5 whitespace-nowrap">Data</th>
-                <th className="py-2.5 px-2">Descrição & Conta</th>
-                <th className="py-2.5 px-2 text-center whitespace-nowrap">Estado</th>
-                <th className="py-2.5 px-2.5 text-right whitespace-nowrap">Valor</th>
+              <tr className="bg-primary text-on-primary text-[10.5px] font-semibold">
+                <th className="py-2 px-2 whitespace-nowrap">Data</th>
+                <th className="py-2 px-1.5">Descrição & Conta</th>
+                <th className="py-2 px-1 text-center whitespace-nowrap">Estado</th>
+                <th className="py-2 px-2 text-right whitespace-nowrap">Valor</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-surface-container/70 text-[12px]">
+            <tbody className="divide-y divide-surface-container/70 text-[11px]">
               {scopedTransactions.length === 0 ? (
                 <tr>
                   <td className="py-6 px-3 text-center text-on-surface-variant" colSpan={4}>
@@ -483,20 +483,20 @@ export function ReportsScreen({
                       key={tx.id}
                       className={idx % 2 === 1 ? 'bg-surface-container-low/55' : 'bg-surface-container-lowest'}
                     >
-                      <td className="py-2.5 px-2.5 align-top text-on-surface-variant font-medium tabular-nums whitespace-nowrap">
+                      <td className="py-2 px-2 align-top text-on-surface-variant font-medium tabular-nums whitespace-nowrap">
                         {dateBr}
                       </td>
-                      <td className="py-2.5 px-2 align-top min-w-[130px]">
+                      <td className="py-2 px-1.5 align-top">
                         <span className="font-semibold text-on-surface block leading-snug break-words">
                           {tx.description}
                         </span>
-                        <span className="text-[10.5px] text-on-surface-variant block leading-tight">
+                        <span className="text-[10px] text-on-surface-variant block leading-tight">
                           {tx.category} · {tx.account}
                         </span>
                       </td>
-                      <td className="py-2.5 px-2 align-top text-center whitespace-nowrap">
+                      <td className="py-2 px-1 align-top text-center whitespace-nowrap">
                         <span
-                          className={`text-[11px] font-semibold ${
+                          className={`text-[10px] font-semibold ${
                             tx.status === 'pending' ? 'text-amber-800' : 'text-secondary'
                           }`}
                         >
@@ -504,7 +504,7 @@ export function ReportsScreen({
                         </span>
                       </td>
                       <td
-                        className={`py-2.5 px-2.5 align-top text-right font-bold tabular-nums whitespace-nowrap ${
+                        className={`py-2 px-2 align-top text-right font-bold tabular-nums whitespace-nowrap ${
                           isIncome ? 'text-secondary' : 'text-tertiary'
                         }`}
                       >
@@ -518,15 +518,15 @@ export function ReportsScreen({
               )}
             </tbody>
             <tfoot>
-              <tr className="bg-surface-container text-[12px] font-bold text-on-surface border-t border-surface-container-highest">
-                <td className="py-2.5 px-2.5" colSpan={2}>
+              <tr className="bg-surface-container text-[11px] font-bold text-on-surface border-t border-surface-container-highest">
+                <td className="py-2 px-2" colSpan={2}>
                   Saldo Líquido do Período
                 </td>
-                <td className="py-2.5 px-2 text-center text-[11px] text-primary whitespace-nowrap">
+                <td className="py-2 px-1 text-center text-[10px] text-primary whitespace-nowrap">
                   {tableSummary.savingRate}%
                 </td>
                 <td
-                  className={`py-2.5 px-2.5 text-right tabular-nums whitespace-nowrap ${
+                  className={`py-2 px-2 text-right tabular-nums whitespace-nowrap ${
                     tableSummary.netBalance >= 0 ? 'text-secondary' : 'text-tertiary'
                   }`}
                 >
