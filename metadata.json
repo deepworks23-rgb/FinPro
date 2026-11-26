@@ -1,0 +1,6 @@
+{
+  "name": "FinTrack",
+  "description": "Aplicativo de gestão financeira pessoal em tempo real com dashboard, extrato de transações, orçamentos, metas e relatórios.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "surface-bright": "#faf8ff", "tertiary-fixed": "#ffdad7", "on-tertiary-fixed-variant": "#930013", "tertiary-container": "#bc1d25", "on-secondary": "#ffffff", "secondary-fixed": "#6ffbbe", "on-error-container": "#93000a", "on-error": "#ffffff", "background": "#faf8ff", "inverse-on-surface": "#eef0ff", "on-surface-variant": "#464555", "primary-container": "#4f46e5", "surface-variant": "#dae2fd", "tertiary": "#960014", "error": "#ba1a1a", "surface-container-low": "#f2f3ff", "surface-container-lowest": "#ffffff", "inverse-surface": "#283044", "on-background": "#131b2e", "surface": "#faf8ff", "primary-fixed-dim": "#c3c0ff", "surface-container": "#eaedff", "surface-tint": "#4d44e3", "secondary-container": "#6cf8bb", "on-primary-fixed-variant": "#3323cc", "on-surface": "#131b2e", "tertiary-fixed-dim": "#ffb3ad", "on-secondary-container": "#00714d", "outline-variant": "#c7c4d8", "primary-fixed": "#e2dfff", "on-primary-fixed": "#0f0069", "outline": "#777587", "on-tertiary": "#ffffff", "error-container": "#ffdad6", "secondary": "#006c49", "on-tertiary-fixed": "#410004", "on-primary-container": "#dad7ff", "on-secondary-fixed-variant": "#005236", "secondary-fixed-dim": "#4edea3", "surface-container-highest": "#dae2fd", "primary": "#3525cd", "surface-dim": "#d2d9f4", "inverse-primary": "#c3c0ff", "on-tertiary-container": "#ffd0cc", "surface-container-high": "#e2e7ff", "on-secondary-fixed": "#002113", "on-primary": "#ffffff" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "space-sm": "0.5rem", "space-lg": "1.5rem", "margin": "1rem", "space-md": "1rem", "space-xl": "2rem", "margin-md": "1.5rem", "gutter": "1rem", "margin-lg": "2.5rem", "space-xs": "0.25rem", "gutter-md": "1.5rem" }, "fontFamily": { "label-sm": ["Inter"], "currency-lead": ["Inter"], "headline-md": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "display-hero": ["Plus Jakarta Sans"], "body-lg": ["Inter"], "body-md": ["Inter"], "display-hero-mobile": ["Plus Jakarta Sans"], "currency-standard": ["Inter"], "body-sm": ["Inter"], "label-md": ["Inter"], "headline-sm": ["Plus Jakarta Sans"] }, "fontSize": { "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "600" }], "currency-lead": ["32px", { "lineHeight": "38px", "fontWeight": "700" }], "headline-md": ["22px", { "lineHeight": "28px", "fontWeight": "600" }], "headline-lg": ["28px", { "lineHeight": "36px", "fontWeight": "700" }], "display-hero": ["40px", { "lineHeight": "48px", "fontWeight": "700" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "display-hero-mobile": ["32px", { "lineHeight": "40px", "fontWeight": "700" }], "currency-standard": ["16px", { "lineHeight": "22px", "fontWeight": "600" }], "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "label-md": ["14px", { "lineHeight": "20px", "fontWeight": "600" }], "headline-sm": ["18px", { "lineHeight": "24px", "fontWeight": "600" }] } } } };</script><style>@layer base{html,body{width:100vw;margin:0;padding:0;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface font-body-md text-on-surface antialiased flex flex-col min-h-screen"><header class="fixed top-0 w-full z-50 bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe"><div class="h-16 px-margin flex items-center justify-between"><div class="flex items-center gap-space-sm"><img alt="FinTrack Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCOM05_l28W1zIFxSr__O_naFptH8nuezafpBijO5vL3JrFjTHA-Hk774tpNkav6dvo5WLGaqS2VCNJ7BnFzfRPEYBtWPDqFOEAutUawNW2rZJFPepoeif1hvfKe-0dkHnjyaJoZSgcpa8Bw2AiE03iTVqgn0x6GLsUu5wSjjmz0E-FtKKhZia8JQIXs2CpvGlpjd-QZYyvZaVvvaJ5Otby4S5Oi0KuaYPkUm037Eo"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface leading-none">FinTrack</span><span class="font-label-sm text-label-sm text-on-surface-variant font-medium tracking-tight">Relatórios</span></div></div><div class="flex items-center gap-space-xs"><button aria-label="Notificações" class="w-11 h-11 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span></button><a class="flex items-center justify-center p-0.5 rounded-full ring-2 ring-primary/10" data-path="perfil-configuracoes" href="#"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMTMN3Gp0GSjpix076C38vMsFYmMSygxjziqQAlFiOcKWhMwNcL3qt78AYJMH7LpAz2l5vTRrc6c2MUcMO5m-Q_nfGB_tqlKhw7TaL8hWu7nBFeemh3040D8Sk-6Tau0Bqkeaj-S5eBi3ygxc4mOa34z1sX1JQ6cVIsOBQ2FUETFiOeotkzfq2N-qkGTzLx5xTkrjb2A9Bft3h8WOQukI-XEhnGVkd8VmhrFk7dvg"/></a></div></div></header><main class="flex flex-col relative w-full pt-16 pb-28 bg-surface min-h-screen"><div class="flex flex-col w-full px-margin space-y-space-lg pb-space-xl">
+<!-- Top Action & Period Control Filter -->
+<section class="flex flex-col space-y-space-md pt-2">
+<div class="flex items-center justify-between gap-space-sm">
+<div class="flex flex-col min-w-0">
+<span class="font-headline-sm text-headline-sm text-on-surface truncate">Relatórios de Desempenho</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Análise contábil e exportação consolidada</span>
+</div>
+<button class="flex items-center justify-center gap-1.5 px-3 py-2 bg-primary text-on-primary rounded-xl shadow-md hover:bg-primary-container active:scale-95 transition-all" id="quick-export-btn">
+<span class="material-symbols-outlined text-[18px]">download</span>
+<span class="font-label-sm text-label-sm whitespace-nowrap">Exportar CSV</span>
+</button>
+</div>
+<!-- Period Selectors Horizontal Scroll -->
+<div class="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar" id="period-chips">
+<button class="period-btn px-4 py-2 rounded-full font-label-sm text-label-sm bg-primary text-on-primary shadow-sm transition-colors whitespace-nowrap" data-period="mes">Mês Atual</button>
+<button class="period-btn px-4 py-2 rounded-full font-label-sm text-label-sm bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-colors whitespace-nowrap" data-period="trimestre">Trimestre</button>
+<button class="period-btn px-4 py-2 rounded-full font-label-sm text-label-sm bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-colors whitespace-nowrap" data-period="ano">Ano 2024</button>
+<button class="period-btn px-4 py-2 rounded-full font-label-sm text-label-sm bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-colors whitespace-nowrap" data-period="custom">Personalizado</button>
+</div>
+</section>
+<!-- Executive Summary Bento Cards -->
+<section class="space-y-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface">Resumo Executivo</span>
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+        +12.4% vs mês anterior
+      </span>
+</div>
+<div class="grid grid-cols-2 gap-space-sm">
+<!-- Main Metric: Net Profit / Savings -->
+<div class="col-span-2 p-space-md rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between relative overflow-hidden">
+<div class="absolute right-0 top-0 w-32 h-32 bg-secondary/5 rounded-full blur-2xl pointer-events-none"></div>
+<div class="flex items-start justify-between">
+<div class="space-y-0.5">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Economia Total Líquida</span>
+<div class="font-currency-lead text-currency-lead text-on-surface flex items-baseline gap-1">
+<span class="font-body-sm text-body-sm text-secondary font-semibold">R$</span>
+<span>4.820,50</span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-xl bg-secondary-container text-on-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">savings</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-sm border-t border-surface-container flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm">
+<span>Taxa média de poupança</span>
+<span class="font-label-sm text-label-sm text-secondary font-bold">34.2%</span>
+</div>
+</div>
+<!-- Card: Top Expense Category -->
+<div class="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Maior Gasto</span>
+<div class="w-7 h-7 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">home</span>
+</div>
+</div>
+<div class="mt-2">
+<span class="font-label-md text-label-md text-on-surface block truncate">Moradia &amp; Contas</span>
+<span class="font-currency-standard text-currency-standard text-tertiary font-bold">R$ 3.150</span>
+<span class="font-body-sm text-[11px] text-on-surface-variant block mt-0.5">33.8% das despesas</span>
+</div>
+</div>
+<!-- Card: Daily Average Spend -->
+<div class="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Média Diária</span>
+<div class="w-7 h-7 rounded-lg bg-primary-fixed text-on-primary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">calendar_today</span>
+</div>
+</div>
+<div class="mt-2">
+<span class="font-label-md text-label-md text-on-surface block truncate">Saída por Dia</span>
+<span class="font-currency-standard text-currency-standard text-on-surface font-bold">R$ 310,25</span>
+<span class="font-body-sm text-[11px] text-secondary font-medium block mt-0.5">-4.1% que a meta</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Interactive Cash Flow Chart (Income vs Expense) -->
+<section class="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm space-y-space-md">
+<div class="flex items-center justify-between">
+<div>
+<span class="font-headline-sm text-headline-sm text-on-surface block">Evolução Mensal</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Receitas vs. Despesas (Últimos 6 meses)</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center gap-1.5">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+<span class="font-label-sm text-[11px] text-on-surface-variant">Entrada</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-2.5 h-2.5 rounded-full bg-tertiary-container"></span>
+<span class="font-label-sm text-[11px] text-on-surface-variant">Saída</span>
+</div>
+</div>
+</div>
+<!-- Dynamic SVG Chart Container with Tap Interactions -->
+<div class="relative w-full">
+<!-- Tooltip Bubble -->
+<div class="absolute -top-7 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-lg bg-inverse-surface text-inverse-on-surface font-label-sm text-label-sm shadow-md transition-all duration-200 pointer-events-none opacity-0" id="chart-tooltip">
+<span id="tooltip-text">Selecione um mês</span>
+</div>
+<svg class="w-full h-44 overflow-visible" id="interactive-bars" viewbox="0 0 320 160">
+<defs>
+<lineargradient id="grad-green" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#006c49" stop-opacity="0.95"></stop>
+<stop offset="100%" stop-color="#006c49" stop-opacity="0.5"></stop>
+</lineargradient>
+<lineargradient id="grad-red" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#bc1d25" stop-opacity="0.9"></stop>
+<stop offset="100%" stop-color="#bc1d25" stop-opacity="0.4"></stop>
+</lineargradient>
+</defs>
+<!-- Horizontal Guide Lines -->
+<line stroke="#eaedff" stroke-dasharray="3,3" stroke-width="1" x1="0" x2="320" y1="30" y2="30"></line>
+<line stroke="#eaedff" stroke-dasharray="3,3" stroke-width="1" x1="0" x2="320" y1="80" y2="80"></line>
+<line stroke="#eaedff" stroke-width="1" x1="0" x2="320" y1="130" y2="130"></line>
+<!-- Month 1: Mai -->
+<g class="bar-group cursor-pointer" data-in="R$ 11.200" data-mes="Mai" data-out="R$ 8.900" data-save="20%">
+<rect class="transition-opacity hover:opacity-80" fill="url(#grad-green)" height="75" rx="4" width="14" x="16" y="55"></rect>
+<rect class="transition-opacity hover:opacity-80" fill="url(#grad-red)" height="60" rx="4" width="14" x="33" y="70"></rect>
+<text fill="#464555" font-size="11" font-weight="500" text-anchor="middle" x="31" y="148">Mai</text>
+</g>
+<!-- Month 2: Jun -->
+<g class="bar-group cursor-pointer" data-in="R$ 12.800" data-mes="Jun" data-out="R$ 9.400" data-save="26%">
+<rect class="transition-opacity hover:opacity-80" fill="url(#grad-green)" height="88" rx="4" width="14" x="68" y="42"></rect>
+<rect class="transition-opacity hover:opacity-80" fill="url(#grad-red)" height="64" rx="4" width="14" x="85" y="66"></rect>
+<text fill="#464555" font-size="11" font-weight="500" text-anchor="middle" x="83" y="148">Jun</text>
+</g>
+<!-- Month 3: Jul -->
+<g class="bar-group cursor-pointer" data-in="R$ 13.500" data-mes="Jul" data-out="R$ 10.100" data-save="25%">
+<rect class="transition-opacity hover:opacity-80" fill="url(#grad-green)" height="92" rx="4" width="14" x="120" y="38"></rect>
+<rect class="transition-opacity hover:opacity-80" fill="url(#grad-red)" height="70" rx="4" width="14" x="137" y="60"></rect>
+<text fill="#464555" font-size="11" font-weight="500" text-anchor="middle" x="135" y="148">Jul</text>
+</g>
+<!-- Month 4: Ago -->
+<g class="bar-group cursor-pointer" data-in="R$ 12.400" data-mes="Ago" data-out="R$ 8.600" data-save="30%">
+<rect class="transition-opacity hover:opacity-80" fill="url(#grad-green)" height="84" rx="4" width="14" x="172" y="46"></rect>
+<rect class="transition-opacity hover:opacity-80" fill="url(#grad-red)" height="58" rx="4" width="14" x="189" y="72"></rect>
+<text fill="#464555" font-size="11" font-weight="500" text-anchor="middle" x="187" y="148">Ago</text>
+</g>
+<!-- Month 5: Set -->
+<g class="bar-group cursor-pointer" data-in="R$ 13.100" data-mes="Set" data-out="R$ 9.800" data-save="25%">
+<rect class="transition-opacity hover:opacity-80" fill="url(#grad-green)" height="90" rx="4" width="14" x="224" y="40"></rect>
+<rect class="transition-opacity hover:opacity-80" fill="url(#grad-red)" height="66" rx="4" width="14" x="241" y="64"></rect>
+<text fill="#464555" font-size="11" font-weight="500" text-anchor="middle" x="239" y="148">Set</text>
+</g>
+<!-- Month 6: Out (Selected/Highlight) -->
+<g class="bar-group cursor-pointer" data-in="R$ 14.120" data-mes="Out (Atual)" data-out="R$ 9.300" data-save="34%">
+<rect fill="url(#grad-green)" height="98" rx="4" width="14" x="276" y="32"></rect>
+<rect fill="url(#grad-red)" height="62" rx="4" width="14" x="293" y="68"></rect>
+<text fill="#3525cd" font-size="11" font-weight="700" text-anchor="middle" x="291" y="148">Out</text>
+</g>
+</svg>
+</div>
+<div class="p-space-sm rounded-xl bg-surface-container flex items-center justify-between text-on-surface">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">insights</span>
+<span class="font-body-sm text-body-sm">Poupança em Outubro:</span>
+</div>
+<span class="font-label-md text-label-md text-secondary">R$ 4.820,50 (34.1%)</span>
+</div>
+</section>
+<!-- Expense Breakdown by Category -->
+<section class="space-y-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-headline-sm text-headline-sm text-on-surface">Despesas por Categoria</span>
+<span class="font-label-sm text-label-sm text-primary cursor-pointer hover:underline">Ver todas (12)</span>
+</div>
+<div class="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm space-y-space-md">
+<!-- Item 1: Moradia -->
+<div class="space-y-1.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-[18px]">apartment</span>
+</div>
+<div>
+<span class="font-label-md text-label-md text-on-surface block leading-tight">Moradia &amp; Serviços</span>
+<span class="font-body-sm text-[11px] text-tertiary font-medium">+2.1% vs mês anterior</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-currency-standard text-currency-standard text-on-surface block leading-tight">R$ 3.150,00</span>
+<span class="font-body-sm text-[11px] text-on-surface-variant font-medium">33.8% do total</span>
+</div>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-tertiary-container h-1.5 rounded-full" style="width: 33.8%"></div>
+</div>
+</div>
+<!-- Item 2: Alimentação -->
+<div class="space-y-1.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-[18px]">restaurant</span>
+</div>
+<div>
+<span class="font-label-md text-label-md text-on-surface block leading-tight">Alimentação &amp; Mercado</span>
+<span class="font-body-sm text-[11px] text-secondary font-medium">-5.4% vs mês anterior</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-currency-standard text-currency-standard text-on-surface block leading-tight">R$ 2.420,30</span>
+<span class="font-body-sm text-[11px] text-on-surface-variant font-medium">26.0% do total</span>
+</div>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-primary h-1.5 rounded-full" style="width: 26%"></div>
+</div>
+</div>
+<!-- Item 3: Transporte -->
+<div class="space-y-1.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-[18px]">directions_car</span>
+</div>
+<div>
+<span class="font-label-md text-label-md text-on-surface block leading-tight">Transporte &amp; Combustível</span>
+<span class="font-body-sm text-[11px] text-secondary font-medium">-1.2% vs mês anterior</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-currency-standard text-currency-standard text-on-surface block leading-tight">R$ 1.340,00</span>
+<span class="font-body-sm text-[11px] text-on-surface-variant font-medium">14.4% do total</span>
+</div>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-surface-tint h-1.5 rounded-full" style="width: 14.4%"></div>
+</div>
+</div>
+<!-- Item 4: Lazer & Outros -->
+<div class="space-y-1.5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-[18px]">celebration</span>
+</div>
+<div>
+<span class="font-label-md text-label-md text-on-surface block leading-tight">Lazer, Cultura &amp; Extras</span>
+<span class="font-body-sm text-[11px] text-tertiary font-medium">+8.0% vs mês anterior</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-currency-standard text-currency-standard text-on-surface block leading-tight">R$ 2.389,70</span>
+<span class="font-body-sm text-[11px] text-on-surface-variant font-medium">25.8% do total</span>
+</div>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-outline h-1.5 rounded-full" style="width: 25.8%"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Income Sources Breakdown -->
+<section class="space-y-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-headline-sm text-headline-sm text-on-surface">Fontes de Receita</span>
+<span class="font-label-sm text-label-sm text-secondary font-bold">R$ 14.120,50 Total</span>
+</div>
+<div class="grid grid-cols-2 gap-space-sm">
+<div class="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-body-sm text-[11px] text-on-surface-variant uppercase tracking-wider font-semibold">Salário CLT</span>
+<span class="w-6 h-6 rounded-md bg-secondary-container text-on-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px]">work</span>
+</span>
+</div>
+<div class="mt-3">
+<span class="font-currency-standard text-currency-standard text-on-surface font-bold">R$ 9.500,00</span>
+<span class="font-body-sm text-[11px] text-on-surface-variant block">67.3% da renda</span>
+</div>
+</div>
+<div class="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-body-sm text-[11px] text-on-surface-variant uppercase tracking-wider font-semibold">Freelances</span>
+<span class="w-6 h-6 rounded-md bg-primary-fixed text-on-primary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px]">laptop_mac</span>
+</span>
+</div>
+<div class="mt-3">
+<span class="font-currency-standard text-currency-standard text-on-surface font-bold">R$ 2.800,00</span>
+<span class="font-body-sm text-[11px] text-on-surface-variant block">19.8% da renda</span>
+</div>
+</div>
+<div class="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-body-sm text-[11px] text-on-surface-variant uppercase tracking-wider font-semibold">Dividendos</span>
+<span class="w-6 h-6 rounded-md bg-secondary-fixed text-on-secondary-fixed-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px]">query_stats</span>
+</span>
+</div>
+<div class="mt-3">
+<span class="font-currency-standard text-currency-standard text-on-surface font-bold">R$ 1.320,50</span>
+<span class="font-body-sm text-[11px] text-on-surface-variant block">9.4% da renda</span>
+</div>
+</div>
+<div class="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-body-sm text-[11px] text-on-surface-variant uppercase tracking-wider font-semibold">Outros / Rend.</span>
+<span class="w-6 h-6 rounded-md bg-surface-container-high text-on-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px]">payments</span>
+</span>
+</div>
+<div class="mt-3">
+<span class="font-currency-standard text-currency-standard text-on-surface font-bold">R$ 500,00</span>
+<span class="font-body-sm text-[11px] text-on-surface-variant block">3.5% da renda</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Complete Export Control Panel -->
+<section class="p-space-md rounded-2xl bg-surface-container-lowest shadow-sm space-y-space-md">
+<div class="flex items-center justify-between">
+<div>
+<span class="font-headline-sm text-headline-sm text-on-surface block">Central de Exportação</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Baixe os registros contábeis originais</span>
+</div>
+<div class="w-9 h-9 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">file_download</span>
+</div>
+</div>
+<!-- Export Configurations Grid -->
+<div class="space-y-3">
+<!-- Format Options -->
+<div>
+<label class="font-label-sm text-label-sm text-on-surface-variant block mb-1.5">Formato do Arquivo</label>
+<div class="grid grid-cols-2 gap-2" id="format-selector">
+<button class="format-option active flex items-center gap-2 p-2.5 rounded-xl bg-primary text-on-primary text-left transition-colors" data-format="csv" type="button">
+<span class="material-symbols-outlined text-[20px]">table_view</span>
+<div>
+<span class="font-label-sm text-label-sm block leading-tight">Planilha CSV</span>
+<span class="font-body-sm text-[10px] text-on-primary-container leading-tight">Excel, Sheets, Contábil</span>
+</div>
+</button>
+<button class="format-option flex items-center gap-2 p-2.5 rounded-xl bg-surface-container text-on-surface-variant text-left transition-colors" data-format="pdf" type="button">
+<span class="material-symbols-outlined text-[20px]">picture_as_pdf</span>
+<div>
+<span class="font-label-sm text-label-sm block leading-tight">Resumo PDF</span>
+<span class="font-body-sm text-[10px] text-on-surface-variant leading-tight">Relatório Imprimível</span>
+</div>
+</button>
+</div>
+</div>
+<!-- Scope Filter Toggles -->
+<div>
+<label class="font-label-sm text-label-sm text-on-surface-variant block mb-1.5">Tipos Inclusos</label>
+<div class="flex items-center gap-2">
+<label class="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-surface-container-low cursor-pointer">
+<input checked="" class="w-4 h-4 rounded text-primary focus:ring-primary" id="chk-receitas" type="checkbox"/>
+<span class="font-label-sm text-label-sm text-on-surface">Receitas</span>
+</label>
+<label class="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-surface-container-low cursor-pointer">
+<input checked="" class="w-4 h-4 rounded text-primary focus:ring-primary" id="chk-despesas" type="checkbox"/>
+<span class="font-label-sm text-label-sm text-on-surface">Despesas</span>
+</label>
+<label class="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-surface-container-low cursor-pointer">
+<input checked="" class="w-4 h-4 rounded text-primary focus:ring-primary" id="chk-invest" type="checkbox"/>
+<span class="font-label-sm text-label-sm text-on-surface">Aportes</span>
+</label>
+</div>
+</div>
+</div>
+<!-- Download Trigger Button -->
+<div class="pt-2">
+<button class="w-full py-3.5 px-4 bg-primary text-on-primary rounded-xl font-label-md text-label-md flex items-center justify-center gap-2 shadow-lg shadow-primary/25 active:scale-[0.98] transition-all" id="download-full-csv">
+<span class="material-symbols-outlined text-[22px]">download_for_offline</span>
+<span id="btn-export-label">Baixar Extrato Completo (.csv)</span>
+</button>
+<!-- Feedback Toast Area -->
+<div class="mt-2.5 hidden items-center gap-2 p-2.5 rounded-xl bg-secondary-container text-on-secondary-container" id="export-feedback">
+<span class="material-symbols-outlined text-[18px]">check_circle</span>
+<span class="font-body-sm text-body-sm font-semibold">Arquivo gerado e baixado com sucesso!</span>
+</div>
+</div>
+</section>
+</div>
+<script>
+(function() {
+  // Mock Financial Ledger Data for Export
+  const transactionsDataset = [
+    { data: "2024-10-01", tipo: "Receita", categoria: "Salário", descricao: "Depósito Folha Pagamento Tech Corp", valor: 9500.00, status: "Liquidado" },
+    { data: "2024-10-02", tipo: "Despesa", categoria: "Moradia", descricao: "Aluguel Apartamento e Condomínio", valor: -2800.00, status: "Liquidado" },
+    { data: "2024-10-04", tipo: "Despesa", categoria: "Moradia", descricao: "Energia Elétrica & Fibra", valor: -350.00, status: "Liquidado" },
+    { data: "2024-10-06", tipo: "Receita", categoria: "Freelance", descricao: "Projeto UI/UX E-commerce", valor: 2800.00, status: "Liquidado" },
+    { data: "2024-10-08", tipo: "Despesa", categoria: "Alimentação", descricao: "Supermercado Mensal Pão de Açúcar", valor: -1450.30, status: "Liquidado" },
+    { data: "2024-10-12", tipo: "Despesa", categoria: "Transporte", descricao: "Combustível Posto Shell", valor: -320.00, status: "Liquidado" },
+    { data: "2024-10-15", tipo: "Receita", categoria: "Investimentos", descricao: "Proventos e Dividendos FIIs", valor: 1320.50, status: "Liquidado" },
+    { data: "2024-10-18", tipo: "Despesa", categoria: "Alimentação", descricao: "Restaurante e Delivery", valor: -970.00, status: "Liquidado" },
+    { data: "2024-10-21", tipo: "Despesa", categoria: "Transporte", descricao: "Seguro Auto & Manutenção", valor: -1020.00, status: "Liquidado" },
+    { data: "2024-10-24", tipo: "Despesa", categoria: "Lazer", descricao: "Cinema e Ingressos Show", valor: -650.00, status: "Liquidado" },
+    { data: "2024-10-27", tipo: "Despesa", categoria: "Lazer", descricao: "Compras Online Livros e Gadgets", valor: -1739.70, status: "Liquidado" },
+    { data: "2024-10-29", tipo: "Receita", categoria: "Outros", descricao: "Cashback e Rendimentos Conta", valor: 500.00, status: "Liquidado" }
+  ];
+
+  // CSV Generator and Downloader Function
+  function generateAndDownloadCSV(filename) {
+    const incReceitas = document.getElementById('chk-receitas')?.checked ?? true;
+    const incDespesas = document.getElementById('chk-despesas')?.checked ?? true;
+    const incInvest = document.getElementById('chk-invest')?.checked ?? true;
+
+    // Filter transactions based on selection
+    const filtered = transactionsDataset.filter(item => {
+      if (item.tipo === "Receita" && item.categoria === "Investimentos" && !incInvest) return false;
+      if (item.tipo === "Receita" && item.categoria !== "Investimentos" && !incReceitas) return false;
+      if (item.tipo === "Despesa" && !incDespesas) return false;
+      return true;
+    });
+
+    const headers = ["Data", "Tipo", "Categoria", "Descricao", "Valor (BRL)", "Status"];
+    const rows = filtered.map(t => [
+      `"${t.data}"`,
+      `"${t.tipo}"`,
+      `"${t.categoria}"`,
+      `"${t.descricao.replace(/"/g, '""')}"`,
+      t.valor.toFixed(2),
+      `"${t.status}"`
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(";"), ...rows.map(e => e.join(";"))].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    
+    const downloadLink = document.createElement("a");
+    downloadLink.setAttribute("href", url);
+    downloadLink.setAttribute("download", filename || "fintrack_relatorio_financeiro.csv");
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    URL.revokeObjectURL(url);
+  }
+
+  // Interactive Chart Tooltips
+  const barGroups = document.querySelectorAll('.bar-group');
+  const tooltip = document.getElementById('chart-tooltip');
+  const tooltipText = document.getElementById('tooltip-text');
+
+  barGroups.forEach(group => {
+    group.addEventListener('click', function(e) {
+      const mes = this.getAttribute('data-mes');
+      const inVal = this.getAttribute('data-in');
+      const outVal = this.getAttribute('data-out');
+      const save = this.getAttribute('data-save');
+
+      tooltipText.innerHTML = `<strong>${mes}:</strong> +${inVal} | -${outVal} (${save} poupados)`;
+      tooltip.classList.remove('opacity-0');
+      
+      // Auto-hide tooltip after 3.5s
+      clearTimeout(window.__tooltipTimer);
+      window.__tooltipTimer = setTimeout(() => {
+        tooltip.classList.add('opacity-0');
+      }, 3500);
+    });
+  });
+
+  // Period Chips active state toggle
+  const periodButtons = document.querySelectorAll('.period-btn');
+  periodButtons.forEach(btn => {
+    btn.addEventListener('click', function() {
+      periodButtons.forEach(b => {
+        b.className = 'period-btn px-4 py-2 rounded-full font-label-sm text-label-sm bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-colors whitespace-nowrap';
+      });
+      this.className = 'period-btn px-4 py-2 rounded-full font-label-sm text-label-sm bg-primary text-on-primary shadow-sm transition-colors whitespace-nowrap';
+    });
+  });
+
+  // Format Switcher
+  const formatOptions = document.querySelectorAll('.format-option');
+  let selectedFormat = 'csv';
+  formatOptions.forEach(opt => {
+    opt.addEventListener('click', function() {
+      formatOptions.forEach(o => {
+        o.className = 'format-option flex items-center gap-2 p-2.5 rounded-xl bg-surface-container text-on-surface-variant text-left transition-colors';
+      });
+      this.className = 'format-option active flex items-center gap-2 p-2.5 rounded-xl bg-primary text-on-primary text-left transition-colors';
+      selectedFormat = this.getAttribute('data-format');
+      
+      const label = document.getElementById('btn-export-label');
+      if (selectedFormat === 'pdf') {
+        label.textContent = "Gerar e Baixar Resumo (.pdf)";
+      } else {
+        label.textContent = "Baixar Extrato Completo (.csv)";
+      }
+    });
+  });
+
+  // Export Feedback Execution
+  function triggerExport(name) {
+    const feedback = document.getElementById('export-feedback');
+    if (selectedFormat === 'csv' || name.endsWith('.csv')) {
+      generateAndDownloadCSV(name || "fintrack_relatorio.csv");
+    } else {
+      // PDF Mock Export (creates dummy summary file)
+      const blob = new Blob(["%PDF-1.4 Relatorio Sintetico FinTrack Outubro 2024 - Economia: R$ 4.820,50"], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "fintrack_resumo_executivo.pdf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    if (feedback) {
+      feedback.classList.remove('hidden');
+      feedback.classList.add('flex');
+      setTimeout(() => {
+        feedback.classList.add('hidden');
+        feedback.classList.remove('flex');
+      }, 4000);
+    }
+  }
+
+  const downloadFullBtn = document.getElementById('download-full-csv');
+  if (downloadFullBtn) {
+    downloadFullBtn.addEventListener('click', function() {
+      triggerExport(selectedFormat === 'csv' ? "fintrack_extrato_completo.csv" : "fintrack_resumo.pdf");
+    });
+  }
+
+  const quickExportBtn = document.getElementById('quick-export-btn');
+  if (quickExportBtn) {
+    quickExportBtn.addEventListener('click', function() {
+      generateAndDownloadCSV("fintrack_extrato_rapido.csv");
+      const feedback = document.getElementById('export-feedback');
+      if (feedback) {
+        feedback.classList.remove('hidden');
+        feedback.classList.add('flex');
+        setTimeout(() => {
+          feedback.classList.add('hidden');
+          feedback.classList.remove('flex');
+        }, 4000);
+      }
+    });
+  }
+})();
+</script></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.05)]" data-active-classes="text-primary font-bold"><div class="flex items-center justify-around h-20 px-space-xs relative"><a class="flex flex-col items-center justify-center w-14 h-14 text-on-surface-variant transition-colors hover:text-on-surface" data-path="dashboard-inicio" href="#"><span class="material-symbols-outlined text-[24px]">dashboard</span><span class="font-label-sm text-[10px] leading-tight mt-0.5">Início</span></a><a class="flex flex-col items-center justify-center w-14 h-14 text-on-surface-variant transition-colors hover:text-on-surface" data-path="transacoes" href="#"><span class="material-symbols-outlined text-[24px]">receipt_long</span><span class="font-label-sm text-[10px] leading-tight mt-0.5">Extrato</span></a><div class="relative flex items-center justify-center w-14 h-14 -mt-5"><a aria-label="Nova Transação" class="w-12 h-12 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg shadow-primary/25 hover:bg-primary-container transition-transform active:scale-95" data-path="nova-transacao" href="#"><span class="material-symbols-outlined text-[26px]">add</span></a></div><a class="flex flex-col items-center justify-center w-14 h-14 text-on-surface-variant transition-colors hover:text-on-surface" data-path="orcamentos" href="#"><span class="material-symbols-outlined text-[24px]">pie_chart</span><span class="font-label-sm text-[10px] leading-tight mt-0.5">Metas</span></a><a class="flex flex-col items-center justify-center w-14 h-14 text-on-surface-variant transition-colors hover:text-on-surface" data-path="relatorios" href="#"><span class="material-symbols-outlined text-[24px]">analytics</span><span class="font-label-sm text-[10px] leading-tight mt-0.5">Relatórios</span></a></div></nav></body></html>

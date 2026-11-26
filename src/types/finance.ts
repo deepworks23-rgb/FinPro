@@ -1,0 +1,53 @@
+export type CurrencyCode = 'MZN' | 'USD';
+
+export type TransactionType = 'income' | 'expense';
+export type TransactionStatus = 'completed' | 'pending';
+
+export type AppScreen =
+  | 'dashboard-inicio'
+  | 'transacoes'
+  | 'orcamentos'
+  | 'relatorios'
+  | 'login';
+
+export type ReportPeriod = 'mes' | 'trimestre' | 'ano' | 'custom';
+
+export interface Transaction {
+  id: string;
+  type: TransactionType;
+  description: string;
+  amount: number;
+  category: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // e.g. "09:30"
+  account: string;
+  status: TransactionStatus;
+}
+
+export interface BudgetCategory {
+  id: string;
+  category: string;
+  limit: number;
+  spent: number;
+  icon: string;
+  iconBg: string;
+  iconColor: string;
+  isCustom?: boolean;
+}
+
+export interface FinancialGoal {
+  id: string;
+  title: string;
+  current: number;
+  target: number;
+  imageUrl: string;
+  barColor: string;
+  accentColor: string;
+}
+
+export interface CashFlowMonth {
+  month: string;
+  income: number;
+  expense: number;
+  highlight?: boolean;
+}
