@@ -1,14 +1,14 @@
 import crypto from 'node:crypto';
 import express, { type NextFunction, type Request, type Response } from 'express';
-import { ensureDbInitialized, getPool, isDatabaseConfigured } from './db';
-import { LoginRateLimiter } from './rateLimit';
+import { ensureDbInitialized, getPool, isDatabaseConfigured } from './db.js';
+import { LoginRateLimiter } from './rateLimit.js';
 import {
   deleteObject,
   getPresignedObjectUrl,
   isStorageConfigured,
   S3_BUCKET,
   uploadObject,
-} from './storage';
+} from './storage.js';
 
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days

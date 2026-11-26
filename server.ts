@@ -1,8 +1,8 @@
 import 'dotenv/config';
 import path from 'node:path';
 import express from 'express';
-import { attachErrorHandler, createApiApp } from './apiApp';
-import { ensureDbInitialized } from './db';
+import { attachErrorHandler, createApiApp } from './apiApp.js';
+import { ensureDbInitialized } from './db.js';
 
 const PORT = Number(process.env.PORT || 3000);
 
