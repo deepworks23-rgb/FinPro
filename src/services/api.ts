@@ -3,6 +3,7 @@ import type {
   AdminOverviewStats,
   AdminSubscriptionItem,
   AdminUserItem,
+  SubscriptionPlanItem,
   SubscriptionResponse,
   SupportTicket,
   UserProfile,
@@ -278,6 +279,57 @@ export const adminApi = {
 
   getClientAnnouncements: () =>
     apiRequest<{ ok: boolean; announcements: AdminAnnouncement[] }>('/api/announcements', {
+      method: 'GET',
+    }),
+
+  getPlans: (token: string) =>
+    apiRequest<{ ok: boolean; plans: SubscriptionPlanItem[] }>('/api/admin/plans', {
+      method: 'GET',
+      token,
+    }),
+
+  createPlan: (
+    token: string,
+    data: {
+      name: string;
+      slug?: string;
+      description?: string;
+      priceMonthly: number;
+      priceYearly?: number;
+      currency?: string;
+      features: string[];
+      isPopular?: boolean;
+      isActive?: boolean;
+      displayOrder?: number;
+    }
+  ) =>
+    apiRequest<{ ok: boolean; message: string; id: string }>('/api/admin/plans', {
+      method: 'POST',
+      token,
+      body: data,
+    }),
+
+  updatePlan: (
+    token: string,
+    id: string,
+    data: Partial<SubscriptionPlanItem>
+  ) =>
+    apiRequest<{ ok: boolean; message: string }>(`/api/admin/plans/${id}`, {
+      method: 'PUT',
+      token,
+      body: data,
+    }),
+
+  deletePlan: (token: string, id: string) =>
+    apiRequest<{ ok: boolean; message: string }>(`/api/admin/plans/${id}`, {
+      method: 'DELETE',
+      token,
+    }),
+};
+
+export const publicApi = {
+  getPlans: () =>
+    apiRequest<{ ok: boolean; plans: SubscriptionPlanItem[] }>('/api/public/plans', {
       method: 'GET',
     }),
 };

@@ -1206,20 +1206,54 @@ export function createApiApp(): express.Express {
     })
   );
 
-  // SaaS Admin: Overview Metrics
+  // SaaS Admin: Overview Metrics (Valores 100% Reais do Banco de Dados)
   app.get(
     '/api/admin/overview',
     requireAuth,
     requireAdmin,
     asyncHandler(async (_req, res) => {
       const pool = getPool();
-      const usersCountRes = await pool.query('SELECT COUNT(*) AS count FROM users');
+      const usersCountRes = await pool.query('SELECT COUNT(*) AS count FROM users WHERE is_admin = FALSE');
       const subsRes = await pool.query(
-        `SELECT plan, status, COUNT(*) AS count FROM subscriptions GROUP BY plan, status`
+        `SELECT plan, status, COUNT(*) AS count, COALESCE(SUM(price_paid), 0) AS total_paid
+         FROM subscriptions
+         GROUP BY plan, status`
+      );
+      const mrrRes = await pool.query(
+        `SELECT COALESCE(SUM(price_paid), 0) AS mrr
+         FROM subscriptions
+         WHERE status = 'active'`
       );
       const openTicketsRes = await pool.query(
         `SELECT COUNT(*) AS count FROM support_tickets WHERE status = 'aberto'`
       );
+
+      // Faturamento real diário dos últimos 7 dias (sem dados simulados)
+      const weeklyRes = await pool.query(
+        `SELECT EXTRACT(DOW FROM updated_at) AS dow, COALESCE(SUM(price_paid), 0) AS total
+         FROM subscriptions
+         WHERE status = 'active' AND updated_at >= NOW() - INTERVAL '7 days'
+         GROUP BY EXTRACT(DOW FROM updated_at)`
+      );
+
+      const weeklyByDow: Record<number, number> = {};
+      for (const row of weeklyRes.rows) {
+        weeklyByDow[Number(row.dow)] = Number(row.total ?? 0);
+      }
+
+      const days = [
+        { label: 'Dom', dow: 0 },
+        { label: 'Seg', dow: 1 },
+        { label: 'Ter', dow: 2 },
+        { label: 'Qua', dow: 3 },
+        { label: 'Qui', dow: 4 },
+        { label: 'Sex', dow: 5 },
+        { label: 'Sáb', dow: 6 },
+      ];
+      const realWeeklyRevenue = days.map((d) => ({
+        label: d.label,
+        val: weeklyByDow[d.dow] ?? 0,
+      }));
 
       let proCount = 0;
       let businessCount = 0;
@@ -1233,7 +1267,7 @@ export function createApiApp(): express.Express {
       }
 
       const totalUsers = Number(usersCountRes.rows[0]?.count ?? 0);
-      const mrrMzn = proCount * 299 + businessCount * 799;
+      const mrrMzn = Number(mrrRes.rows[0]?.mrr ?? 0);
 
       res.json({
         ok: true,
@@ -1244,6 +1278,7 @@ export function createApiApp(): express.Express {
           businessUsersCount: businessCount,
           freeUsersCount: freeCount,
           mrrMzn,
+          weeklyRevenue: realWeeklyRevenue,
           openTicketsCount: Number(openTicketsRes.rows[0]?.count ?? 0),
         },
       });
@@ -1783,6 +1818,200 @@ export function createApiApp(): express.Express {
           createdAt: new Date(String(r.created_at)).toISOString(),
         })),
       });
+    })
+  );
+
+  // Public: Active Subscription Plans for Landing Page & Pricing
+  app.get(
+    '/api/public/plans',
+    asyncHandler(async (_req, res) => {
+      const pool = getPool();
+      const plansRes = await pool.query(
+        `SELECT * FROM subscription_plans
+         WHERE is_active = TRUE
+         ORDER BY display_order ASC, price_monthly ASC`
+      );
+      const plans = plansRes.rows.map((r) => ({
+        id: String(r.id),
+        name: String(r.name),
+        slug: String(r.slug),
+        description: String(r.description ?? ''),
+        priceMonthly: Number(r.price_monthly ?? 0),
+        priceYearly: Number(r.price_yearly ?? 0),
+        currency: String(r.currency ?? 'MZN'),
+        features: Array.isArray(r.features)
+          ? r.features
+          : typeof r.features === 'string'
+            ? JSON.parse(r.features)
+            : [],
+        isPopular: Boolean(r.is_popular),
+        isActive: Boolean(r.is_active),
+        displayOrder: Number(r.display_order ?? 0),
+        createdAt: new Date(String(r.created_at)).toISOString(),
+        updatedAt: new Date(String(r.updated_at)).toISOString(),
+      }));
+      res.json({ ok: true, plans });
+    })
+  );
+
+  // SaaS Admin: List all subscription plans (active & inactive)
+  app.get(
+    '/api/admin/plans',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (_req, res) => {
+      const pool = getPool();
+      const plansRes = await pool.query(
+        `SELECT * FROM subscription_plans ORDER BY display_order ASC, created_at ASC`
+      );
+      const plans = plansRes.rows.map((r) => ({
+        id: String(r.id),
+        name: String(r.name),
+        slug: String(r.slug),
+        description: String(r.description ?? ''),
+        priceMonthly: Number(r.price_monthly ?? 0),
+        priceYearly: Number(r.price_yearly ?? 0),
+        currency: String(r.currency ?? 'MZN'),
+        features: Array.isArray(r.features)
+          ? r.features
+          : typeof r.features === 'string'
+            ? JSON.parse(r.features)
+            : [],
+        isPopular: Boolean(r.is_popular),
+        isActive: Boolean(r.is_active),
+        displayOrder: Number(r.display_order ?? 0),
+        createdAt: new Date(String(r.created_at)).toISOString(),
+        updatedAt: new Date(String(r.updated_at)).toISOString(),
+      }));
+      res.json({ ok: true, plans });
+    })
+  );
+
+  // SaaS Admin: Create a new subscription plan
+  app.post(
+    '/api/admin/plans',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const name = String(req.body?.name ?? '').trim();
+      const slugRaw = String(req.body?.slug ?? name).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+      const slug = slugRaw || `plan-${Date.now()}`;
+      const description = String(req.body?.description ?? '').trim();
+      const priceMonthly = Math.max(0, Number(req.body?.priceMonthly ?? 0));
+      const priceYearly = Math.max(0, Number(req.body?.priceYearly ?? priceMonthly * 10));
+      const currency = String(req.body?.currency ?? 'MZN').trim().toUpperCase();
+      const features = Array.isArray(req.body?.features) ? req.body.features : [];
+      const isPopular = Boolean(req.body?.isPopular);
+      const isActive = req.body?.isActive !== false;
+      const displayOrder = Number(req.body?.displayOrder ?? 99);
+
+      if (!name) {
+        res.status(400).json({ error: 'Nome do plano é obrigatório.' });
+        return;
+      }
+
+      const id = `plan_${crypto.randomUUID()}`;
+      await pool.query(
+        `INSERT INTO subscription_plans (
+          id, name, slug, description, price_monthly, price_yearly, currency, features, is_popular, is_active, display_order, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, NOW(), NOW())`,
+        [
+          id,
+          name,
+          slug,
+          description,
+          priceMonthly,
+          priceYearly,
+          currency,
+          JSON.stringify(features),
+          isPopular,
+          isActive,
+          displayOrder,
+        ]
+      );
+
+      res.status(201).json({ ok: true, message: `Plano "${name}" criado com sucesso!`, id });
+    })
+  );
+
+  // SaaS Admin: Update an existing subscription plan
+  app.put(
+    '/api/admin/plans/:id',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const planId = String(req.params.id ?? '').trim();
+      const name = String(req.body?.name ?? '').trim();
+      const description = String(req.body?.description ?? '').trim();
+      const priceMonthly = Math.max(0, Number(req.body?.priceMonthly ?? 0));
+      const priceYearly = Math.max(0, Number(req.body?.priceYearly ?? priceMonthly * 10));
+      const currency = String(req.body?.currency ?? 'MZN').trim().toUpperCase();
+      const features = Array.isArray(req.body?.features) ? req.body.features : [];
+      const isPopular = Boolean(req.body?.isPopular);
+      const isActive = Boolean(req.body?.isActive);
+      const displayOrder = Number(req.body?.displayOrder ?? 0);
+
+      if (!planId || !name) {
+        res.status(400).json({ error: 'ID e Nome do plano são obrigatórios.' });
+        return;
+      }
+
+      await pool.query(
+        `UPDATE subscription_plans
+         SET name = $1,
+             description = $2,
+             price_monthly = $3,
+             price_yearly = $4,
+             currency = $5,
+             features = $6::jsonb,
+             is_popular = $7,
+             is_active = $8,
+             display_order = $9,
+             updated_at = NOW()
+         WHERE id = $10`,
+        [
+          name,
+          description,
+          priceMonthly,
+          priceYearly,
+          currency,
+          JSON.stringify(features),
+          isPopular,
+          isActive,
+          displayOrder,
+          planId,
+        ]
+      );
+
+      res.json({ ok: true, message: `Plano "${name}" atualizado com sucesso!` });
+    })
+  );
+
+  // SaaS Admin: Delete a subscription plan
+  app.delete(
+    '/api/admin/plans/:id',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const planId = String(req.params.id ?? '').trim();
+
+      if (!planId) {
+        res.status(400).json({ error: 'ID do plano em falta.' });
+        return;
+      }
+
+      // Proteger o plano base gratuito
+      const checkRes = await pool.query('SELECT slug FROM subscription_plans WHERE id = $1', [planId]);
+      if (checkRes.rows[0]?.slug === 'free') {
+        res.status(400).json({ error: 'O plano Gratuito base não pode ser eliminado.' });
+        return;
+      }
+
+      await pool.query('DELETE FROM subscription_plans WHERE id = $1', [planId]);
+      res.json({ ok: true, message: 'Plano eliminado com sucesso.' });
     })
   );
 

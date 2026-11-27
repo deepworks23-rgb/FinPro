@@ -175,6 +175,7 @@ export interface AdminOverviewStats {
   freeUsersCount: number;
   mrrMzn: number;
   openTicketsCount: number;
+  weeklyRevenue?: { label: string; val: number }[];
 }
 
 export interface AdminUserItem {
@@ -218,3 +219,20 @@ export interface AdminAnnouncement {
   isActive?: boolean;
   createdAt: string;
 }
+
+export interface SubscriptionPlanItem {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  priceMonthly: number;
+  priceYearly: number;
+  currency: string;
+  features: string[];
+  isPopular: boolean;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

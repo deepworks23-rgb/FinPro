@@ -1,6 +1,7 @@
 import { AppIcon } from './AppIcon';
-import { useState } from 'react';
-import type { SubscriptionPlan } from '../types/finance';
+import { useEffect, useState } from 'react';
+import type { SubscriptionPlan, SubscriptionPlanItem } from '../types/finance';
+import { publicApi } from '../services/api';
 
 interface LandingPageProps {
   onGoToLogin: () => void;
@@ -19,6 +20,18 @@ export function LandingPage({
 }: LandingPageProps) {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+  const [plans, setPlans] = useState<SubscriptionPlanItem[]>([]);
+
+  useEffect(() => {
+    publicApi
+      .getPlans()
+      .then((res) => {
+        if (res.ok && Array.isArray(res.plans) && res.plans.length > 0) {
+          setPlans(res.plans);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const faqs = [
     {
@@ -367,157 +380,150 @@ export function LandingPage({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Plano Gratuito */}
-            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-surface-container shadow-sm flex flex-col justify-between">
-              <div>
-                <span className="text-[14px] font-bold text-on-surface block mb-1">Gratuito</span>
-                <div className="flex items-baseline gap-1 my-3">
-                  <span className="text-[36px] font-black text-on-surface">0</span>
-                  <span className="text-[13px] font-bold text-on-surface-variant">MT / mês</span>
-                </div>
-                <p className="text-[12px] text-on-surface-variant mb-6">
-                  Ideal para estudantes e pessoas físicas começarem a organizar suas receitas e despesas.
-                </p>
-                <ul className="space-y-3 text-[12.5px] text-on-surface">
-                  <li className="flex items-center gap-2.5">
-                    <AppIcon name="check" className="text-secondary text-[16px] shrink-0" />
-                    <span>Até 25 lançamentos / mês</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <AppIcon name="check" className="text-secondary text-[16px] shrink-0" />
-                    <span>3 categorias de orçamento</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <AppIcon name="check" className="text-secondary text-[16px] shrink-0" />
-                    <span>2 metas financeiras</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <AppIcon name="check" className="text-secondary text-[16px] shrink-0" />
-                    <span>Moeda local (Meticais)</span>
-                  </li>
-                </ul>
-              </div>
+            {(plans.length > 0
+              ? plans
+              : [
+                  {
+                    id: 'plan_free',
+                    name: 'Gratuito',
+                    slug: 'free',
+                    description: 'Ideal para estudantes e pessoas físicas começarem a organizar suas receitas e despesas.',
+                    priceMonthly: 0,
+                    priceYearly: 0,
+                    currency: 'MZN',
+                    features: [
+                      'Até 25 lançamentos / mês',
+                      '3 categorias de orçamento',
+                      '2 metas financeiras',
+                      'Moeda local (Meticais)',
+                    ],
+                    isPopular: false,
+                    isActive: true,
+                    displayOrder: 1,
+                  },
+                  {
+                    id: 'plan_pro',
+                    name: 'FinPro Pessoal',
+                    slug: 'pro',
+                    description: 'Para indivíduos e famílias que querem total autonomia e poder financeiro.',
+                    priceMonthly: 499,
+                    priceYearly: 4990,
+                    currency: 'MZN',
+                    features: [
+                      'Lançamentos Ilimitados',
+                      'Orçamentos & Metas Ilimitados',
+                      'Multimoeda em Tempo Real (MZN e USD)',
+                      'Relatórios PDF/CSV com carimbo profissional',
+                      'Sincronização em nuvem e APK Android',
+                    ],
+                    isPopular: true,
+                    isActive: true,
+                    displayOrder: 2,
+                  },
+                  {
+                    id: 'plan_business',
+                    name: 'FinPro Negócios',
+                    slug: 'business',
+                    description: 'Para comerciantes, prestadores de serviços, escritórios e pequenas empresas.',
+                    priceMonthly: 1499,
+                    priceYearly: 14990,
+                    currency: 'MZN',
+                    features: [
+                      'Tudo do FinPro Pessoal',
+                      'Fluxo de Caixa Empresarial detalhado',
+                      'Anexos de Faturas e Recibos',
+                      'Exportação Contábil para o Fisco',
+                      'Suporte prioritário via WhatsApp',
+                    ],
+                    isPopular: false,
+                    isActive: true,
+                    displayOrder: 3,
+                  },
+                ]
+            ).map((p) => {
+              const monthlyPrice = Number(p.priceMonthly);
+              const yearlyMonthlyEquiv = Math.round(Number(p.priceYearly) / 12);
+              const priceDisplay = billingCycle === 'monthly' ? monthlyPrice : yearlyMonthlyEquiv;
+              const isHighlight = p.isPopular;
 
-              <div className="mt-8 pt-4">
-                <button
-                  className="w-full h-11 rounded-xl bg-surface-container-high hover:bg-surface-container text-on-surface text-[13px] font-bold transition-all cursor-pointer"
-                  onClick={onGoToRegister}
-                  type="button"
+              return (
+                <div
+                  key={p.id}
+                  className={`p-6 rounded-[10px] bg-surface-container-lowest flex flex-col justify-between transition-all ${
+                    isHighlight
+                      ? 'border-2 border-primary shadow-xl relative ring-4 ring-primary/10'
+                      : 'border border-surface-container shadow-sm'
+                  }`}
                 >
-                  Criar Conta Grátis
-                </button>
-              </div>
-            </div>
-
-            {/* Plano FinPro Pessoal (Destaque) */}
-            <div className="p-6 rounded-3xl bg-surface-container-lowest border-2 border-primary shadow-xl flex flex-col justify-between relative ring-4 ring-primary/10">
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-on-primary text-[11px] font-black uppercase tracking-wider shadow-sm">
-                Mais Escolhido ⭐
-              </div>
-
-              <div>
-                <span className="text-[14px] font-bold text-primary block mb-1">FinPro Pessoal</span>
-                <div className="flex items-baseline gap-1 my-3">
-                  <span className="text-[36px] font-black text-on-surface">
-                    {billingCycle === 'monthly' ? '299' : '207'}
-                  </span>
-                  <span className="text-[13px] font-bold text-on-surface-variant">MT / mês</span>
-                  {billingCycle === 'yearly' && (
-                    <span className="text-[11px] text-secondary font-bold block ml-1">
-                      (2.490 MT / ano)
-                    </span>
+                  {isHighlight && (
+                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-[6px] bg-primary text-on-primary text-[11px] font-black uppercase tracking-wider shadow-sm">
+                      Mais Escolhido ⭐
+                    </div>
                   )}
-                </div>
-                <p className="text-[12px] text-on-surface-variant mb-6">
-                  Para indivíduos e famílias que querem total autonomia e poder financeiro.
-                </p>
-                <ul className="space-y-3 text-[12.5px] text-on-surface">
-                  <li className="flex items-center gap-2.5 font-bold text-primary">
-                    <AppIcon name="check" className="text-secondary text-[16px] shrink-0" />
-                    <span>Lançamentos Ilimitados</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <AppIcon name="check" className="text-secondary text-[16px] shrink-0" />
-                    <span>Orçamentos & Metas Ilimitados</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <AppIcon name="check" className="text-secondary text-[16px] shrink-0" />
-                    <span>Multimoeda em Tempo Real (MZN e USD)</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <AppIcon name="check" className="text-secondary text-[16px] shrink-0" />
-                    <span>Relatórios PDF/CSV com carimbo profissional</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <AppIcon name="check" className="text-secondary text-[16px] shrink-0" />
-                    <span>Sincronização em nuvem e APK Android</span>
-                  </li>
-                </ul>
-              </div>
 
-              <div className="mt-8 pt-4">
-                <button
-                  className="w-full h-11 rounded-xl bg-primary hover:bg-primary-container text-on-primary text-[13px] font-bold shadow-md shadow-primary/25 hover:shadow-lg transition-all active:scale-[0.98] cursor-pointer"
-                  onClick={() => onSelectPlan ? onSelectPlan('pro') : onGoToRegister()}
-                  type="button"
-                >
-                  Assinar FinPro Pessoal
-                </button>
-              </div>
-            </div>
-
-            {/* Plano FinPro Negócios */}
-            <div className="p-6 rounded-3xl bg-surface-container-lowest border border-surface-container shadow-sm flex flex-col justify-between">
-              <div>
-                <span className="text-[14px] font-bold text-on-surface block mb-1">FinPro Negócios</span>
-                <div className="flex items-baseline gap-1 my-3">
-                  <span className="text-[36px] font-black text-on-surface">
-                    {billingCycle === 'monthly' ? '799' : '582'}
-                  </span>
-                  <span className="text-[13px] font-bold text-on-surface-variant">MT / mês</span>
-                  {billingCycle === 'yearly' && (
-                    <span className="text-[11px] text-secondary font-bold block ml-1">
-                      (6.990 MT / ano)
+                  <div>
+                    <span
+                      className={`text-[14px] font-bold block mb-1 ${
+                        isHighlight ? 'text-primary' : 'text-on-surface'
+                      }`}
+                    >
+                      {p.name}
                     </span>
-                  )}
-                </div>
-                <p className="text-[12px] text-on-surface-variant mb-6">
-                  Para comerciantes, prestadores de serviços, oficinas, escritórios e pequenas empresas.
-                </p>
-                <ul className="space-y-3 text-[12.5px] text-on-surface">
-                  <li className="flex items-center gap-2.5 font-semibold">
-                    <AppIcon name="check" className="text-secondary text-[16px] shrink-0" />
-                    <span>Tudo do FinPro Pessoal</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <AppIcon name="check" className="text-secondary text-[16px] shrink-0" />
-                    <span>Fluxo de Caixa Empresarial detalhado</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <AppIcon name="check" className="text-secondary text-[16px] shrink-0" />
-                    <span>Anexos de Faturas e Recibos</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <AppIcon name="check" className="text-secondary text-[16px] shrink-0" />
-                    <span>Exportação Contábil para o Fisco</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <AppIcon name="check" className="text-secondary text-[16px] shrink-0" />
-                    <span>Suporte prioritário via WhatsApp</span>
-                  </li>
-                </ul>
-              </div>
+                    <div className="flex items-baseline gap-1 my-3">
+                      <span className="text-[36px] font-black text-on-surface">
+                        {priceDisplay}
+                      </span>
+                      <span className="text-[13px] font-bold text-on-surface-variant">MT / mês</span>
+                      {billingCycle === 'yearly' && Number(p.priceYearly) > 0 && (
+                        <span className="text-[11px] text-secondary font-bold block ml-1">
+                          ({Number(p.priceYearly).toLocaleString('pt-MZ')} MT / ano)
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[12px] text-on-surface-variant mb-6">
+                      {p.description}
+                    </p>
+                    <ul className="space-y-3 text-[12.5px] text-on-surface">
+                      {p.features.map((feat, fIdx) => (
+                        <li
+                          key={fIdx}
+                          className={`flex items-center gap-2.5 ${
+                            isHighlight && fIdx === 0 ? 'font-bold text-primary' : ''
+                          }`}
+                        >
+                          <AppIcon name="check" className="text-secondary text-[16px] shrink-0" />
+                          <span>{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
 
-              <div className="mt-8 pt-4">
-                <button
-                  className="w-full h-11 rounded-xl bg-on-surface text-surface hover:opacity-90 text-[13px] font-bold transition-all cursor-pointer"
-                  onClick={() => onSelectPlan ? onSelectPlan('business') : onGoToRegister()}
-                  type="button"
-                >
-                  Assinar FinPro Negócios
-                </button>
-              </div>
-            </div>
+                  <div className="mt-8 pt-4">
+                    <button
+                      className={`w-full h-11 rounded-[10px] text-[13px] font-bold transition-all cursor-pointer ${
+                        monthlyPrice === 0
+                          ? 'bg-surface-container-high hover:bg-surface-container text-on-surface'
+                          : isHighlight
+                            ? 'bg-primary hover:bg-primary-container text-on-primary shadow-md shadow-primary/25 hover:shadow-lg active:scale-[0.98]'
+                            : 'bg-on-surface text-surface hover:opacity-90'
+                      }`}
+                      onClick={() => {
+                        if (monthlyPrice === 0) {
+                          onGoToRegister();
+                        } else if (onSelectPlan) {
+                          onSelectPlan(p.slug === 'business' ? 'business' : 'pro');
+                        } else {
+                          onGoToRegister();
+                        }
+                      }}
+                      type="button"
+                    >
+                      {monthlyPrice === 0 ? 'Criar Conta Grátis' : `Assinar ${p.name}`}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
