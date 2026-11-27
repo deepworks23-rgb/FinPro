@@ -6,12 +6,16 @@ interface LandingPageProps {
   onGoToLogin: () => void;
   onGoToRegister: () => void;
   onSelectPlan?: (plan: SubscriptionPlan) => void;
+  isAuthenticated?: boolean;
+  onGoToDashboard?: () => void;
 }
 
 export function LandingPage({
   onGoToLogin,
   onGoToRegister,
   onSelectPlan,
+  isAuthenticated = false,
+  onGoToDashboard,
 }: LandingPageProps) {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
@@ -74,20 +78,33 @@ export function LandingPage({
           </nav>
 
           <div className="flex items-center gap-2.5">
-            <button
-              className="h-10 px-4 rounded-xl text-on-surface hover:bg-surface-container-low text-[13px] font-semibold transition-colors cursor-pointer"
-              onClick={onGoToLogin}
-              type="button"
-            >
-              Iniciar Sessão
-            </button>
-            <button
-              className="h-10 px-5 rounded-xl bg-primary hover:bg-primary-container text-on-primary text-[13px] font-bold shadow-md shadow-primary/20 hover:shadow-lg transition-all active:scale-[0.98] cursor-pointer"
-              onClick={onGoToRegister}
-              type="button"
-            >
-              Começar Grátis
-            </button>
+            {isAuthenticated ? (
+              <button
+                className="h-10 px-5 rounded-xl bg-primary hover:bg-primary-container text-on-primary text-[13px] font-bold shadow-md shadow-primary/20 hover:shadow-lg transition-all active:scale-[0.98] cursor-pointer flex items-center gap-2"
+                onClick={onGoToDashboard}
+                type="button"
+              >
+                <AppIcon name="dashboard" className="text-[18px]" />
+                <span>Voltar ao Meu Painel</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  className="h-10 px-4 rounded-xl text-on-surface hover:bg-surface-container-low text-[13px] font-semibold transition-colors cursor-pointer"
+                  onClick={onGoToLogin}
+                  type="button"
+                >
+                  Iniciar Sessão
+                </button>
+                <button
+                  className="h-10 px-5 rounded-xl bg-primary hover:bg-primary-container text-on-primary text-[13px] font-bold shadow-md shadow-primary/20 hover:shadow-lg transition-all active:scale-[0.98] cursor-pointer"
+                  onClick={onGoToRegister}
+                  type="button"
+                >
+                  Começar Grátis
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>

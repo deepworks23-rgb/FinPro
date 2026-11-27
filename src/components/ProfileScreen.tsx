@@ -2,6 +2,7 @@ import { AppIcon } from './AppIcon';
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { authApi } from '../services/api';
 import type {
+  AppScreen,
   CurrencyCode,
   SupportTicket,
   UserProfile,
@@ -33,6 +34,7 @@ interface ProfileScreenProps {
   onNotify: (msg: string) => void;
   subscription?: UserSubscription | null;
   onOpenPricing?: () => void;
+  onNavigate?: (screen: AppScreen) => void;
 }
 
 async function compressImageToDataUrl(file: File): Promise<string> {
@@ -76,6 +78,7 @@ export function ProfileScreen({
   onLogout,
   onRequestConfirm,
   onNotify,
+  onNavigate,
 }: ProfileScreenProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -687,6 +690,36 @@ export function ProfileScreen({
           <AppIcon name="headset_mic" className="text-[19px]" />
           <span>Contactar Suporte</span>
         </button>
+      </section>
+
+      {/* Atalhos Rápidos & Administração do SaaS */}
+      <section className="p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm space-y-3">
+        <div className="flex items-center gap-2 border-b border-surface-container pb-2">
+          <AppIcon name="settings_suggest" className="text-primary text-[20px]" />
+          <h3 className="text-[14.5px] font-bold text-on-surface">Plataforma & Navegação</h3>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {(user.isAdmin || user.isDemo) && (
+            <button
+              className="w-full h-11 px-3 rounded-xl bg-primary-fixed/50 hover:bg-primary-fixed text-primary text-[13px] font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer border border-primary/20"
+              onClick={() => onNavigate?.('admin')}
+              type="button"
+            >
+              <AppIcon name="admin_panel_settings" className="text-[19px]" />
+              <span>Painel Admin SaaS</span>
+            </button>
+          )}
+
+          <button
+            className="w-full h-11 px-3 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-[13px] font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            onClick={() => onNavigate?.('landing')}
+            type="button"
+          >
+            <AppIcon name="public" className="text-[19px] text-primary" />
+            <span>Ver Página Pública (Landing)</span>
+          </button>
+        </div>
       </section>
 
       {/* Sessão & Manutenção */}

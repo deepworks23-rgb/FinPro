@@ -56,6 +56,12 @@ export function Sidebar({
     });
   }
 
+  navItems.push({
+    screen: 'landing',
+    label: 'Página Pública (Site)',
+    icon: 'public',
+  });
+
   const initials = getUserInitials(user.name);
 
   return (

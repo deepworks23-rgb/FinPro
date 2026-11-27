@@ -79,7 +79,7 @@ export default function App() {
     Boolean(readStoredToken())
   );
 
-  const [screen, setScreen] = useState<AppScreen>('login');
+  const [screen, setScreen] = useState<AppScreen>('landing');
   const [previousScreen, setPreviousScreen] = useState<AppScreen>('dashboard-inicio');
   const [nowTick, setNowTick] = useState<Date>(() => new Date());
 
@@ -591,22 +591,28 @@ export default function App() {
       ? 'login'
       : 'landing';
 
-  // If visitor is unauthenticated and viewing Landing Page, render full public landing page
-  if (!isAuthenticated && !isRestoringSession && activeScreen === 'landing') {
+  // If viewing Landing Page, render full public landing page
+  if (!isRestoringSession && activeScreen === 'landing') {
     return (
       <>
         <LandingPage
+          isAuthenticated={isAuthenticated}
+          onGoToDashboard={() => setScreen('dashboard-inicio')}
           onGoToLogin={() => setScreen('login')}
           onGoToRegister={() => setScreen('login')}
           onSelectPlan={() => {
-            setScreen('login');
-            setPricingModalOpen(true);
+            if (isAuthenticated) {
+              setPricingModalOpen(true);
+            } else {
+              setScreen('login');
+              setPricingModalOpen(true);
+            }
           }}
         />
         <PricingModal
-          authToken={null}
+          authToken={authToken}
           currency={currency}
-          currentSubscription={null}
+          currentSubscription={subscription}
           isOpen={pricingModalOpen}
           onClose={() => setPricingModalOpen(false)}
           onNotify={showToast}
@@ -788,6 +794,7 @@ export default function App() {
               }}
               onChangePassword={handleChangePassword}
               onLogout={handleLogout}
+              onNavigate={navigateTo}
               onNotify={showToast}
               onOpenPricing={() => setPricingModalOpen(true)}
               onRequestConfirm={requestConfirm}
