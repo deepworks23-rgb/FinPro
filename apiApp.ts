@@ -1081,6 +1081,21 @@ export function createApiApp(): express.Express {
     requireAuth,
     asyncHandler(async (req, res) => {
       const user = req.authUser!;
+      if (user.isAdmin) {
+        res.json({
+          ok: true,
+          subscription: null,
+          isAdmin: true,
+          limits: PLAN_LIMITS.business,
+          usage: {
+            transactionsThisMonth: 0,
+            budgetsCount: 0,
+            goalsCount: 0,
+          },
+        });
+        return;
+      }
+
       const subscription = await ensureSubscription(user.id);
       const ws = await ensureWorkspace(user.id);
 

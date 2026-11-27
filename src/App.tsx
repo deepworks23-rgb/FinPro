@@ -245,7 +245,11 @@ export default function App() {
         applyWorkspace(res.workspace);
         setPreviousScreen('dashboard-inicio');
 
-        if (initialScreen === 'login') {
+        if (res.user.isAdmin) {
+          const targetScreen = initialScreen.startsWith('app') ? initialScreen : 'admin';
+          setScreen(targetScreen);
+          syncBrowserPath(targetScreen, true);
+        } else if (initialScreen === 'login') {
           setScreen('dashboard-inicio');
           syncBrowserPath('dashboard-inicio', true);
         } else {
@@ -306,18 +310,16 @@ export default function App() {
       setPreviousScreen('dashboard-inicio');
       window.scrollTo({ top: 0, behavior: 'instant' });
 
-      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-      const requestedScreen = pathToScreen(currentPath);
-      const targetScreen =
-        (auth.user.isAdmin || auth.user.isDemo) && requestedScreen === 'admin'
-          ? 'admin'
-          : 'dashboard-inicio';
+      // When admin logs in, open DIRECTLY on the admin page!
+      const targetScreen = auth.user.isAdmin ? 'admin' : 'dashboard-inicio';
 
       setScreen(targetScreen);
       syncBrowserPath(targetScreen, true);
 
       if (mode === 'register') {
         showToast(`Bem-vindo(a), ${auth.user.name.split(' ')[0]}!`);
+      } else if (auth.user.isAdmin) {
+        showToast('Bem-vindo ao Painel de Administração SaaS!');
       } else {
         showToast('Sessão iniciada com sucesso!');
       }
@@ -865,6 +867,7 @@ export default function App() {
             onOpenProfile={() => navigateTo('perfil')}
             screen={activeScreen}
             subscriptionPlan={subscription?.plan ?? 'free'}
+            isAdmin={Boolean(currentUser.isAdmin)}
             unreadNotificationsCount={unreadAlertsCount}
             userName={currentUser.name}
           />
@@ -889,6 +892,7 @@ export default function App() {
             onOpenProfile={() => navigateTo('perfil')}
             screen={activeScreen}
             subscriptionPlan={subscription?.plan ?? 'free'}
+            isAdmin={Boolean(currentUser.isAdmin)}
             unreadNotificationsCount={unreadAlertsCount}
             userName={currentUser.name}
           />

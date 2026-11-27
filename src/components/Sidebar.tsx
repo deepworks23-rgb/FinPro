@@ -177,28 +177,48 @@ export function Sidebar({
           </button>
         </div>
 
-        {/* SaaS Subscription Plan Indicator */}
-        <div className="p-2.5 rounded-xl bg-surface-container-low border border-primary/15 flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">
-              Plano FinPro
-            </span>
-            <span className="text-[12px] font-extrabold text-primary flex items-center gap-1">
-              {subscriptionPlan === 'business'
-                ? 'Empresas 💼'
-                : subscriptionPlan === 'pro'
-                  ? 'Pessoal PRO ⭐'
-                  : 'Gratuito'}
-            </span>
+        {/* SaaS Subscription Plan Indicator or Admin Role */}
+        {user.isAdmin ? (
+          <div className="p-2.5 rounded-xl bg-primary-fixed/30 border border-primary/20 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">
+                Privilégio
+              </span>
+              <span className="text-[12px] font-black text-primary flex items-center gap-1 uppercase tracking-wide">
+                Admin Master 🛡️
+              </span>
+            </div>
+            <button
+              className="px-2.5 py-1 rounded-lg bg-primary text-on-primary text-[11px] font-bold cursor-pointer transition-all whitespace-nowrap shadow-xs hover:bg-primary-container"
+              onClick={() => onNavigate('admin')}
+              type="button"
+            >
+              Painel Admin
+            </button>
           </div>
-          <button
-            className="px-2.5 py-1 rounded-lg bg-primary-fixed hover:bg-primary-fixed-dim text-primary text-[11px] font-bold cursor-pointer transition-colors whitespace-nowrap"
-            onClick={onOpenPricing}
-            type="button"
-          >
-            {subscriptionPlan === 'free' ? 'Upgrade' : 'Planos'}
-          </button>
-        </div>
+        ) : (
+          <div className="p-2.5 rounded-xl bg-surface-container-low border border-primary/15 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">
+                Plano FinPro
+              </span>
+              <span className="text-[12px] font-extrabold text-primary flex items-center gap-1">
+                {subscriptionPlan === 'business'
+                  ? 'Empresas 💼'
+                  : subscriptionPlan === 'pro'
+                    ? 'Pessoal PRO ⭐'
+                    : 'Gratuito'}
+              </span>
+            </div>
+            <button
+              className="px-2.5 py-1 rounded-lg bg-primary-fixed hover:bg-primary-fixed-dim text-primary text-[11px] font-bold cursor-pointer transition-colors whitespace-nowrap"
+              onClick={onOpenPricing}
+              type="button"
+            >
+              {subscriptionPlan === 'free' ? 'Upgrade' : 'Planos'}
+            </button>
+          </div>
+        )}
 
         {/* User Profile Card & Logout */}
         <div className="flex items-center justify-between gap-2 pt-2 border-t border-surface-container/60">

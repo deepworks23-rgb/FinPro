@@ -19,6 +19,7 @@ interface HeaderProps {
   hasCriticalAlert?: boolean;
   balanceAlertStatus?: 'critical' | 'warning' | null;
   desktop?: boolean;
+  isAdmin?: boolean;
 }
 
 const SCREEN_TITLES: Record<AppScreen, string> = {
@@ -48,6 +49,7 @@ export function Header({
   hasCriticalAlert = false,
   balanceAlertStatus = null,
   desktop = false,
+  isAdmin = false,
 }: HeaderProps) {
   const [imgError, setImgError] = useState(false);
   const headerDateLabel = useMemo(() => formatHeaderDateLabel(now), [now]);
@@ -82,27 +84,34 @@ export function Header({
           </div>
 
           <div className="flex items-center gap-3">
-            {/* SaaS Subscription Badge */}
-            <button
-              className={`h-9 px-3 rounded-xl flex items-center gap-1.5 text-[11.5px] font-bold transition-all cursor-pointer shadow-xs ${
-                subscriptionPlan === 'business'
-                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                  : subscriptionPlan === 'pro'
-                    ? 'bg-primary-fixed text-primary border border-primary/20'
-                    : 'bg-surface-container-low text-on-surface hover:bg-surface-container'
-              }`}
-              onClick={onOpenPricing}
-              type="button"
-            >
-              <AppIcon name="workspace_premium" className="text-[16px]" />
-              <span>
-                {subscriptionPlan === 'business'
-                  ? 'EMPRESAS'
-                  : subscriptionPlan === 'pro'
-                    ? 'PRO'
-                    : 'GRÁTIS'}
+            {/* SaaS Subscription Badge or Admin Badge */}
+            {isAdmin ? (
+              <span className="h-9 px-3 rounded-xl flex items-center gap-1.5 text-[11px] font-black bg-primary-fixed text-primary border border-primary/25 shadow-xs uppercase tracking-wider">
+                <AppIcon name="admin_panel_settings" className="text-[17px]" />
+                <span>Admin Master</span>
               </span>
-            </button>
+            ) : (
+              <button
+                className={`h-9 px-3 rounded-xl flex items-center gap-1.5 text-[11.5px] font-bold transition-all cursor-pointer shadow-xs ${
+                  subscriptionPlan === 'business'
+                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                    : subscriptionPlan === 'pro'
+                      ? 'bg-primary-fixed text-primary border border-primary/20'
+                      : 'bg-surface-container-low text-on-surface hover:bg-surface-container'
+                }`}
+                onClick={onOpenPricing}
+                type="button"
+              >
+                <AppIcon name="workspace_premium" className="text-[16px]" />
+                <span>
+                  {subscriptionPlan === 'business'
+                    ? 'EMPRESAS'
+                    : subscriptionPlan === 'pro'
+                      ? 'PRO'
+                      : 'GRÁTIS'}
+                </span>
+              </button>
+            )}
 
             {/* Currency Switcher */}
             <div className="relative">
