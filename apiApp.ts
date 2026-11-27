@@ -27,6 +27,7 @@ interface StoredUser {
   acceptedTermsAt: string;
   isDemo: boolean;
   isAdmin: boolean;
+  isSuspended: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -168,6 +169,7 @@ function rowToUser(row: Record<string, unknown>): StoredUser {
     acceptedTermsAt: new Date(String(row.accepted_terms_at)).toISOString(),
     isDemo: Boolean(row.is_demo),
     isAdmin: Boolean(row.is_admin),
+    isSuspended: Boolean(row.is_suspended),
     createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at)).toISOString(),
   };
@@ -396,6 +398,7 @@ async function sanitizeUser(user: StoredUser) {
     avatarDataUrl,
     isDemo: user.isDemo,
     isAdmin: user.isAdmin,
+    isSuspended: user.isSuspended,
     hasPassword: Boolean(user.passwordHash),
     createdAt: user.createdAt,
   };
@@ -686,6 +689,14 @@ export function createApiApp(): express.Express {
       if (!user || !passwordOk) {
         loginRateLimiter.recordFailure(identifier, clientIp);
         res.status(401).json({ error: 'Número/e-mail ou senha incorretos.' });
+        return;
+      }
+
+      if (user.isSuspended) {
+        res.status(403).json({
+          error:
+            'A sua conta foi temporariamente suspensa pela administração do FinTrack. Contacte o suporte.',
+        });
         return;
       }
 
@@ -1232,7 +1243,7 @@ export function createApiApp(): express.Express {
     asyncHandler(async (_req, res) => {
       const pool = getPool();
       const rowsRes = await pool.query(
-        `SELECT u.id, u.name, u.phone, u.email, u.is_admin, u.created_at,
+        `SELECT u.id, u.name, u.phone, u.email, u.is_admin, COALESCE(u.is_suspended, FALSE) AS is_suspended, u.created_at,
                 COALESCE(s.plan, 'free') AS plan,
                 COALESCE(s.status, 'active') AS status,
                 COALESCE(s.payment_method, 'free') AS payment_method,
@@ -1250,6 +1261,7 @@ export function createApiApp(): express.Express {
         phone: String(r.phone),
         email: String(r.email ?? ''),
         isAdmin: Boolean(r.is_admin),
+        isSuspended: Boolean(r.is_suspended),
         createdAt: new Date(String(r.created_at)).toISOString(),
         plan: String(r.plan),
         status: String(r.status),
@@ -1330,6 +1342,432 @@ export function createApiApp(): express.Express {
         [status, ticketId]
       );
       res.json({ ok: true, message: `Estado do bilhete atualizado para ${status}.` });
+    })
+  );
+
+  // SaaS Admin: Suspend or Reactivate a User Account
+  app.post(
+    '/api/admin/users/status',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const targetId = String(req.body?.targetId ?? '').trim();
+      const isSuspended = Boolean(req.body?.isSuspended);
+
+      if (!targetId) {
+        res.status(400).json({ error: 'ID de utilizador alvo não informado.' });
+        return;
+      }
+
+      await pool.query(
+        `UPDATE users SET is_suspended = $1, updated_at = NOW() WHERE id = $2`,
+        [isSuspended, targetId]
+      );
+
+      res.json({
+        ok: true,
+        message: isSuspended ? 'Conta do utilizador suspensa com sucesso.' : 'Conta do utilizador reativada.',
+      });
+    })
+  );
+
+  // SaaS Admin: Reset a Customer's Password
+  app.post(
+    '/api/admin/users/reset-password',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const targetId = String(req.body?.targetId ?? '').trim();
+      const newPassword = String(req.body?.newPassword ?? '').trim();
+
+      if (!targetId || newPassword.length < 6) {
+        res.status(400).json({ error: 'ID inválido ou nova senha com menos de 6 caracteres.' });
+        return;
+      }
+
+      const hash = hashPassword(newPassword);
+      await pool.query(
+        `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+        [hash, targetId]
+      );
+
+      res.json({ ok: true, message: 'Senha do utilizador redefinida com sucesso!' });
+    })
+  );
+
+  // SaaS Admin: List all subscriptions & M-Pesa payments
+  app.get(
+    '/api/admin/subscriptions',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (_req, res) => {
+      const pool = getPool();
+      const rows = await pool.query(
+        `SELECT s.*, u.name AS user_name, u.phone AS user_phone, u.email AS user_email
+         FROM subscriptions s
+         JOIN users u ON s.user_id = u.id
+         ORDER BY s.updated_at DESC
+         LIMIT 100`
+      );
+
+      const subscriptions = rows.rows.map((r) => ({
+        id: String(r.id),
+        userId: String(r.user_id),
+        userName: String(r.user_name),
+        userPhone: String(r.user_phone),
+        userEmail: String(r.user_email ?? ''),
+        plan: String(r.plan),
+        status: String(r.status),
+        billingCycle: String(r.billing_cycle),
+        currency: String(r.currency),
+        pricePaid: Number(r.price_paid ?? 0),
+        paymentMethod: String(r.payment_method),
+        paymentPhone: String(r.payment_phone ?? ''),
+        paymentReference: String(r.payment_reference ?? ''),
+        startedAt: new Date(String(r.started_at)).toISOString(),
+        expiresAt: r.expires_at ? new Date(String(r.expires_at)).toISOString() : null,
+      }));
+
+      res.json({ ok: true, subscriptions });
+    })
+  );
+
+  // SaaS Admin: Approve Payment & Activate Subscription
+  app.post(
+    '/api/admin/subscriptions/approve',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const targetId = String(req.body?.targetId ?? '').trim();
+      const plan = String(req.body?.plan ?? 'pro').toLowerCase();
+      const cycle = String(req.body?.billingCycle ?? 'monthly').toLowerCase();
+      const days = cycle === 'yearly' ? 365 : 30;
+
+      if (!targetId) {
+        res.status(400).json({ error: 'ID de utilizador alvo não informado.' });
+        return;
+      }
+
+      await ensureSubscription(targetId);
+      await pool.query(
+        `UPDATE subscriptions
+         SET plan = $1,
+             status = 'active',
+             billing_cycle = $2,
+             expires_at = NOW() + ($3 || ' days')::interval,
+             updated_at = NOW()
+         WHERE user_id = $4`,
+        [plan, cycle, String(days), targetId]
+      );
+
+      res.json({
+        ok: true,
+        message: `Subscrição aprovada! Plano ${plan.toUpperCase()} ativado por ${days} dias.`,
+      });
+    })
+  );
+
+  // SaaS Admin: Global Announcements (Broadcast)
+  app.get(
+    '/api/admin/announcements',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (_req, res) => {
+      const pool = getPool();
+      const resAnn = await pool.query(
+        `SELECT * FROM announcements ORDER BY created_at DESC LIMIT 50`
+      );
+      res.json({
+        ok: true,
+        announcements: resAnn.rows.map((r) => ({
+          id: String(r.id),
+          title: String(r.title),
+          message: String(r.message),
+          severity: String(r.severity),
+          isActive: Boolean(r.is_active),
+          createdAt: new Date(String(r.created_at)).toISOString(),
+        })),
+      });
+    })
+  );
+
+  app.post(
+    '/api/admin/announcements',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const title = String(req.body?.title ?? '').trim();
+      const message = String(req.body?.message ?? '').trim();
+      const severity = String(req.body?.severity ?? 'info').trim();
+
+      if (!title || !message) {
+        res.status(400).json({ error: 'Título e mensagem do comunicado são obrigatórios.' });
+        return;
+      }
+
+      const id = `ann_${crypto.randomUUID()}`;
+      await pool.query(
+        `INSERT INTO announcements (id, title, message, severity, is_active, created_at)
+         VALUES ($1, $2, $3, $4, TRUE, NOW())`,
+        [id, title, message, severity]
+      );
+
+      res.json({ ok: true, message: 'Comunicado global publicado com sucesso!' });
+    })
+  );
+
+  app.delete(
+    '/api/admin/announcements/:id',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const id = String(req.params.id ?? '').trim();
+      await pool.query('DELETE FROM announcements WHERE id = $1', [id]);
+      res.json({ ok: true, message: 'Comunicado removido.' });
+    })
+  );
+
+  // Public/Client Announcements for all apps
+  app.get(
+    '/api/announcements',
+    asyncHandler(async (_req, res) => {
+      const pool = getPool();
+      const resAnn = await pool.query(
+        `SELECT id, title, message, severity, created_at
+         FROM announcements
+         WHERE is_active = TRUE
+         ORDER BY created_at DESC
+         LIMIT 5`
+      );
+      res.json({
+        ok: true,
+        announcements: resAnn.rows.map((r) => ({
+          id: String(r.id),
+          title: String(r.title),
+          message: String(r.message),
+          severity: String(r.severity),
+          createdAt: new Date(String(r.created_at)).toISOString(),
+        })),
+      });
+    })
+  );
+
+  // SaaS Admin: Toggle User Account Status (Active vs Suspended)
+  app.post(
+    '/api/admin/users/status',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const targetId = String(req.body?.targetId ?? '').trim();
+      const isSuspended = Boolean(req.body?.isSuspended);
+
+      if (!targetId) {
+        res.status(400).json({ error: 'ID de utilizador alvo não informado.' });
+        return;
+      }
+
+      await pool.query(
+        `UPDATE users SET is_suspended = $1, updated_at = NOW() WHERE id = $2`,
+        [isSuspended, targetId]
+      );
+
+      res.json({
+        ok: true,
+        message: isSuspended ? 'Conta do utilizador suspensa com sucesso.' : 'Conta do utilizador reativada.',
+      });
+    })
+  );
+
+  // SaaS Admin: Reset User Password
+  app.post(
+    '/api/admin/users/reset-password',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const targetId = String(req.body?.targetId ?? '').trim();
+      const newPassword = String(req.body?.newPassword ?? '').trim();
+
+      if (!targetId || newPassword.length < 6) {
+        res.status(400).json({ error: 'ID inválido ou nova senha com menos de 6 caracteres.' });
+        return;
+      }
+
+      const hash = hashPassword(newPassword);
+      await pool.query(
+        `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+        [hash, targetId]
+      );
+
+      res.json({ ok: true, message: 'Senha do utilizador redefinida com sucesso!' });
+    })
+  );
+
+  // SaaS Admin: List all subscriptions & M-Pesa payments
+  app.get(
+    '/api/admin/subscriptions',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (_req, res) => {
+      const pool = getPool();
+      const rows = await pool.query(
+        `SELECT s.id, s.user_id, s.plan, s.status, s.billing_cycle, s.currency, s.price_paid,
+                s.payment_method, s.payment_phone, s.payment_reference, s.started_at, s.expires_at,
+                u.name AS user_name, u.phone AS user_phone, u.email AS user_email
+         FROM subscriptions s
+         JOIN users u ON s.user_id = u.id
+         ORDER BY s.updated_at DESC
+         LIMIT 100`
+      );
+
+      const subscriptions = rows.rows.map((r) => ({
+        id: String(r.id),
+        targetId: String(r.user_id),
+        userName: String(r.user_name),
+        userPhone: String(r.user_phone),
+        userEmail: String(r.user_email ?? ''),
+        plan: String(r.plan),
+        status: String(r.status),
+        billingCycle: String(r.billing_cycle),
+        currency: String(r.currency),
+        pricePaid: Number(r.price_paid ?? 0),
+        paymentMethod: String(r.payment_method),
+        paymentPhone: String(r.payment_phone ?? ''),
+        paymentReference: String(r.payment_reference ?? ''),
+        startedAt: new Date(String(r.started_at)).toISOString(),
+        expiresAt: r.expires_at ? new Date(String(r.expires_at)).toISOString() : null,
+      }));
+
+      res.json({ ok: true, subscriptions });
+    })
+  );
+
+  // SaaS Admin: Approve M-Pesa / e-Mola Payment & Activate Plan
+  app.post(
+    '/api/admin/subscriptions/approve',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const targetId = String(req.body?.targetId ?? '').trim();
+      const plan = String(req.body?.plan ?? 'pro').toLowerCase();
+      const cycle = String(req.body?.billingCycle ?? 'monthly').toLowerCase();
+      const days = cycle === 'yearly' ? 365 : 30;
+
+      if (!targetId) {
+        res.status(400).json({ error: 'ID de utilizador alvo não informado.' });
+        return;
+      }
+
+      await ensureSubscription(targetId);
+      await pool.query(
+        `UPDATE subscriptions
+         SET plan = $1,
+             status = 'active',
+             billing_cycle = $2,
+             expires_at = NOW() + ($3 || ' days')::interval,
+             updated_at = NOW()
+         WHERE user_id = $4`,
+        [plan, cycle, String(days), targetId]
+      );
+
+      res.json({
+        ok: true,
+        message: `Pagamento aprovado! Plano ${plan.toUpperCase()} ativo por ${days} dias.`,
+      });
+    })
+  );
+
+  // SaaS Admin: Announcements Management
+  app.get(
+    '/api/admin/announcements',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (_req, res) => {
+      const pool = getPool();
+      const resAnn = await pool.query(
+        `SELECT * FROM announcements ORDER BY created_at DESC LIMIT 50`
+      );
+      res.json({
+        ok: true,
+        announcements: resAnn.rows.map((r) => ({
+          id: String(r.id),
+          title: String(r.title),
+          message: String(r.message),
+          severity: String(r.severity),
+          isActive: Boolean(r.is_active),
+          createdAt: new Date(String(r.created_at)).toISOString(),
+        })),
+      });
+    })
+  );
+
+  app.post(
+    '/api/admin/announcements',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const title = String(req.body?.title ?? '').trim();
+      const message = String(req.body?.message ?? '').trim();
+      const severity = String(req.body?.severity ?? 'info').trim();
+
+      if (!title || !message) {
+        res.status(400).json({ error: 'Título e mensagem do comunicado são obrigatórios.' });
+        return;
+      }
+
+      const id = `ann_${crypto.randomUUID()}`;
+      await pool.query(
+        `INSERT INTO announcements (id, title, message, severity, is_active, created_at)
+         VALUES ($1, $2, $3, $4, TRUE, NOW())`,
+        [id, title, message, severity]
+      );
+
+      res.json({ ok: true, message: 'Comunicado global publicado com sucesso para todos os clientes!' });
+    })
+  );
+
+  app.delete(
+    '/api/admin/announcements/:id',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const id = String(req.params.id ?? '').trim();
+      await pool.query('DELETE FROM announcements WHERE id = $1', [id]);
+      res.json({ ok: true, message: 'Comunicado removido.' });
+    })
+  );
+
+  // Public / Client: Active platform announcements
+  app.get(
+    '/api/announcements',
+    asyncHandler(async (_req, res) => {
+      const pool = getPool();
+      const resAnn = await pool.query(
+        `SELECT id, title, message, severity, created_at
+         FROM announcements
+         WHERE is_active = TRUE
+         ORDER BY created_at DESC
+         LIMIT 5`
+      );
+      res.json({
+        ok: true,
+        announcements: resAnn.rows.map((r) => ({
+          id: String(r.id),
+          title: String(r.title),
+          message: String(r.message),
+          severity: String(r.severity),
+          createdAt: new Date(String(r.created_at)).toISOString(),
+        })),
+      });
     })
   );
 

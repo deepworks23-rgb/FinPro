@@ -1,5 +1,7 @@
 import type {
+  AdminAnnouncement,
   AdminOverviewStats,
+  AdminSubscriptionItem,
   AdminUserItem,
   SubscriptionResponse,
   SupportTicket,
@@ -212,5 +214,70 @@ export const adminApi = {
       method: 'POST',
       token,
       body: { ticketId, status },
+    }),
+
+  toggleUserSuspension: (token: string, targetId: string, isSuspended: boolean) =>
+    apiRequest<{ ok: boolean; message: string }>('/api/admin/users/status', {
+      method: 'POST',
+      token,
+      body: { targetId, isSuspended },
+    }),
+
+  resetUserPassword: (token: string, targetId: string, newPassword: string) =>
+    apiRequest<{ ok: boolean; message: string }>('/api/admin/users/reset-password', {
+      method: 'POST',
+      token,
+      body: { targetId, newPassword },
+    }),
+
+  getSubscriptions: (token: string) =>
+    apiRequest<{ ok: boolean; subscriptions: AdminSubscriptionItem[] }>(
+      '/api/admin/subscriptions',
+      {
+        method: 'GET',
+        token,
+      }
+    ),
+
+  approveSubscription: (
+    token: string,
+    targetId: string,
+    plan: 'pro' | 'business',
+    billingCycle: 'monthly' | 'yearly' = 'monthly'
+  ) =>
+    apiRequest<{ ok: boolean; message: string }>('/api/admin/subscriptions/approve', {
+      method: 'POST',
+      token,
+      body: { targetId, plan, billingCycle },
+    }),
+
+  getAnnouncements: (token: string) =>
+    apiRequest<{ ok: boolean; announcements: AdminAnnouncement[] }>(
+      '/api/admin/announcements',
+      {
+        method: 'GET',
+        token,
+      }
+    ),
+
+  createAnnouncement: (
+    token: string,
+    data: { title: string; message: string; severity?: string }
+  ) =>
+    apiRequest<{ ok: boolean; message: string }>('/api/admin/announcements', {
+      method: 'POST',
+      token,
+      body: data,
+    }),
+
+  deleteAnnouncement: (token: string, id: string) =>
+    apiRequest<{ ok: boolean; message: string }>(`/api/admin/announcements/${id}`, {
+      method: 'DELETE',
+      token,
+    }),
+
+  getClientAnnouncements: () =>
+    apiRequest<{ ok: boolean; announcements: AdminAnnouncement[] }>('/api/announcements', {
+      method: 'GET',
     }),
 };

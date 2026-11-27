@@ -25,6 +25,7 @@ export interface UserProfile {
   avatarDataUrl: string;
   isDemo: boolean;
   isAdmin?: boolean;
+  isSuspended?: boolean;
   hasPassword: boolean;
   createdAt: string;
 }
@@ -182,10 +183,38 @@ export interface AdminUserItem {
   phone: string;
   email: string;
   isAdmin: boolean;
+  isSuspended?: boolean;
   createdAt: string;
   plan: SubscriptionPlan;
   status: SubscriptionStatus;
   paymentMethod: string;
   paymentReference: string;
   billingCycle: 'monthly' | 'yearly';
+}
+
+export interface AdminSubscriptionItem {
+  id: string;
+  userId: string;
+  userName: string;
+  userPhone: string;
+  userEmail: string;
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  billingCycle: 'monthly' | 'yearly';
+  currency: string;
+  pricePaid: number;
+  paymentMethod: string;
+  paymentPhone: string;
+  paymentReference: string;
+  startedAt: string;
+  expiresAt: string | null;
+}
+
+export interface AdminAnnouncement {
+  id: string;
+  title: string;
+  message: string;
+  severity: 'info' | 'warning' | 'critical';
+  isActive?: boolean;
+  createdAt: string;
 }
