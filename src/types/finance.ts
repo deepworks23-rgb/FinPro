@@ -127,7 +127,7 @@ export interface RealTimeAlert {
 }
 
 export type SubscriptionPlan = 'free' | 'pro' | 'business';
-export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled';
+export type SubscriptionStatus = 'trialing' | 'pending_approval' | 'active' | 'past_due' | 'canceled';
 
 export interface UserSubscription {
   id: string;
@@ -144,6 +144,8 @@ export interface UserSubscription {
   expiresAt: string | null;
   createdAt: string;
   updatedAt: string;
+  isTrialExpired?: boolean;
+  daysRemaining?: number;
 }
 
 export interface PlanLimits {

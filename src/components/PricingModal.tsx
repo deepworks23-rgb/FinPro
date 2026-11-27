@@ -122,30 +122,33 @@ export function PricingModal({
           </button>
         </div>
 
-        {/* Success Screen */}
+        {/* Success / Pending Approval Screen */}
         {successInfo ? (
           <div className="py-8 flex flex-col items-center text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-secondary-container text-secondary flex items-center justify-center shadow-lg">
-              <AppIcon name="check_circle" className="text-[36px]" />
+            <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 flex items-center justify-center shadow-lg">
+              <AppIcon name="pending_actions" className="text-[36px]" />
             </div>
             <div>
               <h3 className="text-[20px] font-bold text-on-surface">
-                Parabéns! Plano {successInfo.plan.toUpperCase()} Ativado 🎉
+                Pedido de Subscrição Enviado!
               </h3>
               <p className="text-[13px] text-on-surface-variant max-w-md mx-auto mt-1">
                 {successInfo.msg}
               </p>
-              <div className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-xl bg-surface-container-low text-[12px] font-mono text-on-surface font-semibold">
+              <div className="inline-flex items-center gap-2 mt-3 px-3.5 py-2 rounded-xl bg-surface-container-low text-[12px] font-mono text-on-surface font-semibold border border-surface-container">
                 <span>Referência:</span>
-                <span className="text-primary">{successInfo.ref}</span>
+                <span className="text-primary font-bold">{successInfo.ref}</span>
               </div>
+              <p className="text-[12px] text-on-surface-variant max-w-sm mx-auto mt-2.5">
+                O seu pagamento será conferido pela administração e o seu plano ativado em instantes. A tela atualizará automaticamente!
+              </p>
             </div>
             <button
               className="h-11 px-6 rounded-xl bg-primary text-on-primary text-[13px] font-semibold hover:bg-primary-container cursor-pointer shadow-md"
               onClick={onClose}
               type="button"
             >
-              Começar a Usar Agora
+              Compreendi, Voltar
             </button>
           </div>
         ) : (

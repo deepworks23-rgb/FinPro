@@ -16,6 +16,7 @@ import { ReportsScreen } from './components/ReportsScreen';
 import { Sidebar } from './components/Sidebar';
 import { TransactionModal } from './components/TransactionModal';
 import { TransactionsScreen } from './components/TransactionsScreen';
+import { TrialCountdownBanner } from './components/TrialCountdownBanner';
 import { DEFAULT_ALERT_SETTINGS } from './data/seed';
 import { adminApi, authApi, subscriptionApi, type AuthResponse } from './services/api';
 import type {
@@ -499,20 +500,43 @@ export default function App() {
     [currentUser?.isAdmin, screen]
   );
 
+  const isTrialExpired = useMemo(() => {
+    if (!currentUser || currentUser.isAdmin) return false;
+    if (!subscription) return false;
+    if (subscription.status === 'past_due') return true;
+    if (subscription.isTrialExpired) return true;
+    if (subscription.plan === 'free' && subscription.expiresAt) {
+      return new Date(subscription.expiresAt).getTime() < Date.now();
+    }
+    return false;
+  }, [currentUser, subscription]);
+
+  const requireActiveSubscription = useCallback(() => {
+    if (isTrialExpired) {
+      setPricingModalOpen(true);
+      showToast('O seu período de teste de 7 dias terminou. Ative o Plano Pro para continuar.');
+      return true;
+    }
+    return false;
+  }, [isTrialExpired, showToast]);
+
   const handleOpenNewTransaction = useCallback((type: TransactionType = 'expense') => {
+    if (requireActiveSubscription()) return;
     setEditingTx(null);
     setTxModalType(type);
     setTxModalOpen(true);
-  }, []);
+  }, [requireActiveSubscription]);
 
   const handleEditTransaction = useCallback((tx: Transaction) => {
+    if (requireActiveSubscription()) return;
     setEditingTx(tx);
     setTxModalType(tx.type);
     setTxModalOpen(true);
-  }, []);
+  }, [requireActiveSubscription]);
 
   const handleSaveTransaction = useCallback(
     (payload: Omit<Transaction, 'id'> & { id?: string }) => {
+      if (requireActiveSubscription()) return;
       setNowTick(new Date());
       if (payload.id) {
         setTransactions((prev) =>
@@ -528,7 +552,7 @@ export default function App() {
         showToast('Transação registada com sucesso!');
       }
     },
-    [showToast]
+    [requireActiveSubscription, showToast]
   );
 
   const requestConfirm = useCallback((req: ConfirmDialogRequest) => {
@@ -537,6 +561,7 @@ export default function App() {
 
   const handleToggleTransactionStatus = useCallback(
     (id: string) => {
+      if (requireActiveSubscription()) return;
       const target = transactions.find((t) => t.id === id);
       if (!target) return;
 
@@ -571,16 +596,17 @@ export default function App() {
         },
       });
     },
-    [transactions, currency, requestConfirm, showToast]
+    [requireActiveSubscription, transactions, currency, requestConfirm, showToast]
   );
 
   const handleDeleteTransaction = useCallback(
     (id: string) => {
+      if (requireActiveSubscription()) return;
       setNowTick(new Date());
       setTransactions((prev) => prev.filter((t) => t.id !== id));
       showToast('Transação excluída.');
     },
-    [showToast]
+    [requireActiveSubscription, showToast]
   );
 
   const handleAddBudget = useCallback(
@@ -652,6 +678,7 @@ export default function App() {
   );
 
   const handleExportCSV = useCallback(() => {
+    if (requireActiveSubscription()) return;
     const csv = buildStyledReportCSV({
       transactions,
       currency,
@@ -669,7 +696,7 @@ export default function App() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     showToast('Extrato CSV baixado com sucesso!');
-  }, [transactions, currency, currentUser, showToast]);
+  }, [requireActiveSubscription, transactions, currency, currentUser, showToast]);
 
   const handleUpdateAlertSettings = useCallback(
     (next: AlertSettings) => {
@@ -986,6 +1013,15 @@ export default function App() {
         )}
 
         <main className="flex-1 w-full max-w-[440px] md:max-w-none mx-auto md:mx-0 flex flex-col md:overflow-y-auto pt-18 md:pt-6 px-3 md:px-6 lg:px-8 pb-24 md:pb-8">
+          {/* Período de Teste de 7 Dias & Alerta de Expiração */}
+          {isAuthenticated && (
+            <TrialCountdownBanner
+              subscription={subscription}
+              isAdmin={Boolean(currentUser?.isAdmin)}
+              onOpenPricing={() => setPricingModalOpen(true)}
+            />
+          )}
+
           {/* Comunicados Oficiais Globais em Tempo Real */}
           {isAuthenticated && (
             <AnnouncementBanner

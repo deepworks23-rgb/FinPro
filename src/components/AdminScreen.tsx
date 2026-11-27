@@ -60,7 +60,7 @@ export function AdminScreen({
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
   // Filtros de Subscrição
-  const [subStatusFilter, setSubStatusFilter] = useState<'all' | 'trialing' | 'active' | 'expired'>('all');
+  const [subStatusFilter, setSubStatusFilter] = useState<'all' | 'pending_approval' | 'trialing' | 'active' | 'past_due'>('all');
 
   // Filtros de Suporte
   const [ticketStatusFilter, setTicketStatusFilter] = useState<'all' | 'aberto' | 'resolvido'>('all');
@@ -272,7 +272,8 @@ export function AdminScreen({
   const handleApproveSubscription = async (sub: AdminSubscriptionItem) => {
     try {
       const planToApprove = sub.plan === 'business' ? 'business' : 'pro';
-      const res = await adminApi.approveSubscription(authToken, sub.id, planToApprove);
+      const targetUserId = sub.userId || sub.id;
+      const res = await adminApi.approveSubscription(authToken, targetUserId, planToApprove);
       onNotify(res.message);
       void loadData(true);
     } catch (err) {
@@ -467,6 +468,7 @@ export function AdminScreen({
   const filteredSubscriptions = useMemo(() => {
     return subscriptions.filter((s) => {
       if (subStatusFilter === 'all') return true;
+      if (subStatusFilter === 'pending_approval') return s.status === 'pending_approval';
       if (subStatusFilter === 'trialing') return s.status === 'trialing';
       if (subStatusFilter === 'active') return s.status === 'active';
       return s.status === 'past_due' || s.status === 'canceled';
@@ -595,9 +597,9 @@ export function AdminScreen({
             >
               <AppIcon name="receipt_long" className="text-[19px]" filled={activeTab === 'subscriptions'} />
               <span className="flex-1">Subscrições</span>
-              {subscriptions.filter((s) => s.status === 'trialing').length > 0 && (
-                <span className="px-1.5 py-0.5 rounded-[6px] bg-tertiary-container text-on-tertiary text-[9.5px] font-bold animate-pulse">
-                  {subscriptions.filter((s) => s.status === 'trialing').length}
+              {subscriptions.filter((s) => s.status === 'pending_approval' || (s.status === 'trialing' && s.plan !== 'free')).length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-[6px] bg-amber-200 text-amber-950 text-[9.5px] font-black animate-pulse">
+                  {subscriptions.filter((s) => s.status === 'pending_approval' || (s.status === 'trialing' && s.plan !== 'free')).length}
                 </span>
               )}
             </button>
@@ -1393,9 +1395,10 @@ export function AdminScreen({
                     value={subStatusFilter}
                   >
                     <option value="all">Todas as Subscrições</option>
-                    <option value="trialing">Pendentes (Aguardando)</option>
-                    <option value="active">Aprovadas (Ativas)</option>
-                    <option value="expired">Expiradas / Canceladas</option>
+                    <option value="pending_approval">Aprovação Pendente (M-Pesa)</option>
+                    <option value="trialing">Em Período de Teste (7 Dias)</option>
+                    <option value="active">Subscrições Ativas</option>
+                    <option value="past_due">Expiradas / Bloqueadas</option>
                   </select>
 
                   <button
@@ -1449,10 +1452,20 @@ export function AdminScreen({
                               className={`px-2 py-0.5 rounded-[6px] text-[10px] font-bold ${
                                 sub.status === 'active'
                                   ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-amber-100 text-amber-900 animate-pulse'
+                                  : sub.status === 'pending_approval'
+                                    ? 'bg-amber-100 text-amber-900 border border-amber-300 animate-pulse font-extrabold'
+                                    : sub.status === 'trialing'
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : 'bg-rose-100 text-rose-800'
                               }`}
                             >
-                              {sub.status === 'active' ? 'Ativo' : 'Pendente'}
+                              {sub.status === 'active'
+                                ? 'Ativo'
+                                : sub.status === 'pending_approval'
+                                  ? 'Aprovação Pendente'
+                                  : sub.status === 'trialing'
+                                    ? 'Teste 7 Dias'
+                                    : 'Expirado / Bloqueado'}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-right">
