@@ -182,6 +182,21 @@ export const subscriptionApi = {
 };
 
 export const adminApi = {
+  getSetupStatus: () =>
+    apiRequest<{ ok: boolean; needsSetup: boolean; adminCount: number }>('/api/admin/setup-status'),
+
+  setupAdmin: (payload: {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    confirmPassword: string;
+  }) =>
+    apiRequest<AuthResponse>('/api/admin/setup', {
+      method: 'POST',
+      body: payload,
+    }),
+
   getOverview: (token: string) =>
     apiRequest<{ ok: boolean; stats: AdminOverviewStats }>('/api/admin/overview', {
       method: 'GET',

@@ -1629,6 +1629,103 @@ export function createApiApp(): express.Express {
     })
   );
 
+  // SaaS Admin: Setup Status (Checks if initial admin setup is required)
+  app.get(
+    '/api/admin/setup-status',
+    asyncHandler(async (_req, res) => {
+      const pool = getPool();
+      const countRes = await pool.query(
+        'SELECT COUNT(*)::int AS count FROM users WHERE is_admin = TRUE'
+      );
+      const adminCount = Number(countRes.rows[0]?.count || 0);
+      res.json({
+        ok: true,
+        needsSetup: adminCount === 0,
+        adminCount,
+      });
+    })
+  );
+
+  // SaaS Admin: Initial Bootstrap Setup (Create Default Admin on First Run)
+  app.post(
+    '/api/admin/setup',
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const countRes = await pool.query(
+        'SELECT COUNT(*)::int AS count FROM users WHERE is_admin = TRUE'
+      );
+      const adminCount = Number(countRes.rows[0]?.count || 0);
+      if (adminCount > 0) {
+        res.status(403).json({
+          error: 'O administrador padrão já foi configurado no sistema.',
+        });
+        return;
+      }
+
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      const email = typeof body.email === 'string' ? body.email.trim() : '';
+      const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
+      const password = typeof body.password === 'string' ? body.password : '';
+      const confirmPassword = typeof body.confirmPassword === 'string' ? body.confirmPassword : '';
+
+      if (!name) {
+        res.status(400).json({ error: 'O nome completo é obrigatório.' });
+        return;
+      }
+      if (!phone) {
+        res.status(400).json({ error: 'O número de telefone é obrigatório.' });
+        return;
+      }
+      const phoneNormalized = normalizePhone(phone);
+      if (phoneNormalized.length < 9) {
+        res.status(400).json({
+          error: 'Informe um número de telefone moçambicano válido (ex: +258 84 123 4567).',
+        });
+        return;
+      }
+      if (email && !isValidEmailFormat(email)) {
+        res.status(400).json({ error: 'Formato de e-mail inválido.' });
+        return;
+      }
+      if (!password || password.length < 6) {
+        res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
+        return;
+      }
+      if (password !== confirmPassword) {
+        res.status(400).json({ error: 'A senha e a confirmação de senha não coincidem.' });
+        return;
+      }
+
+      const emailNormalized = email.toLowerCase().trim();
+      const nowIso = new Date().toISOString();
+      const userId = `adm_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+      const passwordHash = hashPassword(password);
+
+      const userRes = await pool.query(
+        `INSERT INTO users (
+          id, name, phone, phone_normalized, email, email_normalized, address,
+          avatar_data_url, avatar_s3_key, password_hash, accepted_terms_at, is_demo, is_admin, is_suspended, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, 'Administração Central', '', '', $7, $8, FALSE, TRUE, FALSE, $8, $8)
+        RETURNING *`,
+        [userId, name, phone, phoneNormalized, email, emailNormalized, passwordHash, nowIso]
+      );
+
+      const user = rowToUser(userRes.rows[0]);
+      const workspace = await ensureWorkspace(userId);
+      const token = await createSessionToken(userId);
+      const sanitized = await sanitizeUser(user);
+
+      res.status(201).json({
+        ok: true,
+        token,
+        user: sanitized,
+        workspace,
+        message: 'Administrador padrão configurado com sucesso! Bem-vindo ao FinTrack.',
+      });
+    })
+  );
+
   // SaaS Admin: Create a new Administrator / System User
   app.post(
     '/api/admin/create-admin',
@@ -1646,20 +1743,29 @@ export function createApiApp(): express.Express {
         return;
       }
 
-      const existRes = await pool.query(`SELECT id FROM users WHERE phone = $1`, [phone]);
+      const phoneNormalized = normalizePhone(phone);
+      const emailNormalized = email.toLowerCase().trim();
+      const existRes = await pool.query(
+        `SELECT id FROM users WHERE phone_normalized = $1 OR (email_normalized <> '' AND email_normalized = $2)`,
+        [phoneNormalized, emailNormalized]
+      );
       if (existRes.rows.length > 0) {
-        res.status(400).json({ error: 'Este número de telefone já está registado.' });
+        res.status(400).json({ error: 'Este número de telefone ou e-mail já está registado.' });
         return;
       }
 
-      const id = `u_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+      const id = `adm_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
       const hash = hashPassword(password);
+      const nowIso = new Date().toISOString();
       await pool.query(
-        `INSERT INTO users (id, name, phone, email, password_hash, is_admin, is_suspended, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, TRUE, FALSE, NOW(), NOW())`,
-        [id, name, phone, email || null, hash]
+        `INSERT INTO users (
+          id, name, phone, phone_normalized, email, email_normalized, address,
+          avatar_data_url, avatar_s3_key, password_hash, accepted_terms_at, is_demo, is_admin, is_suspended, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, 'Administração FinTrack', '', '', $7, $8, FALSE, TRUE, FALSE, $8, $8)`,
+        [id, name, phone, phoneNormalized, email, emailNormalized, hash, nowIso]
       );
 
+      await ensureWorkspace(id);
       res.json({ ok: true, message: `Administrador ${name} criado com sucesso!` });
     })
   );

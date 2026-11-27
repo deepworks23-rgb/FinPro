@@ -138,8 +138,9 @@ export default function App() {
     }, 2800);
   }, []);
 
-  const applyWorkspace = useCallback((ws: UserWorkspacePayload) => {
+  const applyWorkspace = useCallback((ws?: UserWorkspacePayload | null) => {
     skipNextWorkspaceSyncRef.current = true;
+    if (!ws) return;
     setTransactions(Array.isArray(ws.transactions) ? ws.transactions : []);
     setBudgets(Array.isArray(ws.budgets) ? ws.budgets : []);
     setGoals(Array.isArray(ws.goals) ? ws.goals : []);
@@ -228,7 +229,7 @@ export default function App() {
 
     if (!savedToken) {
       setIsRestoringSession(false);
-      if (initialScreen === 'landing' || initialScreen === 'login') {
+      if (initialScreen === 'landing' || initialScreen === 'login' || initialScreen === 'admin') {
         setScreen(initialScreen);
         syncBrowserPath(initialScreen, true);
       } else {
@@ -369,6 +370,93 @@ export default function App() {
       window.removeEventListener('focus', onFocus);
     };
   }, []);
+
+  // Estados para Primeiro Arranque e Login Administrativo
+  const [adminNeedsSetup, setAdminNeedsSetup] = useState<boolean | null>(null);
+  const [adminSetupLoading, setAdminSetupLoading] = useState(false);
+  const [setupName, setSetupName] = useState('');
+  const [setupEmail, setSetupEmail] = useState('');
+  const [setupPhone, setSetupPhone] = useState('');
+  const [setupPassword, setSetupPassword] = useState('');
+  const [setupConfirmPassword, setSetupConfirmPassword] = useState('');
+  const [isSubmittingSetup, setIsSubmittingSetup] = useState(false);
+
+  const [adminLoginPhone, setAdminLoginPhone] = useState('');
+  const [adminLoginPassword, setAdminLoginPassword] = useState('');
+  const [isSubmittingAdminLogin, setIsSubmittingAdminLogin] = useState(false);
+
+  // Verifica o estado de setup ao aceder ao ecrã de admin se não autenticado como admin
+  useEffect(() => {
+    if (screen === 'admin' && (!authToken || !currentUser?.isAdmin)) {
+      setAdminSetupLoading(true);
+      adminApi
+        .getSetupStatus()
+        .then((res) => {
+          setAdminNeedsSetup(res.needsSetup);
+        })
+        .catch(() => {
+          setAdminNeedsSetup(false);
+        })
+        .finally(() => {
+          setAdminSetupLoading(false);
+        });
+    }
+  }, [screen, authToken, currentUser?.isAdmin]);
+
+  const handleAdminSetupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!setupName.trim() || !setupPhone.trim() || !setupPassword) {
+      showToast('Por favor, preencha todos os campos obrigatórios.');
+      return;
+    }
+    if (setupPassword !== setupConfirmPassword) {
+      showToast('A senha e a confirmação de senha não coincidem.');
+      return;
+    }
+    if (setupPassword.length < 6) {
+      showToast('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+    setIsSubmittingSetup(true);
+    try {
+      const res = await adminApi.setupAdmin({
+        name: setupName.trim(),
+        email: setupEmail.trim(),
+        phone: setupPhone.trim(),
+        password: setupPassword,
+        confirmPassword: setupConfirmPassword,
+      });
+      handleAuthenticated(res, 'register');
+      setAdminNeedsSetup(false);
+      showToast('Administrador padrão configurado com sucesso!');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erro ao configurar administrador.');
+    } finally {
+      setIsSubmittingSetup(false);
+    }
+  };
+
+  const handleAdminDirectLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminLoginPhone.trim() || !adminLoginPassword) {
+      showToast('Informe o seu número de telefone e senha.');
+      return;
+    }
+    setIsSubmittingAdminLogin(true);
+    try {
+      const res = await authApi.login(adminLoginPhone.trim(), adminLoginPassword);
+      if (!res.user.isAdmin) {
+        showToast('Acesso negado: esta conta não possui privilégios de administrador.');
+        return;
+      }
+      handleAuthenticated(res, 'login');
+      showToast('Bem-vindo ao Painel de Administração SaaS!');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Falha ao autenticar administrador.');
+    } finally {
+      setIsSubmittingAdminLogin(false);
+    }
+  };
 
   const handleAuthenticated = useCallback(
     (auth: AuthResponse, mode: 'login' | 'register') => {
@@ -825,47 +913,218 @@ export default function App() {
 
   // 3. ÁREA ADMINISTRATIVA: Painel Backoffice SaaS
   if (activeScreen === 'admin') {
-    if (!isAuthenticated || !authToken || !currentUser) {
+    // 3.1. Estado de carregamento do setup
+    if (adminSetupLoading && adminNeedsSetup === null) {
       return (
         <div className="min-h-screen w-full bg-surface-container-low/40 flex items-center justify-center p-4 text-on-surface">
           <div className="max-w-md w-full bg-surface-container-lowest p-6 rounded-2xl shadow-xl border border-surface-container text-center space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-primary text-on-primary mx-auto flex items-center justify-center shadow-md shadow-primary/20">
-              <AppIcon name="admin_panel_settings" className="text-[30px]" />
+            <div className="w-12 h-12 rounded-2xl bg-primary-fixed text-primary mx-auto flex items-center justify-center animate-pulse">
+              <AppIcon name="admin_panel_settings" className="text-[28px]" />
             </div>
-            <div className="space-y-1">
-              <h2 className="text-[19px] font-bold text-on-surface">Acesso ao Painel Admin SaaS</h2>
-              <p className="text-[13px] text-on-surface-variant leading-relaxed">
-                Inicie sessão com uma conta de administrador para gerir métricas (MRR), utilizadores e subscrições.
-              </p>
-            </div>
-            <div className="space-y-2 pt-2">
-              <button
-                className="w-full h-11 rounded-xl bg-primary text-on-primary font-bold text-[13.5px] flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:bg-primary-container"
-                onClick={() => navigateTo('login')}
-                type="button"
-              >
-                <AppIcon name="login" className="text-[19px]" />
-                <span>Entrar como Administrador</span>
-              </button>
-              <button
-                className="w-full h-10 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-[13px] flex items-center justify-center gap-1.5 cursor-pointer"
-                onClick={() => navigateTo('landing')}
-                type="button"
-              >
-                <AppIcon name="public" className="text-[17px] text-primary" />
-                <span>Voltar à Página Pública</span>
-              </button>
-            </div>
+            <p className="text-[13px] text-on-surface-variant font-medium">
+              A verificar configuração do sistema...
+            </p>
           </div>
         </div>
       );
     }
 
+    // 3.2. Primeiro Arranque: Nenhum administrador existe -> Formulário de Setup
+    if (adminNeedsSetup === true) {
+      return (
+        <div className="min-h-screen w-full bg-surface-container-low/40 flex items-center justify-center p-4 text-on-surface">
+          <div className="max-w-md w-full bg-surface-container-lowest p-6 rounded-[12px] shadow-2xl border border-surface-container space-y-4 animate-fade-in">
+            <div className="text-center space-y-2">
+              <div className="w-14 h-14 rounded-[10px] bg-primary text-on-primary mx-auto flex items-center justify-center shadow-lg shadow-primary/25">
+                <AppIcon name="admin_panel_settings" className="text-[32px]" />
+              </div>
+              <span className="inline-block px-3 py-1 rounded-full bg-primary-fixed text-primary font-bold text-[10.5px] uppercase tracking-wider">
+                Primeiro Arranque · Configuração Inicial
+              </span>
+              <h2 className="text-[20px] font-black text-on-surface tracking-tight">
+                Criar Administrador Padrão
+              </h2>
+              <p className="text-[12px] text-on-surface-variant leading-relaxed">
+                Nenhum administrador detectado na base de dados. Crie a conta principal com acesso total ao painel de gestão do FinTrack.
+              </p>
+            </div>
+
+            <form onSubmit={handleAdminSetupSubmit} className="space-y-3 pt-1">
+              <div>
+                <label className="text-[11px] font-bold text-on-surface block mb-1">
+                  Nome Completo
+                </label>
+                <input
+                  className="w-full h-10 px-3 rounded-[8px] bg-surface-container text-on-surface text-[12px] placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  onChange={(e) => setSetupName(e.target.value)}
+                  placeholder="ex: Joswil Admin"
+                  required
+                  type="text"
+                  value={setupName}
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-on-surface block mb-1">
+                  E-mail
+                </label>
+                <input
+                  className="w-full h-10 px-3 rounded-[8px] bg-surface-container text-on-surface text-[12px] placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  onChange={(e) => setSetupEmail(e.target.value)}
+                  placeholder="admin@fintrack.co.mz"
+                  required
+                  type="email"
+                  value={setupEmail}
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-on-surface block mb-1">
+                  Número de Telefone (Moçambique)
+                </label>
+                <input
+                  className="w-full h-10 px-3 rounded-[8px] bg-surface-container text-on-surface text-[12px] placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  onChange={(e) => setSetupPhone(e.target.value)}
+                  placeholder="+258 84 936 2797"
+                  required
+                  type="text"
+                  value={setupPhone}
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-on-surface block mb-1">
+                  Senha (mínimo 6 caracteres)
+                </label>
+                <input
+                  className="w-full h-10 px-3 rounded-[8px] bg-surface-container text-on-surface text-[12px] placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  minLength={6}
+                  onChange={(e) => setSetupPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  type="password"
+                  value={setupPassword}
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-on-surface block mb-1">
+                  Confirmar Senha
+                </label>
+                <input
+                  className="w-full h-10 px-3 rounded-[8px] bg-surface-container text-on-surface text-[12px] placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  minLength={6}
+                  onChange={(e) => setSetupConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  type="password"
+                  value={setupConfirmPassword}
+                />
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <button
+                  className="w-full h-11 rounded-[8px] bg-primary text-on-primary font-bold text-[13px] flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:bg-primary-container disabled:opacity-60"
+                  disabled={isSubmittingSetup}
+                  type="submit"
+                >
+                  <AppIcon name="security" className="text-[18px]" />
+                  <span>{isSubmittingSetup ? 'A configurar...' : 'Criar Administrador & Aceder'}</span>
+                </button>
+                <button
+                  className="w-full h-9 rounded-[8px] bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-[12px] flex items-center justify-center gap-1.5 cursor-pointer"
+                  onClick={() => navigateTo('landing')}
+                  type="button"
+                >
+                  <AppIcon name="public" className="text-[16px] text-primary" />
+                  <span>Voltar à Página Pública</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // 3.3. Não autenticado como Administrador -> Formulário Direto de Login com Número e Senha
+    if (!isAuthenticated || !authToken || !currentUser) {
+      return (
+        <div className="min-h-screen w-full bg-surface-container-low/40 flex items-center justify-center p-4 text-on-surface">
+          <div className="max-w-md w-full bg-surface-container-lowest p-6 rounded-[12px] shadow-2xl border border-surface-container text-center space-y-4 animate-fade-in">
+            <div className="w-14 h-14 rounded-[10px] bg-primary text-on-primary mx-auto flex items-center justify-center shadow-lg shadow-primary/25">
+              <AppIcon name="admin_panel_settings" className="text-[32px]" />
+            </div>
+            <div className="space-y-1">
+              <span className="inline-block px-3 py-1 rounded-full bg-primary-fixed text-primary font-bold text-[10.5px] uppercase tracking-wider">
+                Painel Administrativo SaaS
+              </span>
+              <h2 className="text-[20px] font-black text-on-surface tracking-tight">
+                Iniciar Sessão Admin
+              </h2>
+              <p className="text-[12px] text-on-surface-variant leading-relaxed">
+                Inicie sessão com o seu número de telefone e senha para aceder à gestão do FinTrack.
+              </p>
+            </div>
+
+            <form onSubmit={handleAdminDirectLogin} className="space-y-3 pt-1 text-left">
+              <div>
+                <label className="text-[11px] font-bold text-on-surface block mb-1">
+                  Número de Telefone (Moçambique)
+                </label>
+                <input
+                  className="w-full h-10 px-3 rounded-[8px] bg-surface-container text-on-surface text-[12px] placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  onChange={(e) => setAdminLoginPhone(e.target.value)}
+                  placeholder="+258 84 000 0000"
+                  required
+                  type="text"
+                  value={adminLoginPhone}
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-on-surface block mb-1">
+                  Senha
+                </label>
+                <input
+                  className="w-full h-10 px-3 rounded-[8px] bg-surface-container text-on-surface text-[12px] placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  onChange={(e) => setAdminLoginPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  type="password"
+                  value={adminLoginPassword}
+                />
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <button
+                  className="w-full h-11 rounded-[8px] bg-primary text-on-primary font-bold text-[13px] flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:bg-primary-container disabled:opacity-60"
+                  disabled={isSubmittingAdminLogin}
+                  type="submit"
+                >
+                  <AppIcon name="login" className="text-[18px]" />
+                  <span>{isSubmittingAdminLogin ? 'A verificar...' : 'Entrar no Painel Admin'}</span>
+                </button>
+                <button
+                  className="w-full h-9 rounded-[8px] bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-[12px] flex items-center justify-center gap-1.5 cursor-pointer"
+                  onClick={() => navigateTo('landing')}
+                  type="button"
+                >
+                  <AppIcon name="public" className="text-[16px] text-primary" />
+                  <span>Voltar à Página Pública</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // 3.4. Autenticado mas sem perfil de administrador -> Erro 403
     if (!currentUser?.isAdmin && !currentUser?.isDemo) {
       return (
         <div className="min-h-screen w-full bg-surface-container-low/40 flex items-center justify-center p-4 text-on-surface">
-          <div className="max-w-md w-full bg-surface-container-lowest p-6 rounded-2xl shadow-xl border border-error/25 text-center space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-error-container text-on-error-container mx-auto flex items-center justify-center">
+          <div className="max-w-md w-full bg-surface-container-lowest p-6 rounded-[12px] shadow-xl border border-error/25 text-center space-y-4">
+            <div className="w-14 h-14 rounded-[10px] bg-error-container text-on-error-container mx-auto flex items-center justify-center">
               <AppIcon name="lock" className="text-[30px]" />
             </div>
             <div className="space-y-1">
@@ -879,7 +1138,7 @@ export default function App() {
             </p>
             <div className="space-y-2 pt-2">
               <button
-                className="w-full h-11 rounded-xl bg-primary text-on-primary font-bold text-[13.5px] flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:bg-primary-container"
+                className="w-full h-11 rounded-[8px] bg-primary text-on-primary font-bold text-[13.5px] flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:bg-primary-container"
                 onClick={() => navigateTo('dashboard-inicio')}
                 type="button"
               >
@@ -887,12 +1146,20 @@ export default function App() {
                 <span>Voltar ao Meu Painel Financeiro (/app)</span>
               </button>
               <button
-                className="w-full h-10 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-[12.5px] flex items-center justify-center gap-1.5 cursor-pointer"
-                onClick={() => void handleLogout()}
+                className="w-full h-10 rounded-[8px] bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-[12.5px] flex items-center justify-center gap-1.5 cursor-pointer"
+                onClick={handleLogout}
                 type="button"
               >
-                <AppIcon name="logout" className="text-[17px]" />
+                <AppIcon name="logout" className="text-[17px] text-error" />
                 <span>Terminar Sessão e Trocar de Conta</span>
+              </button>
+              <button
+                className="w-full h-9 rounded-[8px] bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-[12px] flex items-center justify-center gap-1.5 cursor-pointer"
+                onClick={() => navigateTo('landing')}
+                type="button"
+              >
+                <AppIcon name="public" className="text-[16px] text-primary" />
+                <span>Voltar à Página Pública</span>
               </button>
             </div>
           </div>
