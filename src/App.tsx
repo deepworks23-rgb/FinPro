@@ -246,7 +246,7 @@ export default function App() {
         setPreviousScreen('dashboard-inicio');
 
         if (res.user.isAdmin) {
-          const targetScreen = initialScreen.startsWith('app') ? initialScreen : 'admin';
+          const targetScreen = initialScreen === 'landing' ? 'landing' : 'admin';
           setScreen(targetScreen);
           syncBrowserPath(targetScreen, true);
         } else if (initialScreen === 'login') {
@@ -411,18 +411,24 @@ export default function App() {
 
   const navigateTo = useCallback(
     (next: AppScreen, replace = false) => {
-      if (next !== screen) {
-        if (next === 'perfil' && screen !== 'login') {
+      // Isolamento total do admin: admin só acessa /admin, /landing ou /login
+      const target =
+        currentUser?.isAdmin && next !== 'admin' && next !== 'landing' && next !== 'login'
+          ? 'admin'
+          : next;
+
+      if (target !== screen) {
+        if (target === 'perfil' && screen !== 'login') {
           setPreviousScreen(screen);
         }
-        setScreen(next);
-        syncBrowserPath(next, replace);
+        setScreen(target);
+        syncBrowserPath(target, replace);
         window.scrollTo({ top: 0, behavior: 'instant' });
       } else {
-        syncBrowserPath(next, true);
+        syncBrowserPath(target, true);
       }
     },
-    [screen]
+    [currentUser?.isAdmin, screen]
   );
 
   const handleOpenNewTransaction = useCallback((type: TransactionType = 'expense') => {
@@ -790,19 +796,17 @@ export default function App() {
     }
 
     return (
-      <div className="min-h-screen w-full bg-surface-container-low/30 flex flex-col text-on-surface">
-        <main className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <AdminScreen
-            authToken={authToken}
-            currency={currency}
-            onLogout={handleLogout}
-            onNavigateToApp={() => navigateTo('dashboard-inicio')}
-            onNavigateToLanding={() => navigateTo('landing')}
-            onNotify={showToast}
-          />
-        </main>
+      <div className="h-screen w-full flex flex-col text-on-surface overflow-hidden">
+        <AdminScreen
+          authToken={authToken}
+          currency={currency}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          onNavigateToLanding={() => navigateTo('landing')}
+          onNotify={showToast}
+        />
         {toastMsg && (
-          <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-inverse-surface text-inverse-on-surface px-4 py-2.5 rounded-xl shadow-lg text-[13px] font-medium flex items-center gap-2 animate-fade-in pointer-events-none">
+          <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-inverse-surface text-inverse-on-surface px-4 py-2.5 rounded-[10px] shadow-lg text-[13px] font-medium flex items-center gap-2 animate-fade-in pointer-events-none">
             <AppIcon name="info" className="text-[17px] text-primary" />
             <span>{toastMsg}</span>
           </div>
@@ -811,7 +815,12 @@ export default function App() {
     );
   }
 
-  // 4. ÁREA DO APLICATIVO DO CLIENTE (/app/*): Requer Login
+  // 4. ÁREA DO APLICATIVO DO CLIENTE (/app/*): Requer Login e Utilizador Não-Admin
+  if (currentUser?.isAdmin) {
+    navigateTo('admin', true);
+    return null;
+  }
+
   if (!isAuthenticated || !authToken || !currentUser) {
     navigateTo('login', true);
     return null;

@@ -52,7 +52,7 @@ export interface SupportTicket {
   category: string;
   contactChannel: string;
   message: string;
-  status: 'aberto';
+  status: 'aberto' | 'em_andamento' | 'resolvido';
   createdAt: string;
 }
 
