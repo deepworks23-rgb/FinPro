@@ -78,6 +78,17 @@ export function AdminScreen({
   const [newAnnSeverity, setNewAnnSeverity] = useState<'info' | 'warning' | 'critical'>('info');
   const [isPublishingAnn, setIsPublishingAnn] = useState(false);
 
+  // Sub-abas de Configurações
+  const [settingsSubTab, setSettingsSubTab] = useState<'plans' | 'users' | 'infra'>('plans');
+
+  // Modal de Criar Administrador
+  const [createAdminModalOpen, setCreateAdminModalOpen] = useState(false);
+  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminPhone, setNewAdminPhone] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [creatingAdmin, setCreatingAdmin] = useState(false);
+
   // Modal de Planos de Subscrição (CRUD de Planos)
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlanItem | null>(null);
@@ -155,12 +166,13 @@ export function AdminScreen({
 
   // Exportação Real de Relatórios em CSV
   const handleExportUsersCSV = () => {
-    if (users.length === 0) {
+    const clientsOnly = users.filter((u) => !u.isAdmin);
+    if (clientsOnly.length === 0) {
       onNotify('Não existem registos de clientes para exportar.');
       return;
     }
     const headers = ['Nome', 'Telefone', 'Email', 'Plano Atual', 'Estado da Conta', 'Data de Registo', 'Referencia Pagamento'];
-    const rows = users.map((u) => [
+    const rows = clientsOnly.map((u) => [
       `"${u.name.replace(/"/g, '""')}"`,
       `"${u.phone}"`,
       `"${u.email}"`,
@@ -266,6 +278,34 @@ export function AdminScreen({
       onNotify(err instanceof Error ? err.message : 'Erro ao atualizar plano.');
     } finally {
       setUpdatingUserId(null);
+    }
+  };
+
+  const handleCreateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdminName || !newAdminPhone || newAdminPassword.length < 6) {
+      onNotify('Preencha o nome, telefone e uma senha de no mínimo 6 caracteres.');
+      return;
+    }
+    try {
+      setCreatingAdmin(true);
+      const res = await adminApi.createAdmin(authToken, {
+        name: newAdminName.trim(),
+        phone: newAdminPhone.trim(),
+        email: newAdminEmail.trim() || undefined,
+        password: newAdminPassword.trim(),
+      });
+      onNotify(res.message);
+      setCreateAdminModalOpen(false);
+      setNewAdminName('');
+      setNewAdminPhone('');
+      setNewAdminEmail('');
+      setNewAdminPassword('');
+      void loadData(true);
+    } catch (err) {
+      onNotify(err instanceof Error ? err.message : 'Erro ao criar administrador.');
+    } finally {
+      setCreatingAdmin(false);
     }
   };
 
@@ -452,9 +492,15 @@ export function AdminScreen({
     }
   };
 
-  // Filtros de Clientes
+  // Administradores do Sistema (Geridos em Configurações -> Utilizadores)
+  const adminUsers = useMemo(() => {
+    return users.filter((u) => u.isAdmin);
+  }, [users]);
+
+  // Filtros de Clientes (Administradores são geridos exclusivamente em Configurações -> Utilizadores)
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
+      if (u.isAdmin) return false;
       const matchesSearch =
         u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
         u.phone.includes(userSearch) ||
@@ -584,7 +630,7 @@ export function AdminScreen({
             >
               <AppIcon name="group" className="text-[19px]" filled={activeTab === 'users'} />
               <span className="flex-1">Clientes</span>
-              <span className="text-[10.5px] font-bold opacity-80">{users.length}</span>
+              <span className="text-[10.5px] font-bold opacity-80">{users.filter((u) => !u.isAdmin).length}</span>
             </button>
 
             {/* 3. Subscrições */}
@@ -1895,158 +1941,338 @@ export function AdminScreen({
             </div>
           )}
 
-          {/* TAB 8: CONFIGURAÇÕES (CRUD de Planos & Infraestrutura) */}
+          {/* TAB 8: CONFIGURAÇÕES (CRUD de Planos, Gestão de Utilizadores Administradores & Infraestrutura) */}
           {activeTab === 'settings' && (
-            <div className="p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs space-y-5 animate-fade-in">
+            <div className="p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs space-y-4 animate-fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="text-[18px] font-black text-on-surface tracking-tight">
-                    Configurações & Planos de Subscrição
+                    Configurações do Sistema
                   </h2>
                   <p className="text-[11.5px] text-on-surface-variant">
-                    Personalize os planos de subscrição comercializados na Landing Page e confira a saúde dos servidores.
+                    Personalize os planos de subscrição, faça a gestão de administradores e confira a saúde dos servidores.
                   </p>
                 </div>
 
+                {settingsSubTab === 'plans' && (
+                  <button
+                    className="h-9 px-4 rounded-[8px] bg-primary text-on-primary text-[12px] font-bold flex items-center gap-1.5 shadow-xs cursor-pointer hover:bg-primary-container"
+                    onClick={() => handleOpenPlanModal()}
+                    type="button"
+                  >
+                    <AppIcon name="add" className="text-[16px]" />
+                    <span>Novo Plano de Subscrição</span>
+                  </button>
+                )}
+
+                {settingsSubTab === 'users' && (
+                  <button
+                    className="h-9 px-4 rounded-[8px] bg-primary text-on-primary text-[12px] font-bold flex items-center gap-1.5 shadow-xs cursor-pointer hover:bg-primary-container"
+                    onClick={() => setCreateAdminModalOpen(true)}
+                    type="button"
+                  >
+                    <AppIcon name="add" className="text-[16px]" />
+                    <span>Novo Administrador</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Sub-abas de Navegação */}
+              <div className="flex items-center gap-1.5 p-1 bg-surface-container-low rounded-[10px] w-fit">
                 <button
-                  className="h-9 px-4 rounded-[8px] bg-primary text-on-primary text-[12px] font-bold flex items-center gap-1.5 shadow-xs cursor-pointer hover:bg-primary-container"
-                  onClick={() => handleOpenPlanModal()}
                   type="button"
+                  onClick={() => setSettingsSubTab('plans')}
+                  className={`px-3 py-1.5 rounded-[8px] text-[12px] font-bold transition-all cursor-pointer ${
+                    settingsSubTab === 'plans'
+                      ? 'bg-surface-container-lowest text-primary shadow-xs'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
                 >
-                  <AppIcon name="add" className="text-[16px]" />
-                  <span>Novo Plano de Subscrição</span>
+                  Planos de Subscrição ({plans.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSettingsSubTab('users')}
+                  className={`px-3 py-1.5 rounded-[8px] text-[12px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    settingsSubTab === 'users'
+                      ? 'bg-surface-container-lowest text-primary shadow-xs'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  <AppIcon name="security" className="text-[15px]" />
+                  <span>Utilizadores do Sistema ({adminUsers.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSettingsSubTab('infra')}
+                  className={`px-3 py-1.5 rounded-[8px] text-[12px] font-bold transition-all cursor-pointer ${
+                    settingsSubTab === 'infra'
+                      ? 'bg-surface-container-lowest text-primary shadow-xs'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  Infraestrutura Cloud
                 </button>
               </div>
 
-              {/* Grade de Planos com CRUD */}
-              <div>
-                <h3 className="text-[14px] font-bold text-on-surface mb-2.5">
-                  Planos Ativos no Site Público ({plans.length})
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                  {plans.map((p) => (
-                    <div
-                      key={p.id}
-                      className={`p-4 rounded-[10px] border flex flex-col justify-between transition-all ${
-                        p.isActive
-                          ? p.isPopular
-                            ? 'border-2 border-primary bg-surface-container-lowest shadow-md'
-                            : 'border-surface-container bg-surface-container-lowest shadow-xs'
-                          : 'border-surface-container/60 bg-surface-container-low/50 opacity-75'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[14px] font-black text-on-surface">
-                            {p.name}
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            {p.isPopular && (
-                              <span className="px-2 py-0.5 rounded-[6px] bg-primary-fixed text-primary text-[10px] font-bold">
-                                Destaque ⭐
+              {/* SUB-ABA 1: PLANOS DE SUBSCRIÇÃO */}
+              {settingsSubTab === 'plans' && (
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[14px] font-bold text-on-surface">
+                      Planos Ativos no Site Público ({plans.length})
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                    {plans.map((p) => (
+                      <div
+                        key={p.id}
+                        className={`p-4 rounded-[10px] border flex flex-col justify-between transition-all ${
+                          p.isActive
+                            ? p.isPopular
+                              ? 'border-2 border-primary bg-surface-container-lowest shadow-md'
+                              : 'border-surface-container bg-surface-container-lowest shadow-xs'
+                            : 'border-surface-container/60 bg-surface-container-low/50 opacity-75'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[14px] font-black text-on-surface">
+                              {p.name}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {p.isPopular && (
+                                <span className="px-2 py-0.5 rounded-[6px] bg-primary-fixed text-primary text-[10px] font-bold">
+                                  Destaque ⭐
+                                </span>
+                              )}
+                              <span
+                                className={`px-2 py-0.5 rounded-[6px] text-[10px] font-bold ${
+                                  p.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-surface-container text-on-surface-variant'
+                                }`}
+                              >
+                                {p.isActive ? 'Ativo no Site' : 'Inativo'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="my-2.5">
+                            <span className="text-[22px] font-black text-on-surface">
+                              {Number(p.priceMonthly).toLocaleString('pt-MZ')} MT
+                            </span>
+                            <span className="text-[11px] text-on-surface-variant ml-1 font-semibold">/ mês</span>
+                            {Number(p.priceYearly) > 0 && (
+                              <span className="text-[10.5px] text-secondary font-bold block mt-0.5">
+                                {Number(p.priceYearly).toLocaleString('pt-MZ')} MT / ano
                               </span>
                             )}
-                            <span
-                              className={`px-2 py-0.5 rounded-[6px] text-[10px] font-bold ${
-                                p.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-surface-container text-on-surface-variant'
-                              }`}
-                            >
-                              {p.isActive ? 'Ativo no Site' : 'Inativo'}
+                          </div>
+
+                          <p className="text-[11.5px] text-on-surface-variant mb-3 leading-snug">
+                            {p.description || 'Sem descrição cadastrada.'}
+                          </p>
+
+                          <div className="space-y-1.5 border-t border-surface-container/60 pt-2.5">
+                            <span className="text-[10.5px] font-bold text-on-surface uppercase tracking-wider block">
+                              Funcionalidades ({p.features.length})
                             </span>
+                            <ul className="space-y-1 text-[11.5px] text-on-surface-variant">
+                              {p.features.map((feat, idx) => (
+                                <li key={idx} className="flex items-center gap-1.5">
+                                  <AppIcon name="check" className="text-secondary text-[14px] shrink-0" />
+                                  <span className="truncate">{feat}</span>
+                                </li>
+                              ))}
+                            </ul>
                           </div>
                         </div>
 
-                        <div className="my-2.5">
-                          <span className="text-[22px] font-black text-on-surface">
-                            {Number(p.priceMonthly).toLocaleString('pt-MZ')} MT
-                          </span>
-                          <span className="text-[11px] text-on-surface-variant ml-1 font-semibold">/ mês</span>
-                          {Number(p.priceYearly) > 0 && (
-                            <span className="text-[10.5px] text-secondary font-bold block mt-0.5">
-                              {Number(p.priceYearly).toLocaleString('pt-MZ')} MT / ano
-                            </span>
-                          )}
-                        </div>
-
-                        <p className="text-[11.5px] text-on-surface-variant mb-3 leading-snug">
-                          {p.description || 'Sem descrição cadastrada.'}
-                        </p>
-
-                        <div className="space-y-1.5 border-t border-surface-container/60 pt-2.5">
-                          <span className="text-[10.5px] font-bold text-on-surface uppercase tracking-wider block">
-                            Funcionalidades ({p.features.length})
-                          </span>
-                          <ul className="space-y-1 text-[11.5px] text-on-surface-variant">
-                            {p.features.map((feat, idx) => (
-                              <li key={idx} className="flex items-center gap-1.5">
-                                <AppIcon name="check" className="text-secondary text-[14px] shrink-0" />
-                                <span className="truncate">{feat}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-surface-container/60 flex items-center justify-between gap-2">
-                        <button
-                          className="flex-1 h-8 px-2.5 rounded-[6px] bg-surface-container hover:bg-surface-container-high text-on-surface text-[11px] font-bold cursor-pointer"
-                          onClick={() => handleOpenPlanModal(p)}
-                          type="button"
-                        >
-                          Editar
-                        </button>
-
-                        <button
-                          className={`h-8 px-2.5 rounded-[6px] text-[11px] font-bold cursor-pointer ${
-                            p.isActive
-                              ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
-                              : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                          }`}
-                          onClick={() => handleTogglePlanActive(p)}
-                          type="button"
-                        >
-                          {p.isActive ? 'Desativar' : 'Ativar'}
-                        </button>
-
-                        {p.slug !== 'free' && (
+                        <div className="mt-4 pt-3 border-t border-surface-container/60 flex items-center justify-between gap-2">
                           <button
-                            className="w-8 h-8 rounded-[6px] bg-error-container text-on-error-container flex items-center justify-center hover:opacity-90 cursor-pointer"
-                            onClick={() => handleDeletePlan(p.id, p.name)}
-                            title="Eliminar este plano"
+                            className="flex-1 h-8 px-2.5 rounded-[6px] bg-surface-container hover:bg-surface-container-high text-on-surface text-[11px] font-bold cursor-pointer"
+                            onClick={() => handleOpenPlanModal(p)}
                             type="button"
                           >
-                            <AppIcon name="delete" className="text-[15px]" />
+                            Editar
                           </button>
-                        )}
+
+                          <button
+                            className={`h-8 px-2.5 rounded-[6px] text-[11px] font-bold cursor-pointer ${
+                              p.isActive
+                                ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                                : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                            }`}
+                            onClick={() => handleTogglePlanActive(p)}
+                            type="button"
+                          >
+                            {p.isActive ? 'Desativar' : 'Ativar'}
+                          </button>
+
+                          {p.slug !== 'free' && (
+                            <button
+                              className="w-8 h-8 rounded-[6px] bg-error-container text-on-error-container flex items-center justify-center hover:opacity-90 cursor-pointer"
+                              onClick={() => handleDeletePlan(p.id, p.name)}
+                              title="Eliminar este plano"
+                              type="button"
+                            >
+                              <AppIcon name="delete" className="text-[15px]" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Status de Infraestrutura */}
-              <div className="pt-2 border-t border-surface-container/60">
-                <h3 className="text-[14px] font-bold text-on-surface mb-2.5">
-                  Estado da Infraestrutura Cloud
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div className="p-3.5 rounded-[10px] bg-surface-container-low flex items-center justify-between">
-                    <div>
-                      <span className="text-[12.5px] font-bold text-on-surface block">Neon Postgres Database</span>
-                      <span className="text-[11px] text-emerald-700 font-semibold">Conectado · Latência 38ms</span>
-                    </div>
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  </div>
-
-                  <div className="p-3.5 rounded-[10px] bg-surface-container-low flex items-center justify-between">
-                    <div>
-                      <span className="text-[12.5px] font-bold text-on-surface block">S3 Object Storage (Neon)</span>
-                      <span className="text-[11px] text-emerald-700 font-semibold">Comprovativos e Avatares OK</span>
-                    </div>
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    ))}
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* SUB-ABA 2: UTILIZADORES DO SISTEMA (ADMINISTRADORES) */}
+              {settingsSubTab === 'users' && (
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-[14px] font-bold text-on-surface">
+                        Contas Administrativas ({adminUsers.length})
+                      </h3>
+                      <p className="text-[11.5px] text-on-surface-variant">
+                        Utilizadores com privilégios de gestão total e suporte no FinTrack.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto border border-surface-container rounded-[10px]">
+                    <table className="w-full text-left border-collapse text-[11.5px]">
+                      <thead>
+                        <tr className="border-b border-surface-container text-[10.5px] font-bold text-on-surface-variant uppercase bg-surface-container-low/50">
+                          <th className="py-2.5 px-3">Administrador</th>
+                          <th className="py-2.5 px-3">Telefone</th>
+                          <th className="py-2.5 px-3">E-mail</th>
+                          <th className="py-2.5 px-3">Nível de Acesso</th>
+                          <th className="py-2.5 px-3">Estado</th>
+                          <th className="py-2.5 px-3 text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-surface-container/60 font-medium">
+                        {adminUsers.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="py-6 text-center text-on-surface-variant text-[12px]">
+                              Nenhum administrador encontrado.
+                            </td>
+                          </tr>
+                        ) : (
+                          adminUsers.map((admin) => {
+                            const isSelf = admin.id === currentUser?.id;
+                            return (
+                              <tr key={admin.id} className="hover:bg-surface-container-low/40">
+                                <td className="py-2.5 px-3">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-[8px] bg-primary-fixed text-primary font-bold text-[10.5px] flex items-center justify-center shrink-0">
+                                      {getUserInitials(admin.name)}
+                                    </div>
+                                    <div>
+                                      <span className="font-bold text-on-surface block leading-tight">
+                                        {admin.name}
+                                      </span>
+                                      {isSelf && (
+                                        <span className="text-[9.5px] text-primary font-bold">
+                                          (Conta Atual)
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 text-on-surface-variant">{admin.phone}</td>
+                                <td className="py-2.5 px-3 text-on-surface-variant">{admin.email || '—'}</td>
+                                <td className="py-2.5 px-3">
+                                  <span className="px-2 py-0.5 rounded-[6px] text-[10px] font-extrabold uppercase bg-primary-fixed text-primary flex items-center gap-1 w-fit">
+                                    <AppIcon name="verified_user" className="text-[12px]" />
+                                    <span>Administrador</span>
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <span
+                                    className={`px-2 py-0.5 rounded-[6px] text-[10px] font-bold ${
+                                      admin.isSuspended
+                                        ? 'bg-error-container text-on-error-container'
+                                        : 'bg-emerald-100 text-emerald-800'
+                                    }`}
+                                  >
+                                    {admin.isSuspended ? 'Suspenso' : 'Ativo'}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-right space-x-1.5">
+                                  <button
+                                    className="px-2.5 py-1 rounded-[6px] bg-surface-container text-on-surface text-[10.5px] font-bold hover:bg-surface-container-high cursor-pointer align-middle"
+                                    onClick={() => setResetPwdModalUser(admin)}
+                                    type="button"
+                                    title="Alterar senha deste administrador"
+                                  >
+                                    Senha
+                                  </button>
+                                  <button
+                                    className={`px-2.5 py-1 rounded-[6px] text-[10.5px] font-bold cursor-pointer align-middle disabled:opacity-40 disabled:cursor-not-allowed ${
+                                      admin.isSuspended
+                                        ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                        : 'bg-error-container text-on-error-container hover:opacity-90'
+                                    }`}
+                                    disabled={isSelf}
+                                    onClick={() => handleToggleUserSuspension(admin)}
+                                    title={isSelf ? 'Não pode suspender a sua própria sessão atual' : undefined}
+                                    type="button"
+                                  >
+                                    {admin.isSuspended ? 'Reativar' : 'Suspender'}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-ABA 3: INFRAESTRUTURA CLOUD */}
+              {settingsSubTab === 'infra' && (
+                <div className="space-y-3 pt-1">
+                  <h3 className="text-[14px] font-bold text-on-surface">
+                    Estado da Infraestrutura Cloud
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div className="p-3.5 rounded-[10px] bg-surface-container-low flex items-center justify-between">
+                      <div>
+                        <span className="text-[12.5px] font-bold text-on-surface block">Neon Postgres Database</span>
+                        <span className="text-[11px] text-emerald-700 font-semibold">Conectado · Latência 38ms</span>
+                      </div>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    </div>
+
+                    <div className="p-3.5 rounded-[10px] bg-surface-container-low flex items-center justify-between">
+                      <div>
+                        <span className="text-[12.5px] font-bold text-on-surface block">S3 Object Storage (Neon)</span>
+                        <span className="text-[11px] text-emerald-700 font-semibold">Comprovativos e Avatares OK</span>
+                      </div>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    </div>
+
+                    <div className="p-3.5 rounded-[10px] bg-surface-container-low flex items-center justify-between">
+                      <div>
+                        <span className="text-[12.5px] font-bold text-on-surface block">Vercel Edge & Functions</span>
+                        <span className="text-[11px] text-emerald-700 font-semibold">Região CDG1 · Operacional</span>
+                      </div>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    </div>
+
+                    <div className="p-3.5 rounded-[10px] bg-surface-container-low flex items-center justify-between">
+                      <div>
+                        <span className="text-[12.5px] font-bold text-on-surface block">M-Pesa Webhook & Processamento</span>
+                        <span className="text-[11px] text-emerald-700 font-semibold">Ativo com Notificações</span>
+                      </div>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </main>
@@ -2274,6 +2500,105 @@ export function AdminScreen({
                   type="submit"
                 >
                   {isPublishingAnn ? 'A publicar...' : 'Publicar Comunicado'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CRIAR NOVO ADMINISTRADOR */}
+      {createAdminModalOpen && (
+        <div className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-surface-container-lowest p-5 rounded-[10px] shadow-2xl border border-surface-container space-y-3.5 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[16px] font-black text-on-surface flex items-center gap-2">
+                <AppIcon name="security" className="text-primary text-[18px]" />
+                <span>Novo Administrador do Sistema</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setCreateAdminModalOpen(false)}
+                className="w-7 h-7 rounded-[6px] bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface cursor-pointer"
+              >
+                <AppIcon name="close" className="text-[16px]" />
+              </button>
+            </div>
+            <p className="text-[11.5px] text-on-surface-variant leading-snug">
+              Cadastre um novo operador com privilégios administrativos. Ele terá acesso total ao painel de gestão do FinTrack.
+            </p>
+
+            <form onSubmit={handleCreateAdmin} className="space-y-3">
+              <div>
+                <label className="text-[11px] font-bold text-on-surface block mb-1">
+                  Nome Completo
+                </label>
+                <input
+                  className="w-full h-9 px-3 rounded-[8px] bg-surface-container text-on-surface text-[12px] placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  onChange={(e) => setNewAdminName(e.target.value)}
+                  placeholder="ex: Carlos Alberto"
+                  required
+                  type="text"
+                  value={newAdminName}
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-on-surface block mb-1">
+                  Telefone / WhatsApp (Moçambique)
+                </label>
+                <input
+                  className="w-full h-9 px-3 rounded-[8px] bg-surface-container text-on-surface text-[12px] placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  onChange={(e) => setNewAdminPhone(e.target.value)}
+                  placeholder="+258 84 000 0000"
+                  required
+                  type="text"
+                  value={newAdminPhone}
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-on-surface block mb-1">
+                  E-mail (Opcional)
+                </label>
+                <input
+                  className="w-full h-9 px-3 rounded-[8px] bg-surface-container text-on-surface text-[12px] placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                  placeholder="admin@fintrack.co.mz"
+                  type="email"
+                  value={newAdminEmail}
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-on-surface block mb-1">
+                  Senha Inicial (mínimo 6 caracteres)
+                </label>
+                <input
+                  className="w-full h-9 px-3 rounded-[8px] bg-surface-container text-on-surface text-[12px] placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  minLength={6}
+                  onChange={(e) => setNewAdminPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  type="password"
+                  value={newAdminPassword}
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  className="flex-1 h-9 rounded-[8px] bg-surface-container text-on-surface font-bold text-[11.5px] cursor-pointer"
+                  onClick={() => setCreateAdminModalOpen(false)}
+                  type="button"
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="flex-1 h-9 rounded-[8px] bg-primary text-on-primary font-bold text-[11.5px] shadow-xs cursor-pointer disabled:opacity-60"
+                  disabled={creatingAdmin}
+                  type="submit"
+                >
+                  {creatingAdmin ? 'A criar...' : 'Criar Administrador'}
                 </button>
               </div>
             </form>

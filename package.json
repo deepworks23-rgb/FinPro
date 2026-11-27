@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "start": "node server.ts",
-    "build": "node -e \"process.env.RAYON_NUM_THREADS=process.env.RAYON_NUM_THREADS||'1'; import('vite').then(v=>v.build())\"",
+    "build": "node --max-old-space-size=4096 -e \"process.env.RAYON_NUM_THREADS=process.env.RAYON_NUM_THREADS||'1'; import('vite').then(v=>v.build())\"",
     "build:mobile": "node -e \"process.env.RAYON_NUM_THREADS=process.env.RAYON_NUM_THREADS||'1'; process.env.VITE_API_BASE_URL=process.env.VITE_API_BASE_URL||'https://fin-pro-livid.vercel.app'; import('vite').then(v=>v.build())\"",
     "cap:sync": "cap sync",
     "preview": "vite preview",

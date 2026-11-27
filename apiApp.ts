@@ -1629,55 +1629,38 @@ export function createApiApp(): express.Express {
     })
   );
 
-  // SaaS Admin: Toggle User Account Status (Active vs Suspended)
+  // SaaS Admin: Create a new Administrator / System User
   app.post(
-    '/api/admin/users/status',
+    '/api/admin/create-admin',
     requireAuth,
     requireAdmin,
     asyncHandler(async (req, res) => {
       const pool = getPool();
-      const targetId = String(req.body?.targetId ?? '').trim();
-      const isSuspended = Boolean(req.body?.isSuspended);
+      const name = String(req.body?.name ?? '').trim();
+      const phone = String(req.body?.phone ?? '').trim();
+      const email = String(req.body?.email ?? '').trim().toLowerCase();
+      const password = String(req.body?.password ?? '').trim();
 
-      if (!targetId) {
-        res.status(400).json({ error: 'ID de utilizador alvo não informado.' });
+      if (!name || !phone || password.length < 6) {
+        res.status(400).json({ error: 'Nome, telefone e senha (mínimo 6 caracteres) são obrigatórios.' });
         return;
       }
 
-      await pool.query(
-        `UPDATE users SET is_suspended = $1, updated_at = NOW() WHERE id = $2`,
-        [isSuspended, targetId]
-      );
-
-      res.json({
-        ok: true,
-        message: isSuspended ? 'Conta do utilizador suspensa com sucesso.' : 'Conta do utilizador reativada.',
-      });
-    })
-  );
-
-  // SaaS Admin: Reset User Password
-  app.post(
-    '/api/admin/users/reset-password',
-    requireAuth,
-    requireAdmin,
-    asyncHandler(async (req, res) => {
-      const pool = getPool();
-      const targetId = String(req.body?.targetId ?? '').trim();
-      const newPassword = String(req.body?.newPassword ?? '').trim();
-
-      if (!targetId || newPassword.length < 6) {
-        res.status(400).json({ error: 'ID inválido ou nova senha com menos de 6 caracteres.' });
+      const existRes = await pool.query(`SELECT id FROM users WHERE phone = $1`, [phone]);
+      if (existRes.rows.length > 0) {
+        res.status(400).json({ error: 'Este número de telefone já está registado.' });
         return;
       }
 
-      const hash = hashPassword(newPassword);
+      const id = `u_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+      const hash = hashPassword(password);
       await pool.query(
-        `UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
-        [hash, targetId]
+        `INSERT INTO users (id, name, phone, email, password_hash, is_admin, is_suspended, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, TRUE, FALSE, NOW(), NOW())`,
+        [id, name, phone, email || null, hash]
       );
 
-      res.json({ ok: true, message: 'Senha do utilizador redefinida com sucesso!' });
+      res.json({ ok: true, message: `Administrador ${name} criado com sucesso!` });
     })
   );
 

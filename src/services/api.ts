@@ -231,6 +231,16 @@ export const adminApi = {
       body: { targetId, newPassword },
     }),
 
+  createAdmin: (
+    token: string,
+    payload: { name: string; phone: string; email?: string; password: string }
+  ) =>
+    apiRequest<{ ok: boolean; message: string }>('/api/admin/create-admin', {
+      method: 'POST',
+      token,
+      body: payload,
+    }),
+
   getSubscriptions: (token: string) =>
     apiRequest<{ ok: boolean; subscriptions: AdminSubscriptionItem[] }>(
       '/api/admin/subscriptions',
