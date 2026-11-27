@@ -28,6 +28,9 @@ interface StoredUser {
   isDemo: boolean;
   isAdmin: boolean;
   isSuspended: boolean;
+  trialUsed: boolean;
+  trialStartedAt?: string | null;
+  trialEndedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -48,7 +51,7 @@ interface StoredSupportTicket {
 }
 
 export type SubscriptionPlan = 'free' | 'pro' | 'business';
-export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled';
+export type SubscriptionStatus = 'trialing' | 'pending_approval' | 'active' | 'past_due' | 'canceled';
 
 export interface StoredSubscription {
   id: string;
@@ -65,6 +68,7 @@ export interface StoredSubscription {
   expiresAt: string | null;
   createdAt: string;
   updatedAt: string;
+  trialUsed?: boolean;
 }
 
 export interface PlanLimits {
@@ -170,6 +174,9 @@ function rowToUser(row: Record<string, unknown>): StoredUser {
     isDemo: Boolean(row.is_demo),
     isAdmin: Boolean(row.is_admin),
     isSuspended: Boolean(row.is_suspended),
+    trialUsed: Boolean(row.trial_used),
+    trialStartedAt: row.trial_started_at ? new Date(String(row.trial_started_at)).toISOString() : null,
+    trialEndedAt: row.trial_ended_at ? new Date(String(row.trial_ended_at)).toISOString() : null,
     createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at)).toISOString(),
   };
@@ -215,13 +222,21 @@ function rowToSupportTicket(row: Record<string, unknown>): StoredSupportTicket {
 }
 
 function rowToSubscription(row: Record<string, unknown>): StoredSubscription {
+  const rawStatus = String(row.status ?? '');
+  let status: SubscriptionStatus = 'active';
+  if (
+    rawStatus === 'trialing' ||
+    rawStatus === 'pending_approval' ||
+    rawStatus === 'past_due' ||
+    rawStatus === 'canceled'
+  ) {
+    status = rawStatus;
+  }
   return {
     id: String(row.id),
     userId: String(row.user_id),
     plan: (row.plan === 'pro' || row.plan === 'business' ? row.plan : 'free') as SubscriptionPlan,
-    status: (row.status === 'canceled' || row.status === 'past_due' || row.status === 'trialing'
-      ? row.status
-      : 'active') as SubscriptionStatus,
+    status,
     billingCycle: row.billing_cycle === 'yearly' ? 'yearly' : 'monthly',
     currency: row.currency === 'USD' ? 'USD' : 'MZN',
     pricePaid: Number(row.price_paid ?? 0),
@@ -238,15 +253,95 @@ function rowToSubscription(row: Record<string, unknown>): StoredSubscription {
 async function ensureSubscription(userId: string): Promise<StoredSubscription> {
   const pool = getPool();
   const defaultSubId = `sub_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
-  const nowIso = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
 
-  await pool.query(
-    `INSERT INTO subscriptions (
-      id, user_id, plan, status, billing_cycle, currency, price_paid, payment_method, payment_phone, payment_reference, started_at, expires_at, created_at, updated_at
-    ) VALUES ($1, $2, 'free', 'active', 'monthly', 'MZN', 0, 'free', '', '', $3, NULL, $3, $3)
-    ON CONFLICT (user_id) DO NOTHING`,
-    [defaultSubId, userId, nowIso]
+  // 1. Check if subscription already exists for this user
+  const existingRes = await pool.query(`SELECT * FROM subscriptions WHERE user_id = $1`, [userId]);
+  if (existingRes.rows[0]) {
+    const sub = rowToSubscription(existingRes.rows[0]);
+    // Check if 7-day trial has expired
+    if (sub.plan === 'free' && sub.status === 'trialing' && sub.expiresAt && new Date(sub.expiresAt) < now) {
+      await pool.query(
+        `UPDATE subscriptions SET status = 'past_due', updated_at = NOW() WHERE id = $1`,
+        [sub.id]
+      );
+      sub.status = 'past_due';
+    }
+    return sub;
+  }
+
+  // 2. Retrieve user flags
+  const userRes = await pool.query(
+    `SELECT is_admin, phone_normalized, trial_used FROM users WHERE id = $1`,
+    [userId]
   );
+  const user = userRes.rows[0];
+  const isAdmin = Boolean(user?.is_admin);
+  const phoneNormalized = String(user?.phone_normalized ?? '');
+  const trialUsedFlag = Boolean(user?.trial_used);
+
+  // If user is admin, provide full business access without trial restriction
+  if (isAdmin) {
+    await pool.query(
+      `INSERT INTO subscriptions (
+        id, user_id, plan, status, billing_cycle, currency, price_paid, payment_method, payment_phone, payment_reference, started_at, expires_at, created_at, updated_at
+      ) VALUES ($1, $2, 'business', 'active', 'yearly', 'MZN', 0, 'admin', '', '', $3, NULL, $3, $3)
+      ON CONFLICT (user_id) DO NOTHING`,
+      [defaultSubId, userId, nowIso]
+    );
+    const res = await pool.query(`SELECT * FROM subscriptions WHERE user_id = $1`, [userId]);
+    return rowToSubscription(res.rows[0]);
+  }
+
+  // Anti-fraud check: Check permanent audit log by phone_normalized
+  let hasUsedTrial = trialUsedFlag;
+  if (!hasUsedTrial && phoneNormalized) {
+    const auditCheck = await pool.query(
+      `SELECT 1 FROM trial_audit_log WHERE phone_normalized = $1 LIMIT 1`,
+      [phoneNormalized]
+    );
+    if (auditCheck.rows.length > 0) {
+      hasUsedTrial = true;
+    }
+  }
+
+  if (hasUsedTrial) {
+    // Trial was already consumed! The free plan starts as past_due (blocked)
+    await pool.query(
+      `INSERT INTO subscriptions (
+        id, user_id, plan, status, billing_cycle, currency, price_paid, payment_method, payment_phone, payment_reference, started_at, expires_at, created_at, updated_at
+      ) VALUES ($1, $2, 'free', 'past_due', 'monthly', 'MZN', 0, 'free', '', '', $3, $3, $3, $3)
+      ON CONFLICT (user_id) DO NOTHING`,
+      [defaultSubId, userId, nowIso]
+    );
+    await pool.query(`UPDATE users SET trial_used = TRUE WHERE id = $1`, [userId]);
+  } else {
+    // Automatic 7-Day Trial Activation!
+    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    await pool.query(
+      `INSERT INTO subscriptions (
+        id, user_id, plan, status, billing_cycle, currency, price_paid, payment_method, payment_phone, payment_reference, started_at, expires_at, created_at, updated_at
+      ) VALUES ($1, $2, 'free', 'trialing', 'monthly', 'MZN', 0, 'free', '', '', $3, $4, $3, $3)
+      ON CONFLICT (user_id) DO NOTHING`,
+      [defaultSubId, userId, nowIso, expiresAt]
+    );
+
+    // Save into permanent audit log
+    const auditId = `aud_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    await pool.query(
+      `INSERT INTO trial_audit_log (id, user_id, phone_normalized, started_at, expires_at, created_at)
+       VALUES ($1, $2, $3, $4, $5, $4)
+       ON CONFLICT DO NOTHING`,
+      [auditId, userId, phoneNormalized, nowIso, expiresAt]
+    );
+
+    // Mark trial as used on user
+    await pool.query(
+      `UPDATE users SET trial_used = TRUE, trial_started_at = $1, trial_ended_at = $2 WHERE id = $3`,
+      [nowIso, expiresAt, userId]
+    );
+  }
 
   const res = await pool.query(`SELECT * FROM subscriptions WHERE user_id = $1`, [userId]);
   if (res.rows[0]) {
@@ -256,7 +351,7 @@ async function ensureSubscription(userId: string): Promise<StoredSubscription> {
     id: defaultSubId,
     userId,
     plan: 'free',
-    status: 'active',
+    status: hasUsedTrial ? 'past_due' : 'trialing',
     billingCycle: 'monthly',
     currency: 'MZN',
     pricePaid: 0,
@@ -264,7 +359,7 @@ async function ensureSubscription(userId: string): Promise<StoredSubscription> {
     paymentPhone: '',
     paymentReference: '',
     startedAt: nowIso,
-    expiresAt: null,
+    expiresAt: hasUsedTrial ? nowIso : new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     createdAt: nowIso,
     updatedAt: nowIso,
   };
@@ -399,6 +494,7 @@ async function sanitizeUser(user: StoredUser) {
     isDemo: user.isDemo,
     isAdmin: user.isAdmin,
     isSuspended: user.isSuspended,
+    trialUsed: Boolean(user.trialUsed),
     hasPassword: Boolean(user.passwordHash),
     createdAt: user.createdAt,
   };
@@ -1142,41 +1238,97 @@ export function createApiApp(): express.Express {
       }
 
       const plan: SubscriptionPlan = rawPlan;
+      const pool = getPool();
+      const currentSub = await ensureSubscription(user.id);
+
+      if (plan === 'free') {
+        // Anti-abuse check for free trial: only 1 time ever per user and phone!
+        const phoneNormalized = user.phoneNormalized;
+        let alreadyUsed = Boolean(user.trialUsed);
+        if (!alreadyUsed && phoneNormalized) {
+          const audit = await pool.query(
+            `SELECT 1 FROM trial_audit_log WHERE phone_normalized = $1 LIMIT 1`,
+            [phoneNormalized]
+          );
+          if (audit.rows.length > 0) alreadyUsed = true;
+        }
+
+        if (alreadyUsed || currentSub.status === 'past_due' || currentSub.plan === 'free') {
+          res.status(400).json({
+            error:
+              'O período de teste gratuito de 7 dias já foi utilizado para este número. Escolha o FinPro Pessoal ou Negócios para continuar.',
+          });
+          return;
+        }
+
+        // Automatic 7-day trial activation
+        const now = new Date();
+        const nowIso = now.toISOString();
+        const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+        const updateRes = await pool.query(
+          `UPDATE subscriptions
+           SET plan = 'free',
+               status = 'trialing',
+               billing_cycle = 'monthly',
+               price_paid = 0,
+               payment_method = 'free',
+               started_at = $1,
+               expires_at = $2,
+               updated_at = $1
+           WHERE user_id = $3
+           RETURNING *`,
+          [nowIso, expiresAt, user.id]
+        );
+
+        const auditId = `aud_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+        await pool.query(
+          `INSERT INTO trial_audit_log (id, user_id, phone_normalized, started_at, expires_at, created_at)
+           VALUES ($1, $2, $3, $4, $5, $4)
+           ON CONFLICT DO NOTHING`,
+          [auditId, user.id, phoneNormalized, nowIso, expiresAt]
+        );
+        await pool.query(
+          `UPDATE users SET trial_used = TRUE, trial_started_at = $1, trial_ended_at = $2 WHERE id = $3`,
+          [nowIso, expiresAt, user.id]
+        );
+
+        const updated = updateRes.rows[0] ? rowToSubscription(updateRes.rows[0]) : currentSub;
+        res.json({
+          ok: true,
+          subscription: updated,
+          message: 'Período de teste gratuito de 7 dias ativado com sucesso!',
+        });
+        return;
+      }
+
+      // Paid plans: Pro (299 MT / 2.870 MT) or Business (799 MT / 7.670 MT)
       let price = 0;
       if (plan === 'pro') {
-        price = billingCycle === 'yearly' ? 2490 : 299;
+        price = billingCycle === 'yearly' ? 2870 : 299;
       } else if (plan === 'business') {
-        price = billingCycle === 'yearly' ? 6990 : 799;
+        price = billingCycle === 'yearly' ? 7670 : 799;
       }
 
       const now = new Date();
       const nowIso = now.toISOString();
-      const expiresAt = new Date(now);
-      if (billingCycle === 'yearly') {
-        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-      } else {
-        expiresAt.setMonth(expiresAt.getMonth() + 1);
-      }
-
       const prefix = paymentMethod === 'emola' ? 'EM' : paymentMethod === 'card' ? 'CARD' : 'MP';
       const reference = `${prefix}-${Math.floor(100000 + Math.random() * 900000)}`;
 
-      const pool = getPool();
-      await ensureSubscription(user.id);
-
+      // Paid subscriptions require manual Admin approval!
       const updateRes = await pool.query(
         `UPDATE subscriptions
          SET plan = $1,
-             status = 'active',
+             status = 'pending_approval',
              billing_cycle = $2,
              price_paid = $3,
              payment_method = $4,
              payment_phone = $5,
              payment_reference = $6,
              started_at = $7,
-             expires_at = $8,
+             expires_at = NULL,
              updated_at = $7
-         WHERE user_id = $9
+         WHERE user_id = $8
          RETURNING *`,
         [
           plan,
@@ -1186,7 +1338,6 @@ export function createApiApp(): express.Express {
           rawPhone,
           reference,
           nowIso,
-          plan === 'free' ? null : expiresAt.toISOString(),
           user.id,
         ]
       );
@@ -1198,10 +1349,7 @@ export function createApiApp(): express.Express {
       res.json({
         ok: true,
         subscription: updated,
-        message:
-          plan === 'free'
-            ? 'Plano Gratuito ativo com sucesso.'
-            : `Assinatura ${plan.toUpperCase()} ativada com sucesso via ${paymentMethod.toUpperCase()} (Ref: ${reference})!`,
+        message: `Pedido de subscrição ${plan === 'pro' ? 'FinPro Pessoal' : 'FinPro Negócios'} enviado! Referência: ${reference}. A conta será ativada após conferência do pagamento pelo administrador.`,
       });
     })
   );
@@ -1301,6 +1449,7 @@ export function createApiApp(): express.Express {
                 COALESCE(s.billing_cycle, 'monthly') AS billing_cycle
          FROM users u
          LEFT JOIN subscriptions s ON u.id = s.user_id
+         WHERE COALESCE(u.is_admin, FALSE) = FALSE
          ORDER BY u.created_at DESC
          LIMIT 100`
       );
@@ -1770,80 +1919,6 @@ export function createApiApp(): express.Express {
     })
   );
 
-  // SaaS Admin: List all subscriptions & M-Pesa payments
-  app.get(
-    '/api/admin/subscriptions',
-    requireAuth,
-    requireAdmin,
-    asyncHandler(async (_req, res) => {
-      const pool = getPool();
-      const rows = await pool.query(
-        `SELECT s.id, s.user_id, s.plan, s.status, s.billing_cycle, s.currency, s.price_paid,
-                s.payment_method, s.payment_phone, s.payment_reference, s.started_at, s.expires_at,
-                u.name AS user_name, u.phone AS user_phone, u.email AS user_email
-         FROM subscriptions s
-         JOIN users u ON s.user_id = u.id
-         ORDER BY s.updated_at DESC
-         LIMIT 100`
-      );
-
-      const subscriptions = rows.rows.map((r) => ({
-        id: String(r.id),
-        targetId: String(r.user_id),
-        userName: String(r.user_name),
-        userPhone: String(r.user_phone),
-        userEmail: String(r.user_email ?? ''),
-        plan: String(r.plan),
-        status: String(r.status),
-        billingCycle: String(r.billing_cycle),
-        currency: String(r.currency),
-        pricePaid: Number(r.price_paid ?? 0),
-        paymentMethod: String(r.payment_method),
-        paymentPhone: String(r.payment_phone ?? ''),
-        paymentReference: String(r.payment_reference ?? ''),
-        startedAt: new Date(String(r.started_at)).toISOString(),
-        expiresAt: r.expires_at ? new Date(String(r.expires_at)).toISOString() : null,
-      }));
-
-      res.json({ ok: true, subscriptions });
-    })
-  );
-
-  // SaaS Admin: Approve M-Pesa / e-Mola Payment & Activate Plan
-  app.post(
-    '/api/admin/subscriptions/approve',
-    requireAuth,
-    requireAdmin,
-    asyncHandler(async (req, res) => {
-      const pool = getPool();
-      const targetId = String(req.body?.targetId ?? '').trim();
-      const plan = String(req.body?.plan ?? 'pro').toLowerCase();
-      const cycle = String(req.body?.billingCycle ?? 'monthly').toLowerCase();
-      const days = cycle === 'yearly' ? 365 : 30;
-
-      if (!targetId) {
-        res.status(400).json({ error: 'ID de utilizador alvo não informado.' });
-        return;
-      }
-
-      await ensureSubscription(targetId);
-      await pool.query(
-        `UPDATE subscriptions
-         SET plan = $1,
-             status = 'active',
-             billing_cycle = $2,
-             expires_at = NOW() + ($3 || ' days')::interval,
-             updated_at = NOW()
-         WHERE user_id = $4`,
-        [plan, cycle, String(days), targetId]
-      );
-
-      res.json({
-        ok: true,
-        message: `Pagamento aprovado! Plano ${plan.toUpperCase()} ativo por ${days} dias.`,
-      });
-    })
-  );
 
   // Public: Active Subscription Plans for Landing Page & Pricing
   app.get(

@@ -16,6 +16,7 @@ interface PricingModalProps {
   currency: CurrencyCode;
   onSubscriptionUpdated?: (updated: UserSubscription) => void;
   onNotify?: (msg: string) => void;
+  hasUsedTrial?: boolean;
 }
 
 export function PricingModal({
@@ -26,6 +27,7 @@ export function PricingModal({
   currency: _currency,
   onSubscriptionUpdated,
   onNotify,
+  hasUsedTrial,
 }: PricingModalProps) {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
@@ -42,6 +44,14 @@ export function PricingModal({
   if (!isOpen) return null;
 
   const currentPlan = currentSubscription?.plan ?? 'free';
+  const isTrialExpired =
+    Boolean(hasUsedTrial) ||
+    Boolean(currentSubscription?.trialUsed) ||
+    currentSubscription?.status === 'past_due' ||
+    Boolean(currentSubscription?.isTrialExpired) ||
+    (currentSubscription?.plan === 'free' &&
+      Boolean(currentSubscription.expiresAt) &&
+      new Date(currentSubscription.expiresAt!).getTime() < Date.now());
 
   const handleSelectPlan = (plan: SubscriptionPlan) => {
     setSelectedPlan(plan);
@@ -238,12 +248,25 @@ export function PricingModal({
 
                 <div className="pt-4">
                   <button
-                    className="w-full h-10 rounded-xl bg-surface-container-high text-on-surface text-[12.5px] font-semibold cursor-default opacity-80"
+                    className={`w-full h-10 rounded-xl text-[12.5px] font-semibold transition-all ${
+                      isTrialExpired
+                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200 border border-rose-300 dark:border-rose-800/60 cursor-not-allowed opacity-90'
+                        : 'bg-surface-container-high text-on-surface cursor-default opacity-80'
+                    }`}
                     disabled
                     type="button"
                   >
-                    {currentPlan === 'free' ? 'Plano Ativo' : 'Plano Básico'}
+                    {isTrialExpired
+                      ? 'Período de Teste Esgotado'
+                      : currentPlan === 'free'
+                        ? 'Plano Ativo (7 Dias)'
+                        : 'Plano Básico'}
                   </button>
+                  {isTrialExpired && (
+                    <p className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold mt-1.5 text-center">
+                      O teste gratuito de 7 dias expirou. Ative um plano abaixo para continuar.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -272,12 +295,12 @@ export function PricingModal({
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className="text-[26px] font-extrabold text-on-surface">
-                      {billingCycle === 'monthly' ? '299' : '207'}
+                      {billingCycle === 'monthly' ? '299' : '239'}
                     </span>
                     <span className="text-[12px] font-bold text-on-surface-variant">MT / mês</span>
                     {billingCycle === 'yearly' && (
                       <span className="text-[10px] text-secondary font-bold block">
-                        (2.490 MT / ano)
+                        (2.870 MT / ano)
                       </span>
                     )}
                   </div>
@@ -344,12 +367,12 @@ export function PricingModal({
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className="text-[26px] font-extrabold text-on-surface">
-                      {billingCycle === 'monthly' ? '799' : '582'}
+                      {billingCycle === 'monthly' ? '799' : '639'}
                     </span>
                     <span className="text-[12px] font-bold text-on-surface-variant">MT / mês</span>
                     {billingCycle === 'yearly' && (
                       <span className="text-[10px] text-secondary font-bold block">
-                        (6.990 MT / ano)
+                        (7.670 MT / ano)
                       </span>
                     )}
                   </div>
@@ -412,10 +435,10 @@ export function PricingModal({
                   <span className="text-[14px] font-bold text-primary tabular-nums">
                     {selectedPlan === 'pro'
                       ? billingCycle === 'yearly'
-                        ? '2.490,00 MT'
+                        ? '2.870,00 MT'
                         : '299,00 MT'
                       : billingCycle === 'yearly'
-                        ? '6.990,00 MT'
+                        ? '7.670,00 MT'
                         : '799,00 MT'}
                   </span>
                 </div>

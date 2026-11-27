@@ -874,6 +874,7 @@ export default function App() {
           authToken={authToken}
           currency={currency}
           currentSubscription={subscription}
+          hasUsedTrial={isTrialExpired || Boolean(currentUser?.trialUsed)}
           isOpen={pricingModalOpen}
           onClose={() => setPricingModalOpen(false)}
           onNotify={showToast}
@@ -1430,6 +1431,7 @@ export default function App() {
           authToken={authToken}
           currentSubscription={subscription}
           currency={currency}
+          hasUsedTrial={isTrialExpired || Boolean(currentUser?.trialUsed)}
           isOpen={pricingModalOpen}
           onClose={() => setPricingModalOpen(false)}
           onNotify={showToast}

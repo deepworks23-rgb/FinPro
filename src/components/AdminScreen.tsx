@@ -1611,7 +1611,7 @@ export function AdminScreen({
                 <div className="p-4 rounded-[10px] bg-surface-container-lowest border border-surface-container">
                   <div className="flex items-center justify-between pb-2 border-b border-surface-container">
                     <span className="font-bold text-[13.5px] text-on-surface">Plano FinPro Pessoal</span>
-                    <span className="text-[11px] font-bold text-primary">499 MT / mês</span>
+                    <span className="text-[11px] font-bold text-primary">299 MT / mês</span>
                   </div>
                   <div className="mt-3 space-y-1.5 text-[12px]">
                     <div className="flex justify-between">
@@ -1620,11 +1620,11 @@ export function AdminScreen({
                     </div>
                     <div className="flex justify-between">
                       <span className="text-on-surface-variant">Faturamento Mensal:</span>
-                      <span className="font-bold text-on-surface">{formatMoney((stats?.proUsersCount || 0) * 499, currency)}</span>
+                      <span className="font-bold text-on-surface">{formatMoney((stats?.proUsersCount || 0) * 299, currency)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-on-surface-variant">Faturamento Anualizado:</span>
-                      <span className="font-bold text-on-surface">{formatMoney((stats?.proUsersCount || 0) * 499 * 12, currency)}</span>
+                      <span className="font-bold text-on-surface">{formatMoney((stats?.proUsersCount || 0) * 299 * 12, currency)}</span>
                     </div>
                   </div>
                 </div>
@@ -1632,7 +1632,7 @@ export function AdminScreen({
                 <div className="p-4 rounded-[10px] bg-surface-container-lowest border border-surface-container">
                   <div className="flex items-center justify-between pb-2 border-b border-surface-container">
                     <span className="font-bold text-[13.5px] text-on-surface">Plano FinPro Negócios</span>
-                    <span className="text-[11px] font-bold text-primary">1.499 MT / mês</span>
+                    <span className="text-[11px] font-bold text-primary">799 MT / mês</span>
                   </div>
                   <div className="mt-3 space-y-1.5 text-[12px]">
                     <div className="flex justify-between">
@@ -1641,11 +1641,11 @@ export function AdminScreen({
                     </div>
                     <div className="flex justify-between">
                       <span className="text-on-surface-variant">Faturamento Mensal:</span>
-                      <span className="font-bold text-on-surface">{formatMoney((stats?.businessUsersCount || 0) * 1499, currency)}</span>
+                      <span className="font-bold text-on-surface">{formatMoney((stats?.businessUsersCount || 0) * 799, currency)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-on-surface-variant">Faturamento Anualizado:</span>
-                      <span className="font-bold text-on-surface">{formatMoney((stats?.businessUsersCount || 0) * 1499 * 12, currency)}</span>
+                      <span className="font-bold text-on-surface">{formatMoney((stats?.businessUsersCount || 0) * 799 * 12, currency)}</span>
                     </div>
                   </div>
                 </div>

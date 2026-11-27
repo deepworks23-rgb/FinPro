@@ -26,6 +26,7 @@ export interface UserProfile {
   isDemo: boolean;
   isAdmin?: boolean;
   isSuspended?: boolean;
+  trialUsed?: boolean;
   hasPassword: boolean;
   createdAt: string;
 }
@@ -144,6 +145,7 @@ export interface UserSubscription {
   expiresAt: string | null;
   createdAt: string;
   updatedAt: string;
+  trialUsed?: boolean;
   isTrialExpired?: boolean;
   daysRemaining?: number;
 }
