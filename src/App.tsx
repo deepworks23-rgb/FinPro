@@ -38,6 +38,7 @@ import {
   syncBudgetsWithTransactions,
   toLocalISODate,
 } from './utils/finance';
+import { pathToScreen, syncBrowserPath } from './utils/router';
 
 function makeEntityId(prefix: string): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -79,9 +80,21 @@ export default function App() {
     Boolean(readStoredToken())
   );
 
-  const [screen, setScreen] = useState<AppScreen>('landing');
+  const [screen, setScreen] = useState<AppScreen>(() =>
+    typeof window !== 'undefined' ? pathToScreen(window.location.pathname) : 'landing'
+  );
   const [previousScreen, setPreviousScreen] = useState<AppScreen>('dashboard-inicio');
   const [nowTick, setNowTick] = useState<Date>(() => new Date());
+
+  // Listen to browser Back / Forward buttons and sync screen state
+  useEffect(() => {
+    const handlePopState = () => {
+      const nextScreen = pathToScreen(window.location.pathname);
+      setScreen(nextScreen);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Authenticated workspace state
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -207,8 +220,18 @@ export default function App() {
   // Restore persisted session on page load via /api/auth/me
   useEffect(() => {
     const savedToken = readStoredToken();
+    const initialPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+    const initialScreen = pathToScreen(initialPath);
+
     if (!savedToken) {
       setIsRestoringSession(false);
+      if (initialScreen === 'landing' || initialScreen === 'login') {
+        setScreen(initialScreen);
+        syncBrowserPath(initialScreen, true);
+      } else {
+        setScreen('login');
+        syncBrowserPath('login', true);
+      }
       return;
     }
 
@@ -220,14 +243,28 @@ export default function App() {
         setAuthToken(savedToken);
         setCurrentUser(res.user);
         applyWorkspace(res.workspace);
-        setScreen('dashboard-inicio');
         setPreviousScreen('dashboard-inicio');
+
+        if (initialScreen === 'login') {
+          setScreen('dashboard-inicio');
+          syncBrowserPath('dashboard-inicio', true);
+        } else {
+          setScreen(initialScreen);
+          syncBrowserPath(initialScreen, true);
+        }
       })
       .catch(() => {
         if (cancelled) return;
         clearStoredToken();
         setAuthToken(null);
         setCurrentUser(null);
+        if (initialScreen !== 'landing') {
+          setScreen('login');
+          syncBrowserPath('login', true);
+        } else {
+          setScreen('landing');
+          syncBrowserPath('landing', true);
+        }
       })
       .finally(() => {
         if (!cancelled) {
@@ -266,9 +303,19 @@ export default function App() {
       setAuthToken(auth.token);
       setCurrentUser(auth.user);
       applyWorkspace(auth.workspace);
-      setScreen('dashboard-inicio');
       setPreviousScreen('dashboard-inicio');
       window.scrollTo({ top: 0, behavior: 'instant' });
+
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+      const requestedScreen = pathToScreen(currentPath);
+      const targetScreen =
+        (auth.user.isAdmin || auth.user.isDemo) && requestedScreen === 'admin'
+          ? 'admin'
+          : 'dashboard-inicio';
+
+      setScreen(targetScreen);
+      syncBrowserPath(targetScreen, true);
+
       if (mode === 'register') {
         showToast(`Bem-vindo(a), ${auth.user.name.split(' ')[0]}!`);
       } else {
@@ -302,6 +349,7 @@ export default function App() {
     setTxModalOpen(false);
     setEditingTx(null);
     setScreen('login');
+    syncBrowserPath('login', true);
     window.scrollTo({ top: 0, behavior: 'instant' });
     showToast('Sessão terminada.');
   }, [authToken, showToast]);
@@ -360,13 +408,16 @@ export default function App() {
   );
 
   const navigateTo = useCallback(
-    (next: AppScreen) => {
+    (next: AppScreen, replace = false) => {
       if (next !== screen) {
         if (next === 'perfil' && screen !== 'login') {
           setPreviousScreen(screen);
         }
         setScreen(next);
+        syncBrowserPath(next, replace);
         window.scrollTo({ top: 0, behavior: 'instant' });
+      } else {
+        syncBrowserPath(next, true);
       }
     },
     [screen]
@@ -585,26 +636,35 @@ export default function App() {
   }, [transactions.length, alertSettings, summary.netBalance]);
 
   const isAuthenticated = Boolean(authToken && currentUser);
-  const activeScreen: AppScreen = isAuthenticated
-    ? screen
-    : screen === 'login'
-      ? 'login'
-      : 'landing';
+  const activeScreen: AppScreen = screen;
 
-  // If viewing Landing Page, render full public landing page
-  if (!isRestoringSession && activeScreen === 'landing') {
+  // 0. Loading Screen while restoring session token
+  if (isRestoringSession) {
+    return (
+      <div className="min-h-screen w-full bg-surface flex flex-col items-center justify-center gap-3 p-6 text-center text-on-surface">
+        <div className="w-12 h-12 rounded-2xl bg-primary text-on-primary flex items-center justify-center shadow-lg shadow-primary/25 animate-pulse">
+          <AppIcon name="account_balance_wallet" className="text-[26px]" filled />
+        </div>
+        <div className="w-8 h-8 rounded-full border-3 border-primary/20 border-t-primary animate-spin mt-2" />
+        <p className="text-[13px] font-medium text-on-surface-variant">A carregar o FinTrack...</p>
+      </div>
+    );
+  }
+
+  // 1. ÁREA PÚBLICA: Landing Page de Marketing & Vendas
+  if (activeScreen === 'landing') {
     return (
       <>
         <LandingPage
           isAuthenticated={isAuthenticated}
-          onGoToDashboard={() => setScreen('dashboard-inicio')}
-          onGoToLogin={() => setScreen('login')}
-          onGoToRegister={() => setScreen('login')}
+          onGoToDashboard={() => navigateTo('dashboard-inicio')}
+          onGoToLogin={() => navigateTo('login')}
+          onGoToRegister={() => navigateTo('login')}
           onSelectPlan={() => {
             if (isAuthenticated) {
               setPricingModalOpen(true);
             } else {
-              setScreen('login');
+              navigateTo('login');
               setPricingModalOpen(true);
             }
           }}
@@ -617,8 +677,142 @@ export default function App() {
           onClose={() => setPricingModalOpen(false)}
           onNotify={showToast}
         />
+        {toastMsg && (
+          <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-inverse-surface text-inverse-on-surface px-4 py-2.5 rounded-xl shadow-lg text-[13px] font-medium flex items-center gap-2 animate-fade-in pointer-events-none">
+            <AppIcon name="info" className="text-[17px] text-primary" />
+            <span>{toastMsg}</span>
+          </div>
+        )}
       </>
     );
+  }
+
+  // 2. ÁREA DE AUTENTICAÇÃO: Login & Cadastro
+  if (activeScreen === 'login') {
+    if (isAuthenticated) {
+      navigateTo('dashboard-inicio', true);
+      return null;
+    }
+    return (
+      <div className="min-h-screen w-full bg-surface-container-low/40 flex items-center justify-center p-3 sm:p-6 text-on-surface">
+        <LoginScreen
+          onAuthenticated={handleAuthenticated}
+          onGoToLanding={() => navigateTo('landing')}
+          onOpenPricing={() => setPricingModalOpen(true)}
+        />
+        {toastMsg && (
+          <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-inverse-surface text-inverse-on-surface px-4 py-2.5 rounded-xl shadow-lg text-[13px] font-medium flex items-center gap-2 animate-fade-in pointer-events-none">
+            <AppIcon name="info" className="text-[17px] text-primary" />
+            <span>{toastMsg}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 3. ÁREA ADMINISTRATIVA: Painel Backoffice SaaS
+  if (activeScreen === 'admin') {
+    if (!isAuthenticated || !authToken || !currentUser) {
+      return (
+        <div className="min-h-screen w-full bg-surface-container-low/40 flex items-center justify-center p-4 text-on-surface">
+          <div className="max-w-md w-full bg-surface-container-lowest p-6 rounded-2xl shadow-xl border border-surface-container text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-primary text-on-primary mx-auto flex items-center justify-center shadow-md shadow-primary/20">
+              <AppIcon name="admin_panel_settings" className="text-[30px]" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-[19px] font-bold text-on-surface">Acesso ao Painel Admin SaaS</h2>
+              <p className="text-[13px] text-on-surface-variant leading-relaxed">
+                Inicie sessão com uma conta de administrador para gerir métricas (MRR), utilizadores e subscrições.
+              </p>
+            </div>
+            <div className="space-y-2 pt-2">
+              <button
+                className="w-full h-11 rounded-xl bg-primary text-on-primary font-bold text-[13.5px] flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:bg-primary-container"
+                onClick={() => navigateTo('login')}
+                type="button"
+              >
+                <AppIcon name="login" className="text-[19px]" />
+                <span>Entrar como Administrador</span>
+              </button>
+              <button
+                className="w-full h-10 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-[13px] flex items-center justify-center gap-1.5 cursor-pointer"
+                onClick={() => navigateTo('landing')}
+                type="button"
+              >
+                <AppIcon name="public" className="text-[17px] text-primary" />
+                <span>Voltar à Página Pública</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (!currentUser?.isAdmin && !currentUser?.isDemo) {
+      return (
+        <div className="min-h-screen w-full bg-surface-container-low/40 flex items-center justify-center p-4 text-on-surface">
+          <div className="max-w-md w-full bg-surface-container-lowest p-6 rounded-2xl shadow-xl border border-error/25 text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-error-container text-on-error-container mx-auto flex items-center justify-center">
+              <AppIcon name="lock" className="text-[30px]" />
+            </div>
+            <div className="space-y-1">
+              <span className="px-2.5 py-0.5 rounded-full bg-error-container text-on-error-container font-mono text-[11px] font-bold">
+                Erro 403 · Acesso Não Autorizado
+              </span>
+              <h2 className="text-[19px] font-bold text-on-surface pt-2">Área Administrativa Restrita</h2>
+            </div>
+            <p className="text-[13px] text-on-surface-variant leading-relaxed">
+              A sua conta ({currentUser?.email || currentUser?.phone}) não possui permissões administrativas na plataforma FinTrack.
+            </p>
+            <div className="space-y-2 pt-2">
+              <button
+                className="w-full h-11 rounded-xl bg-primary text-on-primary font-bold text-[13.5px] flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:bg-primary-container"
+                onClick={() => navigateTo('dashboard-inicio')}
+                type="button"
+              >
+                <AppIcon name="dashboard" className="text-[19px]" />
+                <span>Voltar ao Meu Painel Financeiro (/app)</span>
+              </button>
+              <button
+                className="w-full h-10 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-[12.5px] flex items-center justify-center gap-1.5 cursor-pointer"
+                onClick={() => void handleLogout()}
+                type="button"
+              >
+                <AppIcon name="logout" className="text-[17px]" />
+                <span>Terminar Sessão e Trocar de Conta</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen w-full bg-surface-container-low/30 flex flex-col text-on-surface">
+        <main className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <AdminScreen
+            authToken={authToken}
+            currency={currency}
+            onLogout={handleLogout}
+            onNavigateToApp={() => navigateTo('dashboard-inicio')}
+            onNavigateToLanding={() => navigateTo('landing')}
+            onNotify={showToast}
+          />
+        </main>
+        {toastMsg && (
+          <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-inverse-surface text-inverse-on-surface px-4 py-2.5 rounded-xl shadow-lg text-[13px] font-medium flex items-center gap-2 animate-fade-in pointer-events-none">
+            <AppIcon name="info" className="text-[17px] text-primary" />
+            <span>{toastMsg}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 4. ÁREA DO APLICATIVO DO CLIENTE (/app/*): Requer Login
+  if (!isAuthenticated || !authToken || !currentUser) {
+    navigateTo('login', true);
+    return null;
   }
 
   return (
@@ -700,29 +894,7 @@ export default function App() {
           />
         )}
 
-        <main
-          className={`flex-1 w-full max-w-[440px] md:max-w-none mx-auto md:mx-0 flex flex-col md:overflow-y-auto ${
-            activeScreen === 'login'
-              ? 'p-0 justify-center items-center'
-              : 'pt-18 md:pt-6 px-3 md:px-6 lg:px-8 pb-24 md:pb-8'
-          }`}
-        >
-          {isRestoringSession ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-              <div className="w-10 h-10 rounded-full border-3 border-primary/20 border-t-primary animate-spin" />
-              <p className="text-[13px] font-medium text-on-surface-variant">
-                A restaurar sessão...
-              </p>
-            </div>
-          ) : (
-            activeScreen === 'login' && (
-              <LoginScreen
-                onAuthenticated={handleAuthenticated}
-                onGoToLanding={() => setScreen('landing')}
-                onOpenPricing={() => setPricingModalOpen(true)}
-              />
-            )
-          )}
+        <main className="flex-1 w-full max-w-[440px] md:max-w-none mx-auto md:mx-0 flex flex-col md:overflow-y-auto pt-18 md:pt-6 px-3 md:px-6 lg:px-8 pb-24 md:pb-8">
 
           {isAuthenticated && activeScreen === 'dashboard-inicio' && (
             <DashboardScreen
@@ -801,14 +973,6 @@ export default function App() {
               onUpdateProfile={handleUpdateProfile}
               subscription={subscription}
               user={currentUser}
-            />
-          )}
-
-          {isAuthenticated && activeScreen === 'admin' && currentUser && authToken && (
-            <AdminScreen
-              authToken={authToken}
-              currency={currency}
-              onNotify={showToast}
             />
           )}
         </main>

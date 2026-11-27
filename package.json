@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx --test src/utils/finance.test.ts && tsx --test rateLimit.test.ts",
+    "test": "tsx --test src/utils/finance.test.ts && tsx --test rateLimit.test.ts && tsx --test src/utils/router.test.ts",
     "fences": "node --test fences/fences-have-owner-and-review-date.test.ts fences/migrations-are-timestamped-and-unique.test.ts fences/no-secrets-in-tracked-files.test.ts fences/docs-point-to-existing-files.test.ts fences/tests-no-real-clock.test.ts fences/user-isolation-routes.test.ts",
     "check": "npm run lint && npm run test && npm run fences && npm run build"
   },

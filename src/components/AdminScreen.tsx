@@ -14,9 +14,19 @@ interface AdminScreenProps {
   authToken: string;
   currency: CurrencyCode;
   onNotify: (msg: string) => void;
+  onNavigateToApp?: () => void;
+  onNavigateToLanding?: () => void;
+  onLogout?: () => Promise<void>;
 }
 
-export function AdminScreen({ authToken, currency, onNotify }: AdminScreenProps) {
+export function AdminScreen({
+  authToken,
+  currency,
+  onNotify,
+  onNavigateToApp,
+  onNavigateToLanding,
+  onLogout,
+}: AdminScreenProps) {
   const [activeTab, setActiveTab] = useState<'users' | 'tickets' | 'settings'>('users');
   const [stats, setStats] = useState<AdminOverviewStats | null>(null);
   const [users, setUsers] = useState<AdminUserItem[]>([]);
@@ -114,14 +124,49 @@ export function AdminScreen({ authToken, currency, onNotify }: AdminScreenProps)
           </div>
         </div>
 
-        <button
-          className="h-10 px-4 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-[12.5px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto shrink-0"
-          onClick={loadData}
-          type="button"
-        >
-          <AppIcon name="refresh" className={`text-[17px] ${loading ? 'animate-spin' : ''}`} />
-          <span>Atualizar Dados</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
+          {onNavigateToApp && (
+            <button
+              className="h-10 px-3.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary text-[12.5px] font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+              onClick={onNavigateToApp}
+              type="button"
+            >
+              <AppIcon name="dashboard" className="text-[17px]" />
+              <span>Voltar ao App</span>
+            </button>
+          )}
+
+          {onNavigateToLanding && (
+            <button
+              className="h-10 px-3 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-[12.5px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              onClick={onNavigateToLanding}
+              type="button"
+            >
+              <AppIcon name="public" className="text-[17px] text-primary" />
+              <span className="hidden sm:inline">Site Público</span>
+            </button>
+          )}
+
+          <button
+            className="h-10 px-3.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-[12.5px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            onClick={loadData}
+            type="button"
+          >
+            <AppIcon name="refresh" className={`text-[17px] ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Atualizar</span>
+          </button>
+
+          {onLogout && (
+            <button
+              className="h-10 px-3 rounded-xl bg-error-container/70 hover:bg-error-container text-tertiary text-[12.5px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              onClick={() => void onLogout()}
+              type="button"
+            >
+              <AppIcon name="logout" className="text-[17px]" />
+              <span className="hidden sm:inline">Sair</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {errorMsg && (
