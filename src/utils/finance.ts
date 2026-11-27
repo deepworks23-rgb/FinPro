@@ -6,7 +6,9 @@ import type {
   BudgetCategory,
   CurrencyCode,
   FinancialGoal,
+  PlanLimits,
   RealTimeAlert,
+  SubscriptionPlan,
   Transaction,
 } from '../types/finance';
 
@@ -1123,4 +1125,50 @@ export function getUserInitials(name: string): string {
   if (parts.length === 0) return 'FT';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+export const SAAS_PLAN_LIMITS: Record<SubscriptionPlan, PlanLimits> = {
+  free: {
+    maxTransactionsPerMonth: 25,
+    maxBudgets: 3,
+    maxGoals: 2,
+    canExportPdf: true,
+    canExportCsv: true,
+    multiCurrency: false,
+    prioritySupport: false,
+  },
+  pro: {
+    maxTransactionsPerMonth: 999999,
+    maxBudgets: 999999,
+    maxGoals: 999999,
+    canExportPdf: true,
+    canExportCsv: true,
+    multiCurrency: true,
+    prioritySupport: true,
+  },
+  business: {
+    maxTransactionsPerMonth: 999999,
+    maxBudgets: 999999,
+    maxGoals: 999999,
+    canExportPdf: true,
+    canExportCsv: true,
+    multiCurrency: true,
+    prioritySupport: true,
+  },
+};
+
+export function canAddTransactionUnderPlan(
+  transactionsThisMonth: number,
+  plan: SubscriptionPlan = 'free'
+): boolean {
+  const limits = SAAS_PLAN_LIMITS[plan] ?? SAAS_PLAN_LIMITS.free;
+  return transactionsThisMonth < limits.maxTransactionsPerMonth;
+}
+
+export function canAddBudgetUnderPlan(
+  currentBudgetsCount: number,
+  plan: SubscriptionPlan = 'free'
+): boolean {
+  const limits = SAAS_PLAN_LIMITS[plan] ?? SAAS_PLAN_LIMITS.free;
+  return currentBudgetsCount < limits.maxBudgets;
 }

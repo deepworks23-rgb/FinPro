@@ -1,4 +1,10 @@
-import type { SupportTicket, UserProfile, UserWorkspacePayload } from '../types/finance';
+import type {
+  SubscriptionResponse,
+  SupportTicket,
+  UserProfile,
+  UserSubscription,
+  UserWorkspacePayload,
+} from '../types/finance';
 
 export interface AuthResponse {
   token: string;
@@ -142,4 +148,30 @@ export const authApi = {
       method: 'GET',
       token,
     }),
+};
+
+export const subscriptionApi = {
+  getSubscription: (token: string) =>
+    apiRequest<SubscriptionResponse>('/api/subscription', {
+      method: 'GET',
+      token,
+    }),
+
+  upgradeSubscription: (
+    token: string,
+    data: {
+      plan: 'free' | 'pro' | 'business';
+      paymentMethod: string;
+      phone: string;
+      billingCycle?: 'monthly' | 'yearly';
+    }
+  ) =>
+    apiRequest<{ ok: boolean; subscription: UserSubscription; message: string }>(
+      '/api/subscription/upgrade',
+      {
+        method: 'POST',
+        token,
+        body: data,
+      }
+    ),
 };

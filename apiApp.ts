@@ -45,6 +45,66 @@ interface StoredSupportTicket {
   createdAt: string;
 }
 
+export type SubscriptionPlan = 'free' | 'pro' | 'business';
+export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled';
+
+export interface StoredSubscription {
+  id: string;
+  userId: string;
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  billingCycle: 'monthly' | 'yearly';
+  currency: 'MZN' | 'USD';
+  pricePaid: number;
+  paymentMethod: string;
+  paymentPhone: string;
+  paymentReference: string;
+  startedAt: string;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlanLimits {
+  maxTransactionsPerMonth: number;
+  maxBudgets: number;
+  maxGoals: number;
+  canExportPdf: boolean;
+  canExportCsv: boolean;
+  multiCurrency: boolean;
+  prioritySupport: boolean;
+}
+
+export const PLAN_LIMITS: Record<SubscriptionPlan, PlanLimits> = {
+  free: {
+    maxTransactionsPerMonth: 25,
+    maxBudgets: 3,
+    maxGoals: 2,
+    canExportPdf: true,
+    canExportCsv: true,
+    multiCurrency: false,
+    prioritySupport: false,
+  },
+  pro: {
+    maxTransactionsPerMonth: 999999,
+    maxBudgets: 999999,
+    maxGoals: 999999,
+    canExportPdf: true,
+    canExportCsv: true,
+    multiCurrency: true,
+    prioritySupport: true,
+  },
+  business: {
+    maxTransactionsPerMonth: 999999,
+    maxBudgets: 999999,
+    maxGoals: 999999,
+    canExportPdf: true,
+    canExportCsv: true,
+    multiCurrency: true,
+    prioritySupport: true,
+  },
+};
+
 interface AlertSettingsShape {
   lowBalanceThreshold: number;
   negativeAlertThreshold: number;
@@ -147,6 +207,62 @@ function rowToSupportTicket(row: Record<string, unknown>): StoredSupportTicket {
     message: String(row.message),
     status: 'aberto',
     createdAt: new Date(String(row.created_at)).toISOString(),
+  };
+}
+
+function rowToSubscription(row: Record<string, unknown>): StoredSubscription {
+  return {
+    id: String(row.id),
+    userId: String(row.user_id),
+    plan: (row.plan === 'pro' || row.plan === 'business' ? row.plan : 'free') as SubscriptionPlan,
+    status: (row.status === 'canceled' || row.status === 'past_due' || row.status === 'trialing'
+      ? row.status
+      : 'active') as SubscriptionStatus,
+    billingCycle: row.billing_cycle === 'yearly' ? 'yearly' : 'monthly',
+    currency: row.currency === 'USD' ? 'USD' : 'MZN',
+    pricePaid: Number(row.price_paid ?? 0),
+    paymentMethod: String(row.payment_method ?? 'free'),
+    paymentPhone: String(row.payment_phone ?? ''),
+    paymentReference: String(row.payment_reference ?? ''),
+    startedAt: new Date(String(row.started_at)).toISOString(),
+    expiresAt: row.expires_at ? new Date(String(row.expires_at)).toISOString() : null,
+    createdAt: new Date(String(row.created_at)).toISOString(),
+    updatedAt: new Date(String(row.updated_at)).toISOString(),
+  };
+}
+
+async function ensureSubscription(userId: string): Promise<StoredSubscription> {
+  const pool = getPool();
+  const defaultSubId = `sub_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+  const nowIso = new Date().toISOString();
+
+  await pool.query(
+    `INSERT INTO subscriptions (
+      id, user_id, plan, status, billing_cycle, currency, price_paid, payment_method, payment_phone, payment_reference, started_at, expires_at, created_at, updated_at
+    ) VALUES ($1, $2, 'free', 'active', 'monthly', 'MZN', 0, 'free', '', '', $3, NULL, $3, $3)
+    ON CONFLICT (user_id) DO NOTHING`,
+    [defaultSubId, userId, nowIso]
+  );
+
+  const res = await pool.query(`SELECT * FROM subscriptions WHERE user_id = $1`, [userId]);
+  if (res.rows[0]) {
+    return rowToSubscription(res.rows[0]);
+  }
+  return {
+    id: defaultSubId,
+    userId,
+    plan: 'free',
+    status: 'active',
+    billingCycle: 'monthly',
+    currency: 'MZN',
+    pricePaid: 0,
+    paymentMethod: 'free',
+    paymentPhone: '',
+    paymentReference: '',
+    startedAt: nowIso,
+    expiresAt: null,
+    createdAt: nowIso,
+    updatedAt: nowIso,
   };
 }
 
@@ -920,6 +1036,122 @@ export function createApiApp(): express.Express {
         [user.id]
       );
       res.json({ tickets: ticketsRes.rows.map(rowToSupportTicket) });
+    })
+  );
+
+  // Get current user's subscription and SaaS limits
+  app.get(
+    '/api/subscription',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const user = req.authUser!;
+      const subscription = await ensureSubscription(user.id);
+      const ws = await ensureWorkspace(user.id);
+
+      const now = new Date();
+      const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const transactions = Array.isArray(ws.transactions)
+        ? (ws.transactions as Array<{ date?: string }>)
+        : [];
+      const transactionsThisMonth = transactions.filter(
+        (t) => typeof t.date === 'string' && t.date.startsWith(currentYearMonth)
+      ).length;
+
+      const limits = PLAN_LIMITS[subscription.plan] ?? PLAN_LIMITS.free;
+
+      res.json({
+        ok: true,
+        subscription,
+        limits,
+        usage: {
+          transactionsThisMonth,
+          budgetsCount: Array.isArray(ws.budgets) ? ws.budgets.length : 0,
+          goalsCount: Array.isArray(ws.goals) ? ws.goals.length : 0,
+        },
+      });
+    })
+  );
+
+  // Upgrade or change subscription plan (SaaS Checkout)
+  app.post(
+    '/api/subscription/upgrade',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const user = req.authUser!;
+      const rawPlan = req.body?.plan;
+      const paymentMethod = String(req.body?.paymentMethod ?? 'mpesa').toLowerCase();
+      const rawPhone = String(req.body?.phone ?? user.phone ?? '').trim();
+      const billingCycle = req.body?.billingCycle === 'yearly' ? 'yearly' : 'monthly';
+
+      if (rawPlan !== 'pro' && rawPlan !== 'business' && rawPlan !== 'free') {
+        res.status(400).json({
+          error: 'Plano inválido selecionado. Opções válidas: free, pro, business.',
+        });
+        return;
+      }
+
+      const plan: SubscriptionPlan = rawPlan;
+      let price = 0;
+      if (plan === 'pro') {
+        price = billingCycle === 'yearly' ? 2490 : 299;
+      } else if (plan === 'business') {
+        price = billingCycle === 'yearly' ? 6990 : 799;
+      }
+
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const expiresAt = new Date(now);
+      if (billingCycle === 'yearly') {
+        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+      } else {
+        expiresAt.setMonth(expiresAt.getMonth() + 1);
+      }
+
+      const prefix = paymentMethod === 'emola' ? 'EM' : paymentMethod === 'card' ? 'CARD' : 'MP';
+      const reference = `${prefix}-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      const pool = getPool();
+      await ensureSubscription(user.id);
+
+      const updateRes = await pool.query(
+        `UPDATE subscriptions
+         SET plan = $1,
+             status = 'active',
+             billing_cycle = $2,
+             price_paid = $3,
+             payment_method = $4,
+             payment_phone = $5,
+             payment_reference = $6,
+             started_at = $7,
+             expires_at = $8,
+             updated_at = $7
+         WHERE user_id = $9
+         RETURNING *`,
+        [
+          plan,
+          billingCycle,
+          price,
+          paymentMethod,
+          rawPhone,
+          reference,
+          nowIso,
+          plan === 'free' ? null : expiresAt.toISOString(),
+          user.id,
+        ]
+      );
+
+      const updated = updateRes.rows[0]
+        ? rowToSubscription(updateRes.rows[0])
+        : await ensureSubscription(user.id);
+
+      res.json({
+        ok: true,
+        subscription: updated,
+        message:
+          plan === 'free'
+            ? 'Plano Gratuito ativo com sucesso.'
+            : `Assinatura ${plan.toUpperCase()} ativada com sucesso via ${paymentMethod.toUpperCase()} (Ref: ${reference})!`,
+      });
     })
   );
 

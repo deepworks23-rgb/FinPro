@@ -1,7 +1,12 @@
 import { AppIcon } from './AppIcon';
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { authApi } from '../services/api';
-import type { CurrencyCode, SupportTicket, UserProfile } from '../types/finance';
+import type {
+  CurrencyCode,
+  SupportTicket,
+  UserProfile,
+  UserSubscription,
+} from '../types/finance';
 import { getUserInitials, isValidEmail, isValidPhoneMZ } from '../utils/finance';
 import type { ConfirmDialogRequest } from './ConfirmDialog';
 
@@ -26,6 +31,8 @@ interface ProfileScreenProps {
   onLogout: () => Promise<void>;
   onRequestConfirm: (req: ConfirmDialogRequest) => void;
   onNotify: (msg: string) => void;
+  subscription?: UserSubscription | null;
+  onOpenPricing?: () => void;
 }
 
 async function compressImageToDataUrl(file: File): Promise<string> {
@@ -61,6 +68,8 @@ export function ProfileScreen({
   user,
   authToken,
   currency,
+  subscription,
+  onOpenPricing,
   onChangeCurrency,
   onUpdateProfile,
   onChangePassword,
@@ -387,6 +396,47 @@ export function ProfileScreen({
             </button>
           )}
         </div>
+      </section>
+
+      {/* SaaS Subscription Card */}
+      <section className="p-3.5 rounded-2xl bg-surface-container-lowest shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-primary/20">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <AppIcon name="workspace_premium" className="text-[26px]" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[14.5px] font-bold text-on-surface">
+                Plano {subscription?.plan === 'business' ? 'FinPro Negócios 💼' : subscription?.plan === 'pro' ? 'FinPro Pessoal ⭐' : 'Gratuito'}
+              </span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                  subscription?.plan === 'business'
+                    ? 'bg-amber-100 text-amber-900'
+                    : subscription?.plan === 'pro'
+                      ? 'bg-primary-fixed text-primary'
+                      : 'bg-surface-container text-on-surface-variant'
+                }`}
+              >
+                {subscription?.status === 'active' ? 'Ativo' : 'Básico'}
+              </span>
+            </div>
+            <p className="text-[11.5px] text-on-surface-variant mt-0.5">
+              {subscription?.plan === 'free'
+                ? 'Limite de 25 transações/mês. Faça upgrade para lançamentos ilimitados e relatórios avançados.'
+                : `Cobrança ${subscription?.billingCycle === 'yearly' ? 'Anual (-20% OFF)' : 'Mensal'} via ${subscription?.paymentMethod?.toUpperCase() ?? 'M-Pesa'}.`}
+            </p>
+          </div>
+        </div>
+
+        <button
+          className="h-10 px-4 rounded-xl bg-primary hover:bg-primary-container text-on-primary text-[12.5px] font-semibold transition-all cursor-pointer shadow-sm shrink-0 whitespace-nowrap self-stretch sm:self-auto flex items-center justify-center gap-1.5"
+          onClick={onOpenPricing}
+          type="button"
+        >
+          <AppIcon name="stars" className="text-[17px]" />
+          <span>{subscription?.plan === 'free' ? 'Fazer Upgrade PRO' : 'Gerir Plano'}</span>
+        </button>
       </section>
 
       {/* Linha Responsiva: Dados do Perfil & Segurança */}

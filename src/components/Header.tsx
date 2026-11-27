@@ -1,6 +1,6 @@
 import { AppIcon } from './AppIcon';
 import { useEffect, useMemo, useState } from 'react';
-import type { AppScreen, CurrencyCode } from '../types/finance';
+import type { AppScreen, CurrencyCode, SubscriptionPlan } from '../types/finance';
 import { formatHeaderDateLabel, getUserInitials } from '../utils/finance';
 
 interface HeaderProps {
@@ -8,6 +8,8 @@ interface HeaderProps {
   userName: string;
   avatarUrl?: string;
   currency: CurrencyCode;
+  subscriptionPlan?: SubscriptionPlan;
+  onOpenPricing?: () => void;
   now?: Date;
   onChangeCurrency: (next: CurrencyCode) => void;
   onBack: () => void;
@@ -33,6 +35,8 @@ export function Header({
   userName,
   avatarUrl = '',
   currency,
+  subscriptionPlan = 'free',
+  onOpenPricing,
   now = new Date(),
   onChangeCurrency,
   onBack,
@@ -76,6 +80,28 @@ export function Header({
           </div>
 
           <div className="flex items-center gap-3">
+            {/* SaaS Subscription Badge */}
+            <button
+              className={`h-9 px-3 rounded-xl flex items-center gap-1.5 text-[11.5px] font-bold transition-all cursor-pointer shadow-xs ${
+                subscriptionPlan === 'business'
+                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                  : subscriptionPlan === 'pro'
+                    ? 'bg-primary-fixed text-primary border border-primary/20'
+                    : 'bg-surface-container-low text-on-surface hover:bg-surface-container'
+              }`}
+              onClick={onOpenPricing}
+              type="button"
+            >
+              <AppIcon name="workspace_premium" className="text-[16px]" />
+              <span>
+                {subscriptionPlan === 'business'
+                  ? 'EMPRESAS'
+                  : subscriptionPlan === 'pro'
+                    ? 'PRO'
+                    : 'GRÁTIS'}
+              </span>
+            </button>
+
             {/* Currency Switcher */}
             <div className="relative">
               <label className="sr-only" htmlFor="desktop-currency-selector">
@@ -186,6 +212,24 @@ export function Header({
 
         {/* Seletor de Moeda + Notificações + Avatar */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* SaaS Plan Pill Mobile */}
+          <button
+            className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold flex items-center gap-1 cursor-pointer shrink-0 ${
+              subscriptionPlan === 'business'
+                ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                : subscriptionPlan === 'pro'
+                  ? 'bg-primary-fixed text-primary'
+                  : 'bg-surface-container-high text-on-surface-variant'
+            }`}
+            onClick={onOpenPricing}
+            type="button"
+          >
+            <AppIcon name="workspace_premium" className="text-[13px]" />
+            <span>
+              {subscriptionPlan === 'business' ? 'EMP' : subscriptionPlan === 'pro' ? 'PRO' : 'FREE'}
+            </span>
+          </button>
+
           <div className="relative">
             <label className="sr-only" htmlFor="currency-selector">
               Selecionar moeda

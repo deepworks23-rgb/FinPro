@@ -1,11 +1,18 @@
 import { AppIcon } from './AppIcon';
-import type { AppScreen, CurrencyCode, UserProfile } from '../types/finance';
+import type {
+  AppScreen,
+  CurrencyCode,
+  SubscriptionPlan,
+  UserProfile,
+} from '../types/finance';
 import { getUserInitials } from '../utils/finance';
 
 interface SidebarProps {
   activeScreen: AppScreen;
   currency: CurrencyCode;
   user: UserProfile;
+  subscriptionPlan?: SubscriptionPlan;
+  onOpenPricing?: () => void;
   unreadNotificationsCount?: number;
   hasCriticalAlert?: boolean;
   onNavigate: (screen: AppScreen) => void;
@@ -19,6 +26,8 @@ export function Sidebar({
   activeScreen,
   currency,
   user,
+  subscriptionPlan = 'free',
+  onOpenPricing,
   unreadNotificationsCount = 0,
   hasCriticalAlert = false,
   onNavigate,
@@ -151,6 +160,29 @@ export function Sidebar({
                 {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
               </span>
             )}
+          </button>
+        </div>
+
+        {/* SaaS Subscription Plan Indicator */}
+        <div className="p-2.5 rounded-xl bg-surface-container-low border border-primary/15 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider block">
+              Plano FinPro
+            </span>
+            <span className="text-[12px] font-extrabold text-primary flex items-center gap-1">
+              {subscriptionPlan === 'business'
+                ? 'Empresas 💼'
+                : subscriptionPlan === 'pro'
+                  ? 'Pessoal PRO ⭐'
+                  : 'Gratuito'}
+            </span>
+          </div>
+          <button
+            className="px-2.5 py-1 rounded-lg bg-primary-fixed hover:bg-primary-fixed-dim text-primary text-[11px] font-bold cursor-pointer transition-colors whitespace-nowrap"
+            onClick={onOpenPricing}
+            type="button"
+          >
+            {subscriptionPlan === 'free' ? 'Upgrade' : 'Planos'}
           </button>
         </div>
 

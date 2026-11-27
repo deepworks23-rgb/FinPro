@@ -7,13 +7,14 @@ import { DashboardScreen } from './components/DashboardScreen';
 import { Header } from './components/Header';
 import { LoginScreen } from './components/LoginScreen';
 import { NotificationsModal } from './components/Overlays';
+import { PricingModal } from './components/PricingModal';
 import { ProfileScreen } from './components/ProfileScreen';
 import { ReportsScreen } from './components/ReportsScreen';
 import { Sidebar } from './components/Sidebar';
 import { TransactionModal } from './components/TransactionModal';
 import { TransactionsScreen } from './components/TransactionsScreen';
 import { DEFAULT_ALERT_SETTINGS } from './data/seed';
-import { authApi, type AuthResponse } from './services/api';
+import { authApi, subscriptionApi, type AuthResponse } from './services/api';
 import type {
   AlertSettings,
   AppScreen,
@@ -23,6 +24,7 @@ import type {
   Transaction,
   TransactionType,
   UserProfile,
+  UserSubscription,
   UserWorkspacePayload,
 } from './types/finance';
 import {
@@ -98,6 +100,10 @@ export default function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmDialogRequest | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // SaaS Subscription State
+  const [subscription, setSubscription] = useState<UserSubscription | null>(null);
+  const [pricingModalOpen, setPricingModalOpen] = useState(false);
 
   // Real-time clock tick (every 30s)
   useEffect(() => {
@@ -231,6 +237,26 @@ export default function App() {
       cancelled = true;
     };
   }, [applyWorkspace]);
+
+  // Load SaaS Subscription when authenticated
+  useEffect(() => {
+    if (!authToken) {
+      setSubscription(null);
+      return;
+    }
+    let cancelled = false;
+    subscriptionApi
+      .getSubscription(authToken)
+      .then((res) => {
+        if (!cancelled && res.ok) {
+          setSubscription(res.subscription);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken]);
 
   const handleAuthenticated = useCallback(
     (auth: AuthResponse, mode: 'login' | 'register') => {
@@ -575,6 +601,8 @@ export default function App() {
           onNavigate={navigateTo}
           onOpenNewTransaction={() => handleOpenNewTransaction('expense')}
           onOpenNotifications={() => setNotificationsOpen(true)}
+          onOpenPricing={() => setPricingModalOpen(true)}
+          subscriptionPlan={subscription?.plan ?? 'free'}
           unreadNotificationsCount={unreadAlertsCount}
           user={currentUser}
         />
@@ -603,8 +631,10 @@ export default function App() {
               showToast(`Moeda alterada para ${next}`);
             }}
             onOpenNotifications={() => setNotificationsOpen(true)}
+            onOpenPricing={() => setPricingModalOpen(true)}
             onOpenProfile={() => navigateTo('perfil')}
             screen={activeScreen}
+            subscriptionPlan={subscription?.plan ?? 'free'}
             unreadNotificationsCount={unreadAlertsCount}
             userName={currentUser.name}
           />
@@ -625,8 +655,10 @@ export default function App() {
               showToast(`Moeda alterada para ${next}`);
             }}
             onOpenNotifications={() => setNotificationsOpen(true)}
+            onOpenPricing={() => setPricingModalOpen(true)}
             onOpenProfile={() => navigateTo('perfil')}
             screen={activeScreen}
+            subscriptionPlan={subscription?.plan ?? 'free'}
             unreadNotificationsCount={unreadAlertsCount}
             userName={currentUser.name}
           />
@@ -647,7 +679,12 @@ export default function App() {
               </p>
             </div>
           ) : (
-            activeScreen === 'login' && <LoginScreen onAuthenticated={handleAuthenticated} />
+            activeScreen === 'login' && (
+              <LoginScreen
+                onAuthenticated={handleAuthenticated}
+                onOpenPricing={() => setPricingModalOpen(true)}
+              />
+            )
           )}
 
           {isAuthenticated && activeScreen === 'dashboard-inicio' && (
@@ -721,8 +758,10 @@ export default function App() {
               onChangePassword={handleChangePassword}
               onLogout={handleLogout}
               onNotify={showToast}
+              onOpenPricing={() => setPricingModalOpen(true)}
               onRequestConfirm={requestConfirm}
               onUpdateProfile={handleUpdateProfile}
+              subscription={subscription}
               user={currentUser}
             />
           )}
@@ -771,6 +810,16 @@ export default function App() {
         )}
 
         <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
+
+        <PricingModal
+          authToken={authToken}
+          currentSubscription={subscription}
+          currency={currency}
+          isOpen={pricingModalOpen}
+          onClose={() => setPricingModalOpen(false)}
+          onNotify={showToast}
+          onSubscriptionUpdated={(updated) => setSubscription(updated)}
+        />
 
         {/* Toast Notification Box */}
         {toastMsg && (

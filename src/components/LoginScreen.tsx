@@ -6,9 +6,14 @@ import { isValidEmail, isValidPhoneMZ } from '../utils/finance';
 interface LoginScreenProps {
   initialIdentifier?: string;
   onAuthenticated: (auth: AuthResponse, mode: 'login' | 'register') => void;
+  onOpenPricing?: () => void;
 }
 
-export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginScreenProps) {
+export function LoginScreen({
+  initialIdentifier = '',
+  onAuthenticated,
+  onOpenPricing,
+}: LoginScreenProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
 
   // Login fields
@@ -428,6 +433,18 @@ export function LoginScreen({ initialIdentifier = '', onAuthenticated }: LoginSc
         <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-on-surface-variant text-center">
           <AppIcon name="verified_user" className="text-[15px] text-secondary shrink-0" />
           <span>Autenticação protegida com encriptação de senha no servidor</span>
+        </div>
+
+        {/* SaaS Banner / Plans Link */}
+        <div className="mt-4 pt-3.5 border-t border-surface-container/60 w-full text-center">
+          <button
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-primary-fixed/70 hover:bg-primary-fixed text-primary text-[11.5px] font-bold transition-colors cursor-pointer"
+            onClick={onOpenPricing}
+            type="button"
+          >
+            <AppIcon name="workspace_premium" className="text-[16px]" />
+            <span>Conheça os Planos SaaS (a partir de 0 MT)</span>
+          </button>
         </div>
       </div>
 

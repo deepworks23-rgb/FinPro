@@ -121,3 +121,44 @@ export interface RealTimeAlert {
   targetScreen: AppScreen;
   metricBadge?: string;
 }
+
+export type SubscriptionPlan = 'free' | 'pro' | 'business';
+export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled';
+
+export interface UserSubscription {
+  id: string;
+  userId: string;
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  billingCycle: 'monthly' | 'yearly';
+  currency: CurrencyCode;
+  pricePaid: number;
+  paymentMethod: string;
+  paymentPhone: string;
+  paymentReference: string;
+  startedAt: string;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlanLimits {
+  maxTransactionsPerMonth: number;
+  maxBudgets: number;
+  maxGoals: number;
+  canExportPdf: boolean;
+  canExportCsv: boolean;
+  multiCurrency: boolean;
+  prioritySupport: boolean;
+}
+
+export interface SubscriptionResponse {
+  ok: boolean;
+  subscription: UserSubscription;
+  limits: PlanLimits;
+  usage: {
+    transactionsThisMonth: number;
+    budgetsCount: number;
+    goalsCount: number;
+  };
+}

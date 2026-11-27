@@ -5,6 +5,8 @@ import {
   buildStyledReportCSV,
   buildStyledReportPDF,
   buildTransactionsCSV,
+  canAddBudgetUnderPlan,
+  canAddTransactionUnderPlan,
   computeBudgetTotals,
   computeDynamicSixMonthSeries,
   computeExpenseBreakdown,
@@ -541,4 +543,16 @@ test('buildStyledReportCSV and buildStyledReportPDF generate structured styled o
   const headText = await pdfBlob.slice(0, 16).text();
   assert.ok(headText.startsWith('%PDF-'));
   assert.ok(pdfBlob.size > 1500);
+});
+
+test('canAddTransactionUnderPlan and canAddBudgetUnderPlan enforce Free tier limits and Pro unlimited', () => {
+  assert.equal(canAddTransactionUnderPlan(10, 'free'), true);
+  assert.equal(canAddTransactionUnderPlan(25, 'free'), false);
+  assert.equal(canAddTransactionUnderPlan(100, 'pro'), true);
+  assert.equal(canAddTransactionUnderPlan(500, 'business'), true);
+
+  assert.equal(canAddBudgetUnderPlan(2, 'free'), true);
+  assert.equal(canAddBudgetUnderPlan(3, 'free'), false);
+  assert.equal(canAddBudgetUnderPlan(20, 'pro'), true);
+  assert.equal(canAddBudgetUnderPlan(50, 'business'), true);
 });
