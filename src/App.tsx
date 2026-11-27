@@ -1,4 +1,5 @@
 import { AdminScreen } from './components/AdminScreen';
+import { AnnouncementBanner } from './components/AnnouncementBanner';
 import { AppIcon } from './components/AppIcon';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
@@ -16,8 +17,9 @@ import { Sidebar } from './components/Sidebar';
 import { TransactionModal } from './components/TransactionModal';
 import { TransactionsScreen } from './components/TransactionsScreen';
 import { DEFAULT_ALERT_SETTINGS } from './data/seed';
-import { authApi, subscriptionApi, type AuthResponse } from './services/api';
+import { adminApi, authApi, subscriptionApi, type AuthResponse } from './services/api';
 import type {
+  AdminAnnouncement,
   AlertSettings,
   AppScreen,
   BudgetCategory,
@@ -316,6 +318,56 @@ export default function App() {
       window.removeEventListener('focus', onFocus);
     };
   }, [authToken, currentUser?.isAdmin, showToast]);
+
+  // Global Platform Announcements for clients
+  const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
+  const [dismissedAnnouncements, setDismissedAnnouncements] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('fintrack_dismissed_announcements');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const handleDismissAnnouncement = useCallback((id: string) => {
+    setDismissedAnnouncements((prev) => {
+      const next = prev.includes(id) ? prev : [...prev, id];
+      try {
+        localStorage.setItem('fintrack_dismissed_announcements', JSON.stringify(next));
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+  }, []);
+
+  // Poll active announcements in real time
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchAnnouncements = () => {
+      adminApi
+        .getClientAnnouncements()
+        .then((res) => {
+          if (!cancelled && res.ok && Array.isArray(res.announcements)) {
+            setAnnouncements(res.announcements);
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchAnnouncements();
+    const interval = window.setInterval(fetchAnnouncements, 12000);
+    const onFocus = () => fetchAnnouncements();
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
 
   const handleAuthenticated = useCallback(
     (auth: AuthResponse, mode: 'login' | 'register') => {
@@ -644,12 +696,22 @@ export default function App() {
     [realTimeAlerts, readAlertSignatures]
   );
 
+  const unreadAnnouncementsCount = useMemo(
+    () => announcements.filter((a) => !dismissedAnnouncements.includes(a.id)).length,
+    [announcements, dismissedAnnouncements]
+  );
+
+  const totalUnreadNotifications = unreadAlertsCount + unreadAnnouncementsCount;
+
   const hasCriticalAlert = useMemo(
     () =>
       realTimeAlerts.some(
         (a) => a.severity === 'critical' && !readAlertSignatures.includes(a.signature)
+      ) ||
+      announcements.some(
+        (a) => a.severity === 'critical' && !dismissedAnnouncements.includes(a.id)
       ),
-    [realTimeAlerts, readAlertSignatures]
+    [realTimeAlerts, readAlertSignatures, announcements, dismissedAnnouncements]
   );
 
   const balanceAlertStatus: 'critical' | 'warning' | null = useMemo(() => {
@@ -860,7 +922,7 @@ export default function App() {
           onOpenNotifications={() => setNotificationsOpen(true)}
           onOpenPricing={() => setPricingModalOpen(true)}
           subscriptionPlan={subscription?.plan ?? 'free'}
-          unreadNotificationsCount={unreadAlertsCount}
+          unreadNotificationsCount={totalUnreadNotifications}
           user={currentUser}
         />
       )}
@@ -893,7 +955,7 @@ export default function App() {
             screen={activeScreen}
             subscriptionPlan={subscription?.plan ?? 'free'}
             isAdmin={Boolean(currentUser.isAdmin)}
-            unreadNotificationsCount={unreadAlertsCount}
+            unreadNotificationsCount={totalUnreadNotifications}
             userName={currentUser.name}
           />
         )}
@@ -918,12 +980,22 @@ export default function App() {
             screen={activeScreen}
             subscriptionPlan={subscription?.plan ?? 'free'}
             isAdmin={Boolean(currentUser.isAdmin)}
-            unreadNotificationsCount={unreadAlertsCount}
+            unreadNotificationsCount={totalUnreadNotifications}
             userName={currentUser.name}
           />
         )}
 
         <main className="flex-1 w-full max-w-[440px] md:max-w-none mx-auto md:mx-0 flex flex-col md:overflow-y-auto pt-18 md:pt-6 px-3 md:px-6 lg:px-8 pb-24 md:pb-8">
+          {/* Comunicados Oficiais Globais em Tempo Real */}
+          {isAuthenticated && (
+            <AnnouncementBanner
+              announcements={announcements}
+              dismissedIds={dismissedAnnouncements}
+              onDismiss={handleDismissAnnouncement}
+              onOpenPricing={() => setPricingModalOpen(true)}
+              onOpenSupport={() => navigateTo('perfil')}
+            />
+          )}
 
           {isAuthenticated && activeScreen === 'dashboard-inicio' && (
             <DashboardScreen
@@ -1033,6 +1105,7 @@ export default function App() {
             <NotificationsModal
               alertSettings={alertSettings}
               alerts={realTimeAlerts}
+              announcements={announcements}
               currency={currency}
               isBalanceHidden={isBalanceHidden}
               isOpen={notificationsOpen}

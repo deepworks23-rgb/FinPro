@@ -1,7 +1,7 @@
 import { AppIcon } from './AppIcon';
 import { useEffect, useState, type FormEvent } from 'react';
 import { CURRENCY_CONFIG } from '../data/seed';
-import type { AlertSettings, AppScreen, CurrencyCode, RealTimeAlert } from '../types/finance';
+import type { AdminAnnouncement, AlertSettings, AppScreen, CurrencyCode, RealTimeAlert } from '../types/finance';
 import { formatMoney } from '../utils/finance';
 import type { ConfirmDialogRequest } from './ConfirmDialog';
 
@@ -13,6 +13,7 @@ interface NotificationsModalProps {
   currency: CurrencyCode;
   netBalanceBase: number;
   isBalanceHidden?: boolean;
+  announcements?: AdminAnnouncement[];
   onUpdateAlertSettings: (next: AlertSettings) => void;
   onMarkAllRead: () => void;
   onMarkAlertRead: (signature: string) => void;
@@ -67,6 +68,7 @@ export function NotificationsModal({
   currency,
   netBalanceBase,
   isBalanceHidden = false,
+  announcements = [],
   onUpdateAlertSettings,
   onMarkAllRead,
   onMarkAlertRead,
@@ -216,7 +218,51 @@ export function NotificationsModal({
             )}
 
             <div className="space-y-2 overflow-y-auto pr-0.5 flex-1">
-              {alerts.length === 0 ? (
+              {/* Comunicados Oficiais da Plataforma SaaS FinTrack */}
+              {announcements.length > 0 && (
+                <div className="space-y-2 mb-3 pb-3 border-b border-surface-container">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                    <span>Comunicados Oficiais FinTrack ({announcements.length})</span>
+                  </div>
+                  {announcements.map((ann) => (
+                    <div
+                      key={ann.id}
+                      className="p-3 rounded-[10px] bg-primary-fixed/20 border border-primary/25 space-y-1.5 text-left"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[13px] font-bold text-on-surface leading-tight">
+                          {ann.title}
+                        </span>
+                        <span
+                          className={`text-[9.5px] font-black px-1.5 py-0.5 rounded-[5px] uppercase ${
+                            ann.severity === 'critical'
+                              ? 'bg-rose-100 text-rose-800'
+                              : ann.severity === 'warning'
+                                ? 'bg-amber-100 text-amber-900'
+                                : 'bg-blue-100 text-blue-800'
+                          }`}
+                        >
+                          {ann.severity === 'critical' ? 'Urgente' : ann.severity === 'warning' ? 'Atenção' : 'Aviso'}
+                        </span>
+                      </div>
+                      <p className="text-[12px] text-on-surface-variant leading-relaxed whitespace-pre-line">
+                        {ann.message}
+                      </p>
+                      <div className="text-[10px] opacity-65 font-medium pt-0.5">
+                        {new Date(ann.createdAt).toLocaleString('pt-MZ', {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {alerts.length === 0 && announcements.length === 0 ? (
                 <div className="py-8 text-center space-y-2">
                   <div className="w-12 h-12 rounded-full bg-secondary-container/60 text-secondary flex items-center justify-center mx-auto">
                     <AppIcon name="verified" className="text-[24px]" />
