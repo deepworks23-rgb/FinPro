@@ -23,14 +23,15 @@ interface AdminScreenProps {
   onLogout?: () => Promise<void>;
 }
 
+// Ordem estrita solicitada: Painel Geral, Clientes, Subscrições, Financeiro, Relatórios, Comunicados, Suporte, Configurações
 type AdminTab =
   | 'dashboard'
-  | 'statistics'
-  | 'subscriptions'
   | 'users'
-  | 'plans'
-  | 'tickets'
+  | 'subscriptions'
+  | 'financial'
+  | 'reports'
   | 'announcements'
+  | 'support'
   | 'settings';
 
 export function AdminScreen({
@@ -49,12 +50,21 @@ export function AdminScreen({
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLiveSyncing, setIsLiveSyncing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Filtros & Pesquisa
   const [userSearch, setUserSearch] = useState('');
   const [planFilter, setPlanFilter] = useState<'all' | SubscriptionPlan>('all');
+  const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+
+  // Filtros de Subscrição
+  const [subStatusFilter, setSubStatusFilter] = useState<'all' | 'trialing' | 'active' | 'expired'>('all');
+
+  // Filtros de Suporte
+  const [ticketStatusFilter, setTicketStatusFilter] = useState<'all' | 'aberto' | 'resolvido'>('all');
+  const [ticketSearch, setTicketSearch] = useState('');
 
   // Modais de Gestão (CRUD)
   const [resetPwdModalUser, setResetPwdModalUser] = useState<AdminUserItem | null>(null);
@@ -83,9 +93,10 @@ export function AdminScreen({
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Carregamento de Dados 100% Reais
-  const loadData = async () => {
-    setLoading(true);
+  // Carregamento de Dados 100% Reais com suporte a sincronização silenciosa em tempo real
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setIsLiveSyncing(true);
     setErrorMsg(null);
     try {
       const [overviewRes, usersRes, subscriptionsRes, plansRes, ticketsRes, annRes] = await Promise.all([
@@ -107,22 +118,43 @@ export function AdminScreen({
       setErrorMsg(err instanceof Error ? err.message : 'Falha ao sincronizar dados da base de dados.');
     } finally {
       setLoading(false);
+      setIsLiveSyncing(false);
     }
   };
 
+  // Sincronização em tempo real (Polling a cada 6 segundos e ao focar a janela)
   useEffect(() => {
-    void loadData();
+    void loadData(false);
+
+    const intervalId = window.setInterval(() => {
+      void loadData(true);
+    }, 6000);
+
+    const onFocus = () => void loadData(true);
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [authToken]);
 
-  // Taxa de Conversão Real (Sem Fictício)
+  // Taxa de Conversão Real
   const conversionRate = useMemo(() => {
     if (!stats || stats.totalUsers === 0) return 0;
     const paid = (stats.proUsersCount || 0) + (stats.businessUsersCount || 0);
     return Math.round((paid / stats.totalUsers) * 100);
   }, [stats]);
 
-  // Exportar Relatório em CSV Real
-  const handleExportCSV = () => {
+  // ARPU Real (Ticket Médio por Cliente Pagante)
+  const arpuReal = useMemo(() => {
+    const paidCount = (stats?.proUsersCount || 0) + (stats?.businessUsersCount || 0);
+    if (!stats || paidCount === 0) return 0;
+    return Math.round((stats.mrrMzn || 0) / paidCount);
+  }, [stats]);
+
+  // Exportação Real de Relatórios em CSV
+  const handleExportUsersCSV = () => {
     if (users.length === 0) {
       onNotify('Não existem registos de clientes para exportar.');
       return;
@@ -148,7 +180,63 @@ export function AdminScreen({
     onNotify('Relatório de clientes exportado em formato CSV com sucesso!');
   };
 
-  // CRUD de Clientes
+  const handleExportFinancialCSV = () => {
+    if (subscriptions.length === 0) {
+      onNotify('Não existem transações de subscrições para exportar.');
+      return;
+    }
+    const headers = ['ID Subscrição', 'Cliente', 'Telefone', 'Plano', 'Valor Pago (MT)', 'Ciclo', 'Referência M-Pesa', 'Estado', 'Data Início'];
+    const rows = subscriptions.map((s) => [
+      `"${s.id}"`,
+      `"${s.userName.replace(/"/g, '""')}"`,
+      `"${s.userPhone}"`,
+      `"${s.plan.toUpperCase()}"`,
+      `"${s.pricePaid}"`,
+      `"${s.billingCycle === 'yearly' ? 'Anual' : 'Mensal'}"`,
+      `"${s.paymentReference || ''}"`,
+      `"${s.status === 'active' ? 'Ativo' : 'Pendente'}"`,
+      `"${s.startedAt ? new Date(s.startedAt).toLocaleDateString('pt-MZ') : ''}"`,
+    ]);
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `relatorio-financeiro-fintrack-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    onNotify('Relatório financeiro exportado com sucesso!');
+  };
+
+  const handleExportTicketsCSV = () => {
+    if (tickets.length === 0) {
+      onNotify('Não existem chamados de suporte para exportar.');
+      return;
+    }
+    const headers = ['Protocolo', 'Cliente', 'Telefone', 'Assunto', 'Categoria', 'Canal', 'Mensagem', 'Estado', 'Data Abertura'];
+    const rows = tickets.map((t) => [
+      `"${t.code}"`,
+      `"${t.userName.replace(/"/g, '""')}"`,
+      `"${t.userPhone}"`,
+      `"${t.subject.replace(/"/g, '""')}"`,
+      `"${t.category}"`,
+      `"${t.contactChannel}"`,
+      `"${t.message.replace(/"/g, '""')}"`,
+      `"${t.status.toUpperCase()}"`,
+      `"${t.createdAt ? new Date(t.createdAt).toLocaleDateString('pt-MZ') : ''}"`,
+    ]);
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `relatorio-suporte-fintrack-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    onNotify('Relatório de suporte exportado com sucesso!');
+  };
+
+  // Ações de Clientes
   const handleToggleUserSuspension = async (user: AdminUserItem) => {
     try {
       setUpdatingUserId(user.id);
@@ -173,7 +261,7 @@ export function AdminScreen({
       setUsers((prev) =>
         prev.map((u) => (u.id === userId ? { ...u, plan: newPlan } : u))
       );
-      void loadData();
+      void loadData(true);
     } catch (err) {
       onNotify(err instanceof Error ? err.message : 'Erro ao atualizar plano.');
     } finally {
@@ -186,7 +274,7 @@ export function AdminScreen({
       const planToApprove = sub.plan === 'business' ? 'business' : 'pro';
       const res = await adminApi.approveSubscription(authToken, sub.id, planToApprove);
       onNotify(res.message);
-      void loadData();
+      void loadData(true);
     } catch (err) {
       onNotify(err instanceof Error ? err.message : 'Erro ao aprovar subscrição.');
     }
@@ -238,7 +326,7 @@ export function AdminScreen({
       setAnnouncementModalOpen(false);
       setNewAnnTitle('');
       setNewAnnMessage('');
-      void loadData();
+      void loadData(true);
     } catch (err) {
       onNotify(err instanceof Error ? err.message : 'Erro ao publicar comunicado.');
     } finally {
@@ -321,7 +409,7 @@ export function AdminScreen({
         onNotify(res.message);
       }
       setPlanModalOpen(false);
-      void loadData();
+      void loadData(true);
     } catch (err) {
       onNotify(err instanceof Error ? err.message : 'Erro ao guardar plano.');
     } finally {
@@ -336,7 +424,7 @@ export function AdminScreen({
     try {
       const res = await adminApi.deletePlan(authToken, planId);
       onNotify(res.message);
-      void loadData();
+      void loadData(true);
     } catch (err) {
       onNotify(err instanceof Error ? err.message : 'Erro ao eliminar plano.');
     }
@@ -358,7 +446,7 @@ export function AdminScreen({
     }
   };
 
-  // Filtro de Clientes
+  // Filtros de Clientes
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       const matchesSearch =
@@ -367,11 +455,40 @@ export function AdminScreen({
         u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
         u.paymentReference.toLowerCase().includes(userSearch.toLowerCase());
       const matchesPlan = planFilter === 'all' || u.plan === planFilter;
-      return matchesSearch && matchesPlan;
+      const matchesStatus =
+        userStatusFilter === 'all' ||
+        (userStatusFilter === 'active' && !u.isSuspended) ||
+        (userStatusFilter === 'suspended' && u.isSuspended);
+      return matchesSearch && matchesPlan && matchesStatus;
     });
-  }, [users, userSearch, planFilter]);
+  }, [users, userSearch, planFilter, userStatusFilter]);
 
-  // Gráfico de Barras com Dados 100% Reais
+  // Filtros de Subscrições
+  const filteredSubscriptions = useMemo(() => {
+    return subscriptions.filter((s) => {
+      if (subStatusFilter === 'all') return true;
+      if (subStatusFilter === 'trialing') return s.status === 'trialing';
+      if (subStatusFilter === 'active') return s.status === 'active';
+      return s.status === 'past_due' || s.status === 'canceled';
+    });
+  }, [subscriptions, subStatusFilter]);
+
+  // Filtros de Suporte
+  const filteredTickets = useMemo(() => {
+    return tickets.filter((t) => {
+      const matchesSearch =
+        t.code.toLowerCase().includes(ticketSearch.toLowerCase()) ||
+        t.userName.toLowerCase().includes(ticketSearch.toLowerCase()) ||
+        t.userPhone.includes(ticketSearch) ||
+        t.subject.toLowerCase().includes(ticketSearch.toLowerCase()) ||
+        t.message.toLowerCase().includes(ticketSearch.toLowerCase());
+      const matchesStatus =
+        ticketStatusFilter === 'all' || t.status === ticketStatusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [tickets, ticketSearch, ticketStatusFilter]);
+
+  // Gráfico com Faturamento Semanal Real
   const chartBars = useMemo(() => {
     if (stats?.weeklyRevenue && stats.weeklyRevenue.length > 0) {
       return stats.weeklyRevenue;
@@ -389,20 +506,19 @@ export function AdminScreen({
 
   const maxBarVal = Math.max(...chartBars.map((b) => b.val), 100);
 
-  // Inicial do Administrador
   const adminName = currentUser?.name || 'Joswil Admin';
   const adminInitials = getUserInitials(adminName);
 
   return (
     <div className="h-screen w-full bg-surface-container-low/40 flex text-on-surface overflow-hidden">
-      {/* 1. BARRA LATERAL ESQUERDA (Navegação Exclusiva em Português) */}
+      {/* 1. BARRA LATERAL ESQUERDA (Ordem Estrita: Painel Geral, Clientes, Subscrições, Financeiro, Relatórios, Comunicados, Suporte, Configurações) */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-60 lg:w-64 bg-surface-container-lowest border-r border-surface-container flex flex-col justify-between transition-transform duration-200 md:static md:translate-x-0 h-screen shrink-0 ${
           mobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0'
         }`}
       >
         <div className="flex flex-col flex-1 min-h-0">
-          {/* Cabeçalho da Barra Lateral */}
+          {/* Logotipo e Badge */}
           <div className="h-16 px-5 flex items-center justify-between border-b border-surface-container/60 shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-[10px] bg-primary text-on-primary flex items-center justify-center shadow-sm shadow-primary/25 shrink-0">
@@ -413,7 +529,7 @@ export function AdminScreen({
                   FinTrack
                 </span>
                 <span className="text-[10px] font-bold text-primary uppercase tracking-widest block leading-tight">
-                  Gestão SaaS
+                  Painel Admin
                 </span>
               </div>
             </div>
@@ -427,8 +543,9 @@ export function AdminScreen({
             </button>
           </div>
 
-          {/* Menus de Navegação com Indicadores Reais */}
+          {/* Menus de Navegação Estruturados Conforme Solicitado */}
           <nav className="p-3 space-y-1 flex-1 overflow-y-auto no-scrollbar">
+            {/* 1. Painel Geral */}
             <button
               className={`w-full h-10 px-3.5 rounded-[10px] flex items-center gap-3 text-[13px] font-semibold transition-all text-left cursor-pointer ${
                 activeTab === 'dashboard'
@@ -442,46 +559,10 @@ export function AdminScreen({
               type="button"
             >
               <AppIcon name="dashboard" className="text-[19px]" filled={activeTab === 'dashboard'} />
-              <span>Visão Geral</span>
+              <span>Painel Geral</span>
             </button>
 
-            <button
-              className={`w-full h-10 px-3.5 rounded-[10px] flex items-center gap-3 text-[13px] font-semibold transition-all text-left cursor-pointer ${
-                activeTab === 'statistics'
-                  ? 'bg-primary text-on-primary shadow-xs font-bold'
-                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
-              }`}
-              onClick={() => {
-                setActiveTab('statistics');
-                setMobileMenuOpen(false);
-              }}
-              type="button"
-            >
-              <AppIcon name="analytics" className="text-[19px]" filled={activeTab === 'statistics'} />
-              <span>Estatísticas & Receitas</span>
-            </button>
-
-            <button
-              className={`w-full h-10 px-3.5 rounded-[10px] flex items-center gap-3 text-[13px] font-semibold transition-all text-left cursor-pointer ${
-                activeTab === 'subscriptions'
-                  ? 'bg-primary text-on-primary shadow-xs font-bold'
-                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
-              }`}
-              onClick={() => {
-                setActiveTab('subscriptions');
-                setMobileMenuOpen(false);
-              }}
-              type="button"
-            >
-              <AppIcon name="receipt_long" className="text-[19px]" filled={activeTab === 'subscriptions'} />
-              <span className="flex-1">Subscrições & Pagamentos</span>
-              {subscriptions.filter((s) => s.paymentReference && s.status === 'trialing').length > 0 && (
-                <span className="px-1.5 py-0.5 rounded-[6px] bg-tertiary-container text-on-tertiary text-[9.5px] font-bold">
-                  {subscriptions.filter((s) => s.paymentReference && s.status === 'trialing').length}
-                </span>
-              )}
-            </button>
-
+            {/* 2. Clientes */}
             <button
               className={`w-full h-10 px-3.5 rounded-[10px] flex items-center gap-3 text-[13px] font-semibold transition-all text-left cursor-pointer ${
                 activeTab === 'users'
@@ -495,49 +576,67 @@ export function AdminScreen({
               type="button"
             >
               <AppIcon name="group" className="text-[19px]" filled={activeTab === 'users'} />
-              <span className="flex-1">Gestão de Clientes</span>
+              <span className="flex-1">Clientes</span>
               <span className="text-[10.5px] font-bold opacity-80">{users.length}</span>
             </button>
 
-            {/* Nova Aba de CRUD de Planos */}
+            {/* 3. Subscrições */}
             <button
               className={`w-full h-10 px-3.5 rounded-[10px] flex items-center gap-3 text-[13px] font-semibold transition-all text-left cursor-pointer ${
-                activeTab === 'plans'
+                activeTab === 'subscriptions'
                   ? 'bg-primary text-on-primary shadow-xs font-bold'
                   : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
               }`}
               onClick={() => {
-                setActiveTab('plans');
+                setActiveTab('subscriptions');
                 setMobileMenuOpen(false);
               }}
               type="button"
             >
-              <AppIcon name="workspace_premium" className="text-[19px]" filled={activeTab === 'plans'} />
-              <span className="flex-1">Planos de Subscrição</span>
-              <span className="text-[10.5px] font-bold opacity-80">{plans.length}</span>
-            </button>
-
-            <button
-              className={`w-full h-10 px-3.5 rounded-[10px] flex items-center gap-3 text-[13px] font-semibold transition-all text-left cursor-pointer ${
-                activeTab === 'tickets'
-                  ? 'bg-primary text-on-primary shadow-xs font-bold'
-                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
-              }`}
-              onClick={() => {
-                setActiveTab('tickets');
-                setMobileMenuOpen(false);
-              }}
-              type="button"
-            >
-              <AppIcon name="support_agent" className="text-[19px]" filled={activeTab === 'tickets'} />
-              <span className="flex-1">Central de Suporte</span>
-              {tickets.filter((t) => t.status === 'aberto').length > 0 && (
-                <span className="px-1.5 py-0.5 rounded-[6px] bg-error-container text-on-error-container text-[9.5px] font-bold">
-                  {tickets.filter((t) => t.status === 'aberto').length}
+              <AppIcon name="receipt_long" className="text-[19px]" filled={activeTab === 'subscriptions'} />
+              <span className="flex-1">Subscrições</span>
+              {subscriptions.filter((s) => s.status === 'trialing').length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-[6px] bg-tertiary-container text-on-tertiary text-[9.5px] font-bold animate-pulse">
+                  {subscriptions.filter((s) => s.status === 'trialing').length}
                 </span>
               )}
             </button>
 
+            {/* 4. Financeiro */}
+            <button
+              className={`w-full h-10 px-3.5 rounded-[10px] flex items-center gap-3 text-[13px] font-semibold transition-all text-left cursor-pointer ${
+                activeTab === 'financial'
+                  ? 'bg-primary text-on-primary shadow-xs font-bold'
+                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
+              }`}
+              onClick={() => {
+                setActiveTab('financial');
+                setMobileMenuOpen(false);
+              }}
+              type="button"
+            >
+              <AppIcon name="monetization_on" className="text-[19px]" filled={activeTab === 'financial'} />
+              <span>Financeiro</span>
+            </button>
+
+            {/* 5. Relatórios */}
+            <button
+              className={`w-full h-10 px-3.5 rounded-[10px] flex items-center gap-3 text-[13px] font-semibold transition-all text-left cursor-pointer ${
+                activeTab === 'reports'
+                  ? 'bg-primary text-on-primary shadow-xs font-bold'
+                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
+              }`}
+              onClick={() => {
+                setActiveTab('reports');
+                setMobileMenuOpen(false);
+              }}
+              type="button"
+            >
+              <AppIcon name="analytics" className="text-[19px]" filled={activeTab === 'reports'} />
+              <span>Relatórios</span>
+            </button>
+
+            {/* 6. Comunicados */}
             <button
               className={`w-full h-10 px-3.5 rounded-[10px] flex items-center gap-3 text-[13px] font-semibold transition-all text-left cursor-pointer ${
                 activeTab === 'announcements'
@@ -551,9 +650,32 @@ export function AdminScreen({
               type="button"
             >
               <AppIcon name="campaign" className="text-[19px]" filled={activeTab === 'announcements'} />
-              <span>Avisos & Comunicados</span>
+              <span>Comunicados</span>
             </button>
 
+            {/* 7. Suporte */}
+            <button
+              className={`w-full h-10 px-3.5 rounded-[10px] flex items-center gap-3 text-[13px] font-semibold transition-all text-left cursor-pointer ${
+                activeTab === 'support'
+                  ? 'bg-primary text-on-primary shadow-xs font-bold'
+                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
+              }`}
+              onClick={() => {
+                setActiveTab('support');
+                setMobileMenuOpen(false);
+              }}
+              type="button"
+            >
+              <AppIcon name="support_agent" className="text-[19px]" filled={activeTab === 'support'} />
+              <span className="flex-1">Suporte</span>
+              {tickets.filter((t) => t.status === 'aberto').length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-[6px] bg-error-container text-on-error-container text-[9.5px] font-bold">
+                  {tickets.filter((t) => t.status === 'aberto').length}
+                </span>
+              )}
+            </button>
+
+            {/* 8. Configurações */}
             <button
               className={`w-full h-10 px-3.5 rounded-[10px] flex items-center gap-3 text-[13px] font-semibold transition-all text-left cursor-pointer ${
                 activeTab === 'settings'
@@ -572,7 +694,7 @@ export function AdminScreen({
           </nav>
         </div>
 
-        {/* Rodapé da Barra Lateral: Perfil do Admin & Terminar Sessão */}
+        {/* Rodapé: Perfil e Terminar Sessão */}
         <div className="p-3 border-t border-surface-container/70 space-y-2 bg-surface-container-low/30 shrink-0">
           <div className="flex items-center gap-2.5 px-2 py-1">
             <div className="w-9 h-9 rounded-[10px] bg-primary-fixed text-primary font-black text-[12px] flex items-center justify-center shrink-0 ring-1 ring-primary/20">
@@ -609,7 +731,7 @@ export function AdminScreen({
         </div>
       </aside>
 
-      {/* Backdrop para Menu Mobile */}
+      {/* Backdrop Mobile */}
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 z-40 bg-inverse-surface/40 backdrop-blur-xs md:hidden"
@@ -617,9 +739,9 @@ export function AdminScreen({
         />
       )}
 
-      {/* 2. ÁREA PRINCIPAL COM SCROLL INTERNO E 100% LARGURA */}
+      {/* 2. ÁREA CENTRAL DE CONTEÚDO (100% Largura com Scroll Interno) */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-surface-container-low/20">
-        {/* Cabeçalho Superior Fixo */}
+        {/* Cabeçalho Fixo */}
         <header className="h-16 px-4 sm:px-6 border-b border-surface-container flex items-center justify-between bg-surface-container-lowest/90 backdrop-blur-md shrink-0 z-20">
           <div className="flex items-center gap-3">
             <button
@@ -631,36 +753,42 @@ export function AdminScreen({
             </button>
 
             <div>
-              <h1 className="text-[18px] sm:text-[20px] font-black text-on-surface tracking-tight leading-tight">
-                {activeTab === 'dashboard'
-                  ? 'Painel Geral de Controlo SaaS'
-                  : activeTab === 'statistics'
-                    ? 'Estatísticas & Receitas'
-                    : activeTab === 'subscriptions'
-                      ? 'Subscrições & Pagamentos'
-                      : activeTab === 'users'
-                        ? 'Gestão de Clientes'
-                        : activeTab === 'plans'
-                          ? 'Gestão de Planos de Subscrição'
-                          : activeTab === 'tickets'
-                            ? 'Central de Suporte & Chamados'
+              <div className="flex items-center gap-2">
+                <h1 className="text-[18px] sm:text-[20px] font-black text-on-surface tracking-tight leading-tight">
+                  {activeTab === 'dashboard'
+                    ? 'Painel Geral'
+                    : activeTab === 'users'
+                      ? 'Gestão de Clientes'
+                      : activeTab === 'subscriptions'
+                        ? 'Gestão de Subscrições'
+                        : activeTab === 'financial'
+                          ? 'Gestão Financeira SaaS'
+                          : activeTab === 'reports'
+                            ? 'Central de Relatórios'
                             : activeTab === 'announcements'
-                              ? 'Avisos & Comunicados Globais'
-                              : 'Configurações da Plataforma'}
-              </h1>
-              <span className="text-[11px] font-medium text-on-surface-variant block leading-tight">
-                27 de Novembro, 2026 · FinTrack Backoffice Master
+                              ? 'Avisos & Comunicados'
+                              : activeTab === 'support'
+                                ? 'Central de Suporte & Atendimento'
+                                : 'Configurações da Plataforma'}
+                </h1>
+                {/* Indicador de Tempo Real */}
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[6px] bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                  <span className={`w-1.5 h-1.5 rounded-full bg-emerald-500 ${isLiveSyncing ? 'animate-ping' : 'animate-pulse'}`} />
+                  <span>Em tempo real</span>
+                </span>
+              </div>
+              <span className="text-[11px] font-medium text-on-surface-variant block leading-tight mt-0.5">
+                FinTrack Backoffice Master · Maputo
               </span>
             </div>
           </div>
 
-          {/* Ações Superiores */}
           <div className="flex items-center gap-2 sm:gap-2.5">
             {onNavigateToLanding && (
               <button
                 className="h-9 px-3 rounded-[10px] bg-surface-container hover:bg-surface-container-high text-on-surface text-[11.5px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer hidden sm:flex"
                 onClick={onNavigateToLanding}
-                title="Abrir o Site Público e Landing Page"
+                title="Abrir Site Público"
                 type="button"
               >
                 <AppIcon name="public" className="text-[16px] text-primary" />
@@ -670,14 +798,14 @@ export function AdminScreen({
 
             <button
               className="w-9 h-9 rounded-[10px] bg-surface-container hover:bg-surface-container-high text-on-surface flex items-center justify-center transition-colors cursor-pointer"
-              onClick={loadData}
-              title="Atualizar Dados da Base de Dados"
+              onClick={() => void loadData(false)}
+              title="Atualizar Dados Agora"
               type="button"
             >
               <AppIcon name="refresh" className={`text-[18px] ${loading ? 'animate-spin' : ''}`} />
             </button>
 
-            {/* Chip do Perfil Admin */}
+            {/* Avatar Admin */}
             <div className="flex items-center gap-2 pl-2 border-l border-surface-container">
               <div className="w-8 h-8 rounded-[10px] bg-primary-fixed text-primary font-black text-[12px] flex items-center justify-center shrink-0 ring-1 ring-primary/20">
                 {currentUser?.avatarDataUrl ? (
@@ -702,7 +830,6 @@ export function AdminScreen({
           </div>
         </header>
 
-        {/* Mensagem de Erro se houver */}
         {errorMsg && (
           <div className="mx-4 sm:mx-6 mt-3 p-3 rounded-[10px] bg-error-container text-on-error-container text-[12px] font-medium flex items-center gap-2 shrink-0">
             <AppIcon name="error" className="text-[17px] shrink-0" />
@@ -710,22 +837,20 @@ export function AdminScreen({
           </div>
         )}
 
-        {/* 3. CONTEÚDO PRINCIPAL COM SCROLL INTERNO */}
+        {/* 3. CONTEÚDO COM SCROLL INTERNO (Cada Aba 100% Funcional e Não-Vazia) */}
         <main className="p-4 sm:p-5 space-y-4 flex-1 overflow-y-auto w-full">
+          {/* TAB 1: PAINEL GERAL */}
           {activeTab === 'dashboard' && (
             <div className="space-y-4 animate-fade-in w-full">
-              {/* LINHA 1: CARDS DE MÉTRICAS 100% REAIS (Raio 10px, Compactos) */}
+              {/* KPIs Superiores Reais */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                {/* Card 1: Receita Recorrente Mensal (MRR) Real */}
                 <div className="p-4 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs flex flex-col justify-between">
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[8px] bg-primary-fixed/50 text-primary text-[10.5px] font-bold">
                       <AppIcon name="monetization_on" className="text-[13px]" />
                       <span>Faturamento Mensal</span>
                     </span>
-                    <span className="text-[10.5px] font-bold text-primary">
-                      MRR Real
-                    </span>
+                    <span className="text-[10.5px] font-bold text-primary">MRR</span>
                   </div>
                   <div className="mt-2.5">
                     <span className="text-[22px] lg:text-[24px] font-black text-on-surface tracking-tight block">
@@ -737,36 +862,32 @@ export function AdminScreen({
                   </div>
                 </div>
 
-                {/* Card 2: Projeção Anual (ARR) Real */}
                 <div className="p-4 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs flex flex-col justify-between">
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[8px] bg-secondary-container/50 text-on-secondary-container text-[10.5px] font-bold">
                       <AppIcon name="trending_up" className="text-[13px]" />
-                      <span>Projeção Anual</span>
+                      <span>Previsão Anual</span>
                     </span>
-                    <span className="text-[10.5px] font-bold text-on-surface-variant">
-                      ARR Estimado
-                    </span>
+                    <span className="text-[10.5px] font-bold text-on-surface-variant">ARR</span>
                   </div>
                   <div className="mt-2.5">
                     <span className="text-[22px] lg:text-[24px] font-black text-on-surface tracking-tight block">
                       {formatMoney((stats?.mrrMzn ?? 0) * 12, currency)}
                     </span>
                     <span className="text-[11.5px] font-medium text-on-surface-variant mt-0.5 block">
-                      Run Rate anualizado baseado em MRR
+                      Run Rate Anualizado
                     </span>
                   </div>
                 </div>
 
-                {/* Card 3: Taxa de Conversão Real */}
                 <div className="p-4 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs flex flex-col justify-between">
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[8px] bg-tertiary-container/50 text-on-tertiary-container text-[10.5px] font-bold">
                       <AppIcon name="pie_chart" className="text-[13px]" />
-                      <span>Conversão Pagante</span>
+                      <span>Conversão</span>
                     </span>
                     <span className="text-[10.5px] font-bold text-secondary">
-                      {conversionRate > 0 ? `${conversionRate}%` : '0%'}
+                      {conversionRate}%
                     </span>
                   </div>
                   <div className="mt-2.5">
@@ -779,17 +900,16 @@ export function AdminScreen({
                   </div>
                 </div>
 
-                {/* Card 4: Estado Operacional SaaS */}
                 <div className="p-4 rounded-[10px] bg-primary text-on-primary shadow-md shadow-primary/25 flex flex-col justify-between relative overflow-hidden">
                   <div className="relative z-10">
                     <span className="text-[11px] font-extrabold uppercase tracking-widest text-on-primary/80 block">
-                      Estado da Plataforma
+                      Estado Operacional
                     </span>
                     <span className="text-[20px] lg:text-[22px] font-black tracking-tight mt-0.5 block">
-                      {subscriptions.length} Subscrições
+                      {subscriptions.filter((s) => s.status === 'active').length} Ativas
                     </span>
                     <p className="text-[11px] text-on-primary/85 mt-1 leading-snug">
-                      Neon Postgres & S3 Storage operacionais em Maputo.
+                      {subscriptions.filter((s) => s.status === 'trialing').length} subscrições pendentes de validação.
                     </p>
                   </div>
                   <div className="mt-3 pt-2.5 border-t border-on-primary/20 flex items-center justify-between relative z-10">
@@ -801,15 +921,14 @@ export function AdminScreen({
                       Validar M-Pesa
                     </button>
                     <span className="text-[10.5px] font-semibold text-on-primary/80">
-                      M-Pesa / e-Mola
+                      Tempo Real
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* LINHA 2: HISTÓRICO REAL DE FATURAMENTO + ANÁLISE DE PLANOS + SUPORTE */}
+              {/* Linha Central: Gráfico Semanal Real + Distribuição + Alerta de Suporte */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-                {/* Gráfico Semanal Real */}
                 <div className="lg:col-span-6 p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs flex flex-col justify-between">
                   <div className="flex items-center justify-between">
                     <div>
@@ -817,13 +936,12 @@ export function AdminScreen({
                         Faturamento Semanal Real
                       </h2>
                       <span className="text-[11.5px] font-medium text-on-surface-variant">
-                        Valores cobrados nos últimos 7 dias (sem dados fictícios)
+                        Pagamentos reais confirmados na base de dados
                       </span>
                     </div>
                     <button
                       className="px-3 py-1 rounded-[8px] bg-surface-container hover:bg-surface-container-high text-on-surface text-[11.5px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                      onClick={handleExportCSV}
-                      title="Exportar Clientes em CSV"
+                      onClick={handleExportFinancialCSV}
                       type="button"
                     >
                       <AppIcon name="download" className="text-[15px]" />
@@ -831,7 +949,6 @@ export function AdminScreen({
                     </button>
                   </div>
 
-                  {/* Barras de Faturamento Real */}
                   <div className="mt-4">
                     <div className="h-36 flex items-end justify-between gap-2.5 px-2 border-b border-surface-container">
                       {chartBars.map((bar) => {
@@ -839,7 +956,7 @@ export function AdminScreen({
                         return (
                           <div key={bar.label} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
                             <span className="text-[9.5px] font-bold text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">
-                              {bar.val > 0 ? `${formatMoney(bar.val, currency)}` : '0 MT'}
+                              {bar.val > 0 ? formatMoney(bar.val, currency) : '0 MT'}
                             </span>
                             <div
                               style={{ height: `${heightPct}%` }}
@@ -859,14 +976,13 @@ export function AdminScreen({
                   </div>
                 </div>
 
-                {/* Análise de Distribuição de Planos */}
                 <div className="lg:col-span-3 p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs flex flex-col justify-between">
                   <div>
                     <h2 className="text-[16px] font-black text-on-surface tracking-tight">
                       Distribuição de Planos
                     </h2>
                     <span className="text-[11.5px] font-medium text-on-surface-variant">
-                      Rácio de subscrições ativas
+                      Clientes por modalidade
                     </span>
 
                     <div className="mt-3.5 space-y-2.5">
@@ -880,7 +996,7 @@ export function AdminScreen({
                           </div>
                           <div>
                             <span className="text-[12.5px] font-bold text-on-surface block leading-tight">
-                              Planos Pro & Negócios
+                              Pro & Negócios
                             </span>
                             <span className="text-[10.5px] text-on-surface-variant leading-tight">
                               {(stats?.proUsersCount || 0) + (stats?.businessUsersCount || 0)} Assinantes Pagantes
@@ -900,10 +1016,10 @@ export function AdminScreen({
                           </div>
                           <div>
                             <span className="text-[12.5px] font-bold text-on-surface block leading-tight">
-                              Plano Gratuito
+                              Gratuito
                             </span>
                             <span className="text-[10.5px] text-on-surface-variant leading-tight">
-                              {stats?.freeUsersCount ?? 0} Contas Gratuitas
+                              {stats?.freeUsersCount ?? 0} Contas Free
                             </span>
                           </div>
                         </div>
@@ -914,15 +1030,14 @@ export function AdminScreen({
 
                   <button
                     className="text-[11px] font-bold text-primary mt-3 flex items-center gap-1 hover:underline cursor-pointer"
-                    onClick={() => setActiveTab('plans')}
+                    onClick={() => setActiveTab('settings')}
                     type="button"
                   >
-                    <span>Gerir Planos & Preços</span>
+                    <span>Configurar Planos & Preços</span>
                     <AppIcon name="arrow_forward" className="text-[13px]" />
                   </button>
                 </div>
 
-                {/* Central de Atendimento Diário */}
                 <div className="lg:col-span-3 p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-2">
@@ -951,7 +1066,7 @@ export function AdminScreen({
 
                   <button
                     className="w-full h-9 mt-3 rounded-[10px] bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-[11.5px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                    onClick={() => setActiveTab('tickets')}
+                    onClick={() => setActiveTab('support')}
                     type="button"
                   >
                     <AppIcon name="headset_mic" className="text-[16px] text-primary" />
@@ -960,42 +1075,26 @@ export function AdminScreen({
                 </div>
               </div>
 
-              {/* LINHA 3: TABELA DE CLIENTES RECENTES & MEMBROS */}
+              {/* Linha Inferior: Subscrições Recentes & Membros Recentes */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-                {/* Tabela de Clientes */}
                 <div className="lg:col-span-8 p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center justify-between">
                     <div>
                       <h2 className="text-[16px] font-black text-on-surface tracking-tight">
-                        Clientes & Subscrições Recentes
+                        Últimas Subscrições Submetidas
                       </h2>
                       <span className="text-[11.5px] font-medium text-on-surface-variant">
-                        Últimos utilizadores registados na plataforma
+                        Clientes aguardando ativação ou recentemente aprovados
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <AppIcon
-                          name="search"
-                          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[15px] text-on-surface-variant"
-                        />
-                        <input
-                          className="h-8 pl-8 pr-3 rounded-[8px] bg-surface-container text-on-surface text-[11.5px] placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/30"
-                          onChange={(e) => setUserSearch(e.target.value)}
-                          placeholder="Pesquisar..."
-                          type="text"
-                          value={userSearch}
-                        />
-                      </div>
-                      <button
-                        className="h-8 px-3 rounded-[8px] bg-primary text-on-primary text-[11.5px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
-                        onClick={() => setActiveTab('users')}
-                        type="button"
-                      >
-                        <span>Ver Todos</span>
-                      </button>
-                    </div>
+                    <button
+                      className="h-8 px-3 rounded-[8px] bg-primary text-on-primary text-[11.5px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                      onClick={() => setActiveTab('subscriptions')}
+                      type="button"
+                    >
+                      <span>Ver Todas ({subscriptions.length})</span>
+                    </button>
                   </div>
 
                   <div className="overflow-x-auto no-scrollbar">
@@ -1003,65 +1102,57 @@ export function AdminScreen({
                       <thead>
                         <tr className="border-b border-surface-container text-[10.5px] font-bold text-on-surface-variant uppercase tracking-wider">
                           <th className="py-2.5 px-3">Cliente</th>
-                          <th className="py-2.5 px-3">Contacto</th>
                           <th className="py-2.5 px-3">Plano</th>
+                          <th className="py-2.5 px-3">Referência M-Pesa</th>
                           <th className="py-2.5 px-3">Estado</th>
                           <th className="py-2.5 px-3 text-right">Ação</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-surface-container/60 font-medium">
-                        {filteredUsers.length === 0 ? (
+                        {subscriptions.length === 0 ? (
                           <tr>
                             <td colSpan={5} className="py-6 text-center text-on-surface-variant text-[12px]">
-                              Nenhum cliente registado encontrado.
+                              Nenhuma subscrição registada.
                             </td>
                           </tr>
                         ) : (
-                          filteredUsers.slice(0, 5).map((user) => (
-                            <tr key={user.id} className="hover:bg-surface-container-low/40 transition-colors">
+                          subscriptions.slice(0, 5).map((sub) => (
+                            <tr key={sub.id} className="hover:bg-surface-container-low/40 transition-colors">
                               <td className="py-2.5 px-3">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-7 h-7 rounded-[8px] bg-primary-fixed text-primary font-bold text-[10.5px] flex items-center justify-center shrink-0">
-                                    {getUserInitials(user.name)}
-                                  </div>
-                                  <span className="font-bold text-on-surface">{user.name}</span>
-                                </div>
-                              </td>
-                              <td className="py-2.5 px-3 text-on-surface-variant text-[11.5px]">
-                                {user.phone}
+                                <span className="font-bold text-on-surface block">{sub.userName}</span>
+                                <span className="text-[11px] text-on-surface-variant block">{sub.userPhone}</span>
                               </td>
                               <td className="py-2.5 px-3">
-                                <span
-                                  className={`px-2 py-0.5 rounded-[6px] text-[10px] font-extrabold uppercase ${
-                                    user.plan === 'business'
-                                      ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                                      : user.plan === 'pro'
-                                        ? 'bg-primary-fixed text-primary border border-primary/25'
-                                        : 'bg-surface-container text-on-surface-variant'
-                                  }`}
-                                >
-                                  {user.plan}
+                                <span className="px-2 py-0.5 rounded-[6px] text-[10px] font-extrabold uppercase bg-primary-fixed text-primary">
+                                  {sub.plan}
                                 </span>
+                              </td>
+                              <td className="py-2.5 px-3 font-mono font-bold text-on-surface">
+                                {sub.paymentReference || 'Sem referência'}
                               </td>
                               <td className="py-2.5 px-3">
                                 <span
                                   className={`px-2 py-0.5 rounded-[6px] text-[10px] font-bold ${
-                                    user.isSuspended
-                                      ? 'bg-error-container text-on-error-container'
-                                      : 'bg-emerald-100 text-emerald-800'
+                                    sub.status === 'active'
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : 'bg-amber-100 text-amber-900'
                                   }`}
                                 >
-                                  {user.isSuspended ? 'Suspenso' : 'Ativo'}
+                                  {sub.status === 'active' ? 'Ativo' : 'Pendente'}
                                 </span>
                               </td>
                               <td className="py-2.5 px-3 text-right">
-                                <button
-                                  className="px-2.5 py-1 rounded-[6px] bg-surface-container hover:bg-surface-container-high text-on-surface text-[11px] font-bold cursor-pointer transition-colors"
-                                  onClick={() => setResetPwdModalUser(user)}
-                                  type="button"
-                                >
-                                  Redefinir Senha
-                                </button>
+                                {sub.status !== 'active' ? (
+                                  <button
+                                    className="px-2.5 py-1 rounded-[6px] bg-primary text-on-primary text-[11px] font-bold cursor-pointer hover:bg-primary-container"
+                                    onClick={() => handleApproveSubscription(sub)}
+                                    type="button"
+                                  >
+                                    Aprovar
+                                  </button>
+                                ) : (
+                                  <span className="text-[11px] text-emerald-700 font-bold">Aprovado</span>
+                                )}
                               </td>
                             </tr>
                           ))
@@ -1071,7 +1162,6 @@ export function AdminScreen({
                   </div>
                 </div>
 
-                {/* Clientes Recentes & Atalho WhatsApp */}
                 <div className="lg:col-span-4 p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs flex flex-col justify-between">
                   <div>
                     <h2 className="text-[16px] font-black text-on-surface tracking-tight">
@@ -1120,145 +1210,19 @@ export function AdminScreen({
                   </div>
 
                   <button
-                    className="w-full h-9 mt-3 rounded-[10px] bg-primary text-on-primary text-[11.5px] font-bold flex items-center justify-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer"
-                    onClick={() => setAnnouncementModalOpen(true)}
+                    className="w-full h-9 mt-3 rounded-[10px] bg-surface-container hover:bg-surface-container-high text-on-surface text-[11.5px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    onClick={() => setActiveTab('users')}
                     type="button"
                   >
-                    <AppIcon name="add" className="text-[16px]" />
-                    <span>Publicar Novo Comunicado</span>
+                    <AppIcon name="group" className="text-[16px]" />
+                    <span>Ver Todos os Clientes</span>
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB: PLANOS DE SUBSCRIÇÃO (CRUD COMPLETO DE PLANOS) */}
-          {activeTab === 'plans' && (
-            <div className="p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs space-y-4 animate-fade-in">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-[18px] font-black text-on-surface tracking-tight">
-                    Gestão dos Planos de Subscrição (CRUD)
-                  </h2>
-                  <p className="text-[11.5px] text-on-surface-variant">
-                    Crie novos planos, altere valores e recursos. As alterações refletem-se instantaneamente no site público.
-                  </p>
-                </div>
-
-                <button
-                  className="h-9 px-4 rounded-[8px] bg-primary text-on-primary text-[12px] font-bold flex items-center gap-1.5 shadow-xs cursor-pointer hover:bg-primary-container"
-                  onClick={() => handleOpenPlanModal()}
-                  type="button"
-                >
-                  <AppIcon name="add" className="text-[16px]" />
-                  <span>Novo Plano de Subscrição</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {plans.map((p) => (
-                  <div
-                    key={p.id}
-                    className={`p-4 rounded-[10px] border flex flex-col justify-between transition-all ${
-                      p.isActive
-                        ? p.isPopular
-                          ? 'border-2 border-primary bg-surface-container-lowest shadow-md'
-                          : 'border-surface-container bg-surface-container-lowest shadow-xs'
-                        : 'border-surface-container/60 bg-surface-container-low/50 opacity-75'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[14px] font-black text-on-surface">
-                          {p.name}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          {p.isPopular && (
-                            <span className="px-2 py-0.5 rounded-[6px] bg-primary-fixed text-primary text-[10px] font-bold">
-                              Destaque ⭐
-                            </span>
-                          )}
-                          <span
-                            className={`px-2 py-0.5 rounded-[6px] text-[10px] font-bold ${
-                              p.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-surface-container text-on-surface-variant'
-                            }`}
-                          >
-                            {p.isActive ? 'Ativo no Site' : 'Inativo'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="my-2.5">
-                        <span className="text-[22px] font-black text-on-surface">
-                          {Number(p.priceMonthly).toLocaleString('pt-MZ')} MT
-                        </span>
-                        <span className="text-[11px] text-on-surface-variant ml-1 font-semibold">/ mês</span>
-                        {Number(p.priceYearly) > 0 && (
-                          <span className="text-[10.5px] text-secondary font-bold block mt-0.5">
-                            {Number(p.priceYearly).toLocaleString('pt-MZ')} MT / ano
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="text-[11.5px] text-on-surface-variant mb-3 leading-snug">
-                        {p.description || 'Sem descrição cadastrada.'}
-                      </p>
-
-                      <div className="space-y-1.5 border-t border-surface-container/60 pt-2.5">
-                        <span className="text-[10.5px] font-bold text-on-surface uppercase tracking-wider block">
-                          Funcionalidades ({p.features.length})
-                        </span>
-                        <ul className="space-y-1 text-[11.5px] text-on-surface-variant">
-                          {p.features.map((feat, idx) => (
-                            <li key={idx} className="flex items-center gap-1.5">
-                              <AppIcon name="check" className="text-secondary text-[14px] shrink-0" />
-                              <span className="truncate">{feat}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-surface-container/60 flex items-center justify-between gap-2">
-                      <button
-                        className="flex-1 h-8 px-2.5 rounded-[6px] bg-surface-container hover:bg-surface-container-high text-on-surface text-[11px] font-bold cursor-pointer"
-                        onClick={() => handleOpenPlanModal(p)}
-                        type="button"
-                      >
-                        Editar Plano
-                      </button>
-
-                      <button
-                        className={`h-8 px-2.5 rounded-[6px] text-[11px] font-bold cursor-pointer ${
-                          p.isActive
-                            ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
-                            : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                        }`}
-                        onClick={() => handleTogglePlanActive(p)}
-                        title={p.isActive ? 'Ocultar do site público' : 'Exibir no site público'}
-                        type="button"
-                      >
-                        {p.isActive ? 'Desativar' : 'Ativar'}
-                      </button>
-
-                      {p.slug !== 'free' && (
-                        <button
-                          className="w-8 h-8 rounded-[6px] bg-error-container text-on-error-container flex items-center justify-center hover:opacity-90 cursor-pointer"
-                          onClick={() => handleDeletePlan(p.id, p.name)}
-                          title="Eliminar este plano"
-                          type="button"
-                        >
-                          <AppIcon name="delete" className="text-[15px]" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* TAB: GESTÃO DE CLIENTES */}
+          {/* TAB 2: CLIENTES */}
           {activeTab === 'users' && (
             <div className="p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs space-y-4 animate-fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1267,17 +1231,28 @@ export function AdminScreen({
                     Gestão Completa de Clientes
                   </h2>
                   <p className="text-[11.5px] text-on-surface-variant">
-                    Pesquise, altere planos, modere acessos ou redefina senhas de utilizadores.
+                    Consulte clientes em tempo real, altere planos, suspenda contas ou inicie suporte via WhatsApp.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    className="h-9 px-3 rounded-[8px] bg-surface-container hover:bg-surface-container-high text-on-surface text-[11.5px] font-bold flex items-center gap-1.5 cursor-pointer"
+                    onClick={handleExportUsersCSV}
+                    type="button"
+                  >
+                    <AppIcon name="download" className="text-[15px]" />
+                    <span>Exportar Lista CSV</span>
+                  </button>
+
                   <input
                     className="h-9 px-3 rounded-[8px] bg-surface-container text-on-surface text-[12px] placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/30"
                     onChange={(e) => setUserSearch(e.target.value)}
-                    placeholder="Pesquisar utilizador..."
+                    placeholder="Pesquisar cliente..."
                     type="text"
                     value={userSearch}
                   />
+
                   <select
                     className="h-9 px-2.5 rounded-[8px] bg-surface-container text-on-surface text-[11.5px] font-bold cursor-pointer"
                     onChange={(e) => setPlanFilter(e.target.value as any)}
@@ -1287,6 +1262,16 @@ export function AdminScreen({
                     <option value="free">Gratuito</option>
                     <option value="pro">Pro (499 MT)</option>
                     <option value="business">Negócios (1.499 MT)</option>
+                  </select>
+
+                  <select
+                    className="h-9 px-2.5 rounded-[8px] bg-surface-container text-on-surface text-[11.5px] font-bold cursor-pointer"
+                    onChange={(e) => setUserStatusFilter(e.target.value as any)}
+                    value={userStatusFilter}
+                  >
+                    <option value="all">Todos os Estados</option>
+                    <option value="active">Apenas Ativos</option>
+                    <option value="suspended">Apenas Suspensos</option>
                   </select>
                 </div>
               </div>
@@ -1304,124 +1289,79 @@ export function AdminScreen({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-container/60 font-medium">
-                    {filteredUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-surface-container-low/40">
-                        <td className="py-2.5 px-3 font-bold text-on-surface">{user.name}</td>
-                        <td className="py-2.5 px-3 text-on-surface-variant">{user.phone}</td>
-                        <td className="py-2.5 px-3">
-                          <span className="px-2 py-0.5 rounded-[6px] text-[10px] font-extrabold uppercase bg-primary-fixed text-primary">
-                            {user.plan}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <select
-                            className="h-7 px-2 rounded-[6px] bg-surface-container text-on-surface text-[10.5px] font-bold cursor-pointer disabled:opacity-50"
-                            disabled={updatingUserId === user.id}
-                            onChange={(e) => handleChangeUserPlan(user.id, e.target.value as SubscriptionPlan)}
-                            value={user.plan}
-                          >
-                            <option value="free">Gratuito</option>
-                            <option value="pro">Pro</option>
-                            <option value="business">Negócios</option>
-                          </select>
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <span
-                            className={`px-2 py-0.5 rounded-[6px] text-[10px] font-bold ${
-                              user.isSuspended
-                                ? 'bg-error-container text-on-error-container'
-                                : 'bg-emerald-100 text-emerald-800'
-                            }`}
-                          >
-                            {user.isSuspended ? 'Suspenso' : 'Ativo'}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-right space-x-2">
-                          <button
-                            className="px-2 py-1 rounded-[6px] bg-surface-container text-on-surface text-[10.5px] font-bold hover:bg-surface-container-high cursor-pointer"
-                            onClick={() => setResetPwdModalUser(user)}
-                            type="button"
-                          >
-                            Senha
-                          </button>
-                          <button
-                            className={`px-2 py-1 rounded-[6px] text-[10.5px] font-bold cursor-pointer ${
-                              user.isSuspended
-                                ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                                : 'bg-error-container text-on-error-container hover:opacity-90'
-                            }`}
-                            onClick={() => handleToggleUserSuspension(user)}
-                            type="button"
-                          >
-                            {user.isSuspended ? 'Reativar' : 'Suspender'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* TAB: SUBSCRIÇÕES E DEPÓSITOS M-PESA */}
-          {activeTab === 'subscriptions' && (
-            <div className="p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs space-y-4 animate-fade-in">
-              <div>
-                <h2 className="text-[18px] font-black text-on-surface tracking-tight">
-                  Validação de Subscrições & Pagamentos M-Pesa
-                </h2>
-                <p className="text-[11.5px] text-on-surface-variant">
-                  Confira as referências de transação enviadas pelos clientes e ative o plano instantaneamente.
-                </p>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-[12.5px]">
-                  <thead>
-                    <tr className="border-b border-surface-container text-[10.5px] font-bold text-on-surface-variant uppercase">
-                      <th className="py-2.5 px-3">Cliente</th>
-                      <th className="py-2.5 px-3">Plano</th>
-                      <th className="py-2.5 px-3">Referência M-Pesa</th>
-                      <th className="py-2.5 px-3">Valor</th>
-                      <th className="py-2.5 px-3">Estado</th>
-                      <th className="py-2.5 px-3 text-right">Ação</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-surface-container/60 font-medium">
-                    {subscriptions.length === 0 ? (
+                    {filteredUsers.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="py-6 text-center text-on-surface-variant text-[12px]">
-                          Nenhuma subscrição registada até ao momento.
+                          Nenhum cliente encontrado com os filtros selecionados.
                         </td>
                       </tr>
                     ) : (
-                      subscriptions.map((sub) => (
-                        <tr key={sub.id} className="hover:bg-surface-container-low/40">
-                          <td className="py-2.5 px-3 font-bold text-on-surface">{sub.userName}</td>
-                          <td className="py-2.5 px-3 uppercase font-extrabold text-primary">{sub.plan}</td>
-                          <td className="py-2.5 px-3 font-mono font-bold text-on-surface">
-                            {sub.paymentReference || 'Sem referência'}
+                      filteredUsers.map((user) => (
+                        <tr key={user.id} className="hover:bg-surface-container-low/40">
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-[8px] bg-primary-fixed text-primary font-bold text-[10.5px] flex items-center justify-center shrink-0">
+                                {getUserInitials(user.name)}
+                              </div>
+                              <span className="font-bold text-on-surface">{user.name}</span>
+                            </div>
                           </td>
-                          <td className="py-2.5 px-3">{formatMoney(sub.pricePaid, currency)}</td>
+                          <td className="py-2.5 px-3 text-on-surface-variant">{user.phone}</td>
+                          <td className="py-2.5 px-3">
+                            <span className="px-2 py-0.5 rounded-[6px] text-[10px] font-extrabold uppercase bg-primary-fixed text-primary">
+                              {user.plan}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <select
+                              className="h-7 px-2 rounded-[6px] bg-surface-container text-on-surface text-[10.5px] font-bold cursor-pointer disabled:opacity-50"
+                              disabled={updatingUserId === user.id}
+                              onChange={(e) => handleChangeUserPlan(user.id, e.target.value as SubscriptionPlan)}
+                              value={user.plan}
+                            >
+                              <option value="free">Gratuito</option>
+                              <option value="pro">Pro</option>
+                              <option value="business">Negócios</option>
+                            </select>
+                          </td>
                           <td className="py-2.5 px-3">
                             <span
                               className={`px-2 py-0.5 rounded-[6px] text-[10px] font-bold ${
-                                sub.status === 'active'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-amber-100 text-amber-900'
+                                user.isSuspended
+                                  ? 'bg-error-container text-on-error-container'
+                                  : 'bg-emerald-100 text-emerald-800'
                               }`}
                             >
-                              {sub.status === 'active' ? 'Ativo' : 'Pendente'}
+                              {user.isSuspended ? 'Suspenso' : 'Ativo'}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-right">
+                          <td className="py-2.5 px-3 text-right space-x-1.5">
+                            <a
+                              className="inline-flex items-center justify-center w-7 h-7 rounded-[6px] bg-emerald-100 text-emerald-800 hover:bg-emerald-200 transition-colors align-middle"
+                              href={`https://wa.me/${user.phone.replace(/\D/g, '')}?text=Olá%20${encodeURIComponent(user.name)},%20contacto%20do%20FinTrack.`}
+                              rel="noopener noreferrer"
+                              target="_blank"
+                              title="Conversar no WhatsApp"
+                            >
+                              <AppIcon name="chat" className="text-[14px]" />
+                            </a>
                             <button
-                              className="px-3 py-1 rounded-[8px] bg-primary text-on-primary text-[11px] font-bold shadow-xs hover:bg-primary-container cursor-pointer"
-                              onClick={() => handleApproveSubscription(sub)}
+                              className="px-2 py-1 rounded-[6px] bg-surface-container text-on-surface text-[10.5px] font-bold hover:bg-surface-container-high cursor-pointer align-middle"
+                              onClick={() => setResetPwdModalUser(user)}
                               type="button"
                             >
-                              Aprovar & Ativar
+                              Senha
+                            </button>
+                            <button
+                              className={`px-2 py-1 rounded-[6px] text-[10.5px] font-bold cursor-pointer align-middle ${
+                                user.isSuspended
+                                  ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                  : 'bg-error-container text-on-error-container hover:opacity-90'
+                              }`}
+                              onClick={() => handleToggleUserSuspension(user)}
+                              type="button"
+                            >
+                              {user.isSuspended ? 'Reativar' : 'Suspender'}
                             </button>
                           </td>
                         </tr>
@@ -1433,82 +1373,311 @@ export function AdminScreen({
             </div>
           )}
 
-          {/* TAB: SUPORTE & HELPDESK */}
-          {activeTab === 'tickets' && (
+          {/* TAB 3: SUBSCRIÇÕES */}
+          {activeTab === 'subscriptions' && (
             <div className="p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs space-y-4 animate-fade-in">
-              <div>
-                <h2 className="text-[18px] font-black text-on-surface tracking-tight">
-                  Central de Atendimento & Helpdesk
-                </h2>
-                <p className="text-[11.5px] text-on-surface-variant">
-                  Chamados abertos pelos clientes. Fale diretamente no WhatsApp ou marque como resolvido.
-                </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-[18px] font-black text-on-surface tracking-tight">
+                    Gestão de Subscrições & Ativação M-Pesa
+                  </h2>
+                  <p className="text-[11.5px] text-on-surface-variant">
+                    Valide códigos M-Pesa e ative instantaneamente o acesso dos clientes.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select
+                    className="h-9 px-2.5 rounded-[8px] bg-surface-container text-on-surface text-[11.5px] font-bold cursor-pointer"
+                    onChange={(e) => setSubStatusFilter(e.target.value as any)}
+                    value={subStatusFilter}
+                  >
+                    <option value="all">Todas as Subscrições</option>
+                    <option value="trialing">Pendentes (Aguardando)</option>
+                    <option value="active">Aprovadas (Ativas)</option>
+                    <option value="expired">Expiradas / Canceladas</option>
+                  </select>
+
+                  <button
+                    className="h-9 px-3 rounded-[8px] bg-surface-container hover:bg-surface-container-high text-on-surface text-[11.5px] font-bold flex items-center gap-1.5 cursor-pointer"
+                    onClick={handleExportFinancialCSV}
+                    type="button"
+                  >
+                    <AppIcon name="download" className="text-[15px]" />
+                    <span>Exportar CSV</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="space-y-2.5">
-                {tickets.length === 0 ? (
-                  <p className="text-[12px] text-on-surface-variant py-6 text-center">Nenhum chamado aberto na fila.</p>
-                ) : (
-                  tickets.map((ticket) => (
-                    <div
-                      key={ticket.id}
-                      className="p-3.5 rounded-[10px] bg-surface-container-low border border-surface-container flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-primary text-[11.5px]">
-                            {ticket.code}
-                          </span>
-                          <span className="text-[13px] font-bold text-on-surface">
-                            {ticket.subject}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-[6px] bg-secondary-container text-on-secondary-container text-[9.5px] font-bold">
-                            {ticket.category}
-                          </span>
-                        </div>
-                        <p className="text-[11.5px] text-on-surface-variant leading-relaxed">
-                          {ticket.message}
-                        </p>
-                        <span className="text-[10.5px] text-outline block">
-                          Cliente: {ticket.userName} ({ticket.userPhone})
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <a
-                          className="h-8 px-2.5 rounded-[8px] bg-emerald-100 text-emerald-800 text-[11.5px] font-bold flex items-center gap-1.5 hover:bg-emerald-200 transition-colors"
-                          href={`https://wa.me/${ticket.userPhone.replace(/\D/g, '')}?text=Olá%20${encodeURIComponent(ticket.userName)},%20referente%20ao%20chamado%20${ticket.code}:`}
-                          rel="noopener noreferrer"
-                          target="_blank"
-                        >
-                          <AppIcon name="chat" className="text-[15px]" />
-                          <span>WhatsApp</span>
-                        </a>
-                        <button
-                          className="h-8 px-2.5 rounded-[8px] bg-surface-container hover:bg-surface-container-high text-on-surface text-[11.5px] font-bold cursor-pointer"
-                          onClick={() => handleUpdateTicketStatus(ticket.id, 'resolvido')}
-                          type="button"
-                        >
-                          Resolver
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-[12.5px]">
+                  <thead>
+                    <tr className="border-b border-surface-container text-[10.5px] font-bold text-on-surface-variant uppercase">
+                      <th className="py-2.5 px-3">Cliente</th>
+                      <th className="py-2.5 px-3">Plano</th>
+                      <th className="py-2.5 px-3">Referência M-Pesa</th>
+                      <th className="py-2.5 px-3">Valor</th>
+                      <th className="py-2.5 px-3">Ciclo</th>
+                      <th className="py-2.5 px-3">Estado</th>
+                      <th className="py-2.5 px-3 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface-container/60 font-medium">
+                    {filteredSubscriptions.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-6 text-center text-on-surface-variant text-[12px]">
+                          Nenhuma subscrição encontrada neste filtro.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredSubscriptions.map((sub) => (
+                        <tr key={sub.id} className="hover:bg-surface-container-low/40">
+                          <td className="py-2.5 px-3 font-bold text-on-surface">
+                            <div>{sub.userName}</div>
+                            <div className="text-[11px] text-on-surface-variant font-normal">{sub.userPhone}</div>
+                          </td>
+                          <td className="py-2.5 px-3 uppercase font-extrabold text-primary">{sub.plan}</td>
+                          <td className="py-2.5 px-3 font-mono font-bold text-on-surface">
+                            {sub.paymentReference || 'Sem referência'}
+                          </td>
+                          <td className="py-2.5 px-3 font-bold">{formatMoney(sub.pricePaid, currency)}</td>
+                          <td className="py-2.5 px-3 text-[11.5px]">
+                            {sub.billingCycle === 'yearly' ? 'Anual' : 'Mensal'}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span
+                              className={`px-2 py-0.5 rounded-[6px] text-[10px] font-bold ${
+                                sub.status === 'active'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-amber-100 text-amber-900 animate-pulse'
+                              }`}
+                            >
+                              {sub.status === 'active' ? 'Ativo' : 'Pendente'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            {sub.status !== 'active' ? (
+                              <button
+                                className="px-3 py-1 rounded-[8px] bg-primary text-on-primary text-[11px] font-bold shadow-xs hover:bg-primary-container cursor-pointer"
+                                onClick={() => handleApproveSubscription(sub)}
+                                type="button"
+                              >
+                                Aprovar & Ativar
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-emerald-700 font-bold">Ativa</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
 
-          {/* TAB: AVISOS & COMUNICADOS GLOBAIS */}
+          {/* TAB 4: FINANCEIRO */}
+          {activeTab === 'financial' && (
+            <div className="p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs space-y-5 animate-fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-[18px] font-black text-on-surface tracking-tight">
+                    Gestão Financeira & Receitas SaaS
+                  </h2>
+                  <p className="text-[11.5px] text-on-surface-variant">
+                    Métricas reais de faturação, ticket médio (ARPU) e projeções de fluxo de caixa recorrente.
+                  </p>
+                </div>
+                <button
+                  className="h-9 px-3 rounded-[8px] bg-primary text-on-primary text-[11.5px] font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  onClick={handleExportFinancialCSV}
+                  type="button"
+                >
+                  <AppIcon name="download" className="text-[15px]" />
+                  <span>Exportar Relatório Financeiro (CSV)</span>
+                </button>
+              </div>
+
+              {/* Grid de KPIs Financeiros */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                <div className="p-4 rounded-[10px] bg-surface-container-low border border-surface-container">
+                  <span className="text-[11px] font-bold text-on-surface-variant uppercase">Receita Mensal (MRR)</span>
+                  <span className="text-[22px] font-black text-on-surface block mt-1">
+                    {formatMoney(stats?.mrrMzn ?? 0, currency)}
+                  </span>
+                  <span className="text-[10.5px] text-emerald-700 font-semibold block mt-0.5">
+                    Faturação recorrente ativa
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-[10px] bg-surface-container-low border border-surface-container">
+                  <span className="text-[11px] font-bold text-on-surface-variant uppercase">Projeção Anual (ARR)</span>
+                  <span className="text-[22px] font-black text-on-surface block mt-1">
+                    {formatMoney((stats?.mrrMzn ?? 0) * 12, currency)}
+                  </span>
+                  <span className="text-[10.5px] text-on-surface-variant block mt-0.5">
+                    12 meses projetados
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-[10px] bg-surface-container-low border border-surface-container">
+                  <span className="text-[11px] font-bold text-on-surface-variant uppercase">Ticket Médio (ARPU)</span>
+                  <span className="text-[22px] font-black text-on-surface block mt-1">
+                    {formatMoney(arpuReal, currency)}
+                  </span>
+                  <span className="text-[10.5px] text-on-surface-variant block mt-0.5">
+                    Por cliente pagante
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-[10px] bg-surface-container-low border border-surface-container">
+                  <span className="text-[11px] font-bold text-on-surface-variant uppercase">Clientes Pagantes</span>
+                  <span className="text-[22px] font-black text-on-surface block mt-1">
+                    {(stats?.proUsersCount || 0) + (stats?.businessUsersCount || 0)}
+                  </span>
+                  <span className="text-[10.5px] text-primary font-semibold block mt-0.5">
+                    {stats?.proUsersCount ?? 0} Pro · {stats?.businessUsersCount ?? 0} Negócios
+                  </span>
+                </div>
+              </div>
+
+              {/* Detalhamento de Receita por Plano */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-[10px] bg-surface-container-lowest border border-surface-container">
+                  <div className="flex items-center justify-between pb-2 border-b border-surface-container">
+                    <span className="font-bold text-[13.5px] text-on-surface">Plano FinPro Pessoal</span>
+                    <span className="text-[11px] font-bold text-primary">499 MT / mês</span>
+                  </div>
+                  <div className="mt-3 space-y-1.5 text-[12px]">
+                    <div className="flex justify-between">
+                      <span className="text-on-surface-variant">Assinantes Ativos:</span>
+                      <span className="font-bold text-on-surface">{stats?.proUsersCount ?? 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-on-surface-variant">Faturamento Mensal:</span>
+                      <span className="font-bold text-on-surface">{formatMoney((stats?.proUsersCount || 0) * 499, currency)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-on-surface-variant">Faturamento Anualizado:</span>
+                      <span className="font-bold text-on-surface">{formatMoney((stats?.proUsersCount || 0) * 499 * 12, currency)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-[10px] bg-surface-container-lowest border border-surface-container">
+                  <div className="flex items-center justify-between pb-2 border-b border-surface-container">
+                    <span className="font-bold text-[13.5px] text-on-surface">Plano FinPro Negócios</span>
+                    <span className="text-[11px] font-bold text-primary">1.499 MT / mês</span>
+                  </div>
+                  <div className="mt-3 space-y-1.5 text-[12px]">
+                    <div className="flex justify-between">
+                      <span className="text-on-surface-variant">Assinantes Ativos:</span>
+                      <span className="font-bold text-on-surface">{stats?.businessUsersCount ?? 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-on-surface-variant">Faturamento Mensal:</span>
+                      <span className="font-bold text-on-surface">{formatMoney((stats?.businessUsersCount || 0) * 1499, currency)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-on-surface-variant">Faturamento Anualizado:</span>
+                      <span className="font-bold text-on-surface">{formatMoney((stats?.businessUsersCount || 0) * 1499 * 12, currency)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: RELATÓRIOS */}
+          {activeTab === 'reports' && (
+            <div className="p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs space-y-5 animate-fade-in">
+              <div>
+                <h2 className="text-[18px] font-black text-on-surface tracking-tight">
+                  Central de Relatórios & Auditoria SaaS
+                </h2>
+                <p className="text-[11.5px] text-on-surface-variant">
+                  Gere e descarregue relatórios consolidados em formato CSV para gestão contabilística e auditoria.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Relatório 1: Clientes */}
+                <div className="p-4 rounded-[10px] bg-surface-container-low border border-surface-container flex flex-col justify-between">
+                  <div className="space-y-1.5">
+                    <div className="w-8 h-8 rounded-[8px] bg-primary text-on-primary flex items-center justify-center">
+                      <AppIcon name="group" className="text-[17px]" />
+                    </div>
+                    <h3 className="text-[14px] font-bold text-on-surface pt-1">Relatório de Clientes</h3>
+                    <p className="text-[11.5px] text-on-surface-variant">
+                      Lista completa de utilizadores registados, contactos telefónicos, e-mails, planos e data de adesão.
+                    </p>
+                  </div>
+                  <button
+                    className="w-full h-9 mt-4 rounded-[8px] bg-primary text-on-primary text-[11.5px] font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                    onClick={handleExportUsersCSV}
+                    type="button"
+                  >
+                    <AppIcon name="download" className="text-[15px]" />
+                    <span>Descarregar CSV de Clientes</span>
+                  </button>
+                </div>
+
+                {/* Relatório 2: Financeiro */}
+                <div className="p-4 rounded-[10px] bg-surface-container-low border border-surface-container flex flex-col justify-between">
+                  <div className="space-y-1.5">
+                    <div className="w-8 h-8 rounded-[8px] bg-secondary-container text-on-secondary-container flex items-center justify-center">
+                      <AppIcon name="payments" className="text-[17px]" />
+                    </div>
+                    <h3 className="text-[14px] font-bold text-on-surface pt-1">Relatório Financeiro</h3>
+                    <p className="text-[11.5px] text-on-surface-variant">
+                      Extrato de todas as transações, referências M-Pesa/e-Mola validadas, planos ativados e montantes recebidos.
+                    </p>
+                  </div>
+                  <button
+                    className="w-full h-9 mt-4 rounded-[8px] bg-secondary text-on-secondary text-[11.5px] font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                    onClick={handleExportFinancialCSV}
+                    type="button"
+                  >
+                    <AppIcon name="download" className="text-[15px]" />
+                    <span>Descarregar CSV Financeiro</span>
+                  </button>
+                </div>
+
+                {/* Relatório 3: Suporte */}
+                <div className="p-4 rounded-[10px] bg-surface-container-low border border-surface-container flex flex-col justify-between">
+                  <div className="space-y-1.5">
+                    <div className="w-8 h-8 rounded-[8px] bg-tertiary-container text-on-tertiary-container flex items-center justify-center">
+                      <AppIcon name="support_agent" className="text-[17px]" />
+                    </div>
+                    <h3 className="text-[14px] font-bold text-on-surface pt-1">Relatório de Atendimento</h3>
+                    <p className="text-[11.5px] text-on-surface-variant">
+                      Histórico de chamados de suporte, protocolos emitidos, canais de contacto e estado de resolução.
+                    </p>
+                  </div>
+                  <button
+                    className="w-full h-9 mt-4 rounded-[8px] bg-surface-container-high hover:bg-surface-container-highest text-on-surface text-[11.5px] font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                    onClick={handleExportTicketsCSV}
+                    type="button"
+                  >
+                    <AppIcon name="download" className="text-[15px]" />
+                    <span>Descarregar CSV de Suporte</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: COMUNICADOS */}
           {activeTab === 'announcements' && (
             <div className="p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs space-y-4 animate-fade-in">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-[18px] font-black text-on-surface tracking-tight">
-                    Comunicados Globais (Broadcast nos Apps)
+                    Avisos & Comunicados Globais (Broadcast)
                   </h2>
                   <p className="text-[11.5px] text-on-surface-variant">
-                    Mensagens emitidas para todos os utilizadores no topo dos aplicativos.
+                    Mensagens emitidas para todos os utilizadores no topo dos seus aplicativos em tempo real.
                   </p>
                 </div>
                 <button
@@ -1528,18 +1697,34 @@ export function AdminScreen({
                   announcements.map((ann) => (
                     <div
                       key={ann.id}
-                      className="p-3 rounded-[10px] bg-surface-container-low border border-surface-container flex items-center justify-between gap-3"
+                      className="p-3.5 rounded-[10px] bg-surface-container-low border border-surface-container flex items-center justify-between gap-3"
                     >
-                      <div>
-                        <span className="text-[13px] font-bold text-on-surface block">
-                          {ann.title}
-                        </span>
-                        <p className="text-[11.5px] text-on-surface-variant mt-0.5">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] font-bold text-on-surface block">
+                            {ann.title}
+                          </span>
+                          <span
+                            className={`px-1.5 py-0.2 rounded-[4px] text-[9.5px] font-bold uppercase ${
+                              ann.severity === 'critical'
+                                ? 'bg-error-container text-on-error-container'
+                                : ann.severity === 'warning'
+                                  ? 'bg-amber-100 text-amber-900'
+                                  : 'bg-primary-fixed text-primary'
+                            }`}
+                          >
+                            {ann.severity}
+                          </span>
+                        </div>
+                        <p className="text-[11.5px] text-on-surface-variant">
                           {ann.message}
                         </p>
+                        <span className="text-[10px] text-outline block">
+                          Publicado em: {new Date(ann.createdAt).toLocaleString('pt-MZ')}
+                        </span>
                       </div>
                       <button
-                        className="px-2.5 py-1 rounded-[6px] bg-error-container text-on-error-container text-[11px] font-bold cursor-pointer hover:opacity-90"
+                        className="px-2.5 py-1 rounded-[6px] bg-error-container text-on-error-container text-[11px] font-bold cursor-pointer hover:opacity-90 shrink-0"
                         onClick={() => handleDeleteAnnouncement(ann.id)}
                         type="button"
                       >
@@ -1552,77 +1737,296 @@ export function AdminScreen({
             </div>
           )}
 
-          {/* TAB: ESTATÍSTICAS E RELATÓRIO FINANCEIRO */}
-          {activeTab === 'statistics' && (
+          {/* TAB 7: SUPORTE & HELPDESK */}
+          {activeTab === 'support' && (
             <div className="p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs space-y-4 animate-fade-in">
-              <div>
-                <h2 className="text-[18px] font-black text-on-surface tracking-tight">
-                  Relatório Financeiro & Métricas SaaS
-                </h2>
-                <p className="text-[11.5px] text-on-surface-variant">
-                  Evolução do faturamento, planos mais vendidos e receita real por plano.
-                </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-[18px] font-black text-on-surface tracking-tight">
+                    Central de Atendimento & Helpdesk em Tempo Real
+                  </h2>
+                  <p className="text-[11.5px] text-on-surface-variant">
+                    Chamados enviados pelos clientes no aplicativo. Inicie conversa no WhatsApp com 1 clique ou resolva o chamado.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    className="h-9 px-3 rounded-[8px] bg-surface-container text-on-surface text-[12px] placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/30"
+                    onChange={(e) => setTicketSearch(e.target.value)}
+                    placeholder="Pesquisar protocolo ou cliente..."
+                    type="text"
+                    value={ticketSearch}
+                  />
+
+                  <select
+                    className="h-9 px-2.5 rounded-[8px] bg-surface-container text-on-surface text-[11.5px] font-bold cursor-pointer"
+                    onChange={(e) => setTicketStatusFilter(e.target.value as any)}
+                    value={ticketStatusFilter}
+                  >
+                    <option value="all">Todos os Chamados</option>
+                    <option value="aberto">Apenas Abertos</option>
+                    <option value="resolvido">Apenas Resolvidos</option>
+                  </select>
+
+                  <button
+                    className="h-9 px-3 rounded-[8px] bg-surface-container hover:bg-surface-container-high text-on-surface text-[11.5px] font-bold flex items-center gap-1.5 cursor-pointer"
+                    onClick={handleExportTicketsCSV}
+                    type="button"
+                  >
+                    <AppIcon name="download" className="text-[15px]" />
+                    <span>CSV</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                <div className="p-4 rounded-[10px] bg-surface-container-low">
-                  <span className="text-[11px] font-bold text-on-surface-variant uppercase">Receita Plano Pro</span>
-                  <span className="text-[20px] font-black text-on-surface block mt-1">
-                    {formatMoney((stats?.proUsersCount || 0) * 499, currency)}
-                  </span>
-                  <span className="text-[10.5px] text-on-surface-variant mt-0.5 block">
-                    {stats?.proUsersCount ?? 0} assinantes Pro
-                  </span>
+              {/* Contadores de Suporte */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 rounded-[10px] bg-surface-container-low border border-surface-container flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] font-bold text-on-surface-variant uppercase">Total de Chamados</span>
+                    <span className="text-[20px] font-black text-on-surface block mt-0.5">{tickets.length}</span>
+                  </div>
+                  <AppIcon name="receipt" className="text-[22px] text-on-surface-variant" />
                 </div>
-                <div className="p-4 rounded-[10px] bg-surface-container-low">
-                  <span className="text-[11px] font-bold text-on-surface-variant uppercase">Receita Plano Negócios</span>
-                  <span className="text-[20px] font-black text-on-surface block mt-1">
-                    {formatMoney((stats?.businessUsersCount || 0) * 1499, currency)}
-                  </span>
-                  <span className="text-[10.5px] text-on-surface-variant mt-0.5 block">
-                    {stats?.businessUsersCount ?? 0} assinantes Negócios
-                  </span>
+
+                <div className="p-3 rounded-[10px] bg-error-container/20 border border-error-container/40 flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] font-bold text-error uppercase">Abertos em Espera</span>
+                    <span className="text-[20px] font-black text-error block mt-0.5">
+                      {tickets.filter((t) => t.status === 'aberto').length}
+                    </span>
+                  </div>
+                  <AppIcon name="hourglass_top" className="text-[22px] text-error" />
                 </div>
-                <div className="p-4 rounded-[10px] bg-surface-container-low">
-                  <span className="text-[11px] font-bold text-on-surface-variant uppercase">Total Clientes Pagantes</span>
-                  <span className="text-[20px] font-black text-on-surface block mt-1">
-                    {(stats?.proUsersCount || 0) + (stats?.businessUsersCount || 0)}
-                  </span>
-                  <span className="text-[10.5px] text-on-surface-variant mt-0.5 block">
-                    De um total de {stats?.totalUsers ?? 0} utilizadores
-                  </span>
+
+                <div className="p-3 rounded-[10px] bg-emerald-50 border border-emerald-200 flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] font-bold text-emerald-800 uppercase">Resolvidos</span>
+                    <span className="text-[20px] font-black text-emerald-800 block mt-0.5">
+                      {tickets.filter((t) => t.status === 'resolvido').length}
+                    </span>
+                  </div>
+                  <AppIcon name="check_circle" className="text-[22px] text-emerald-600" />
                 </div>
+              </div>
+
+              <div className="space-y-2.5">
+                {filteredTickets.length === 0 ? (
+                  <p className="text-[12px] text-on-surface-variant py-6 text-center">Nenhum chamado encontrado com o filtro atual.</p>
+                ) : (
+                  filteredTickets.map((ticket) => (
+                    <div
+                      key={ticket.id}
+                      className="p-3.5 rounded-[10px] bg-surface-container-low border border-surface-container flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-bold text-primary text-[11.5px] px-1.5 py-0.5 rounded-[4px] bg-primary-fixed">
+                            {ticket.code}
+                          </span>
+                          <span className="text-[13px] font-bold text-on-surface">
+                            {ticket.subject}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-[6px] bg-secondary-container text-on-secondary-container text-[9.5px] font-bold">
+                            {ticket.category}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-[6px] text-[9.5px] font-bold ${
+                              ticket.status === 'resolvido'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-error-container text-on-error-container'
+                            }`}
+                          >
+                            {ticket.status === 'resolvido' ? 'Resolvido' : 'Em Aberto'}
+                          </span>
+                        </div>
+                        <p className="text-[11.5px] text-on-surface-variant leading-relaxed">
+                          {ticket.message}
+                        </p>
+                        <span className="text-[10.5px] text-outline block">
+                          Cliente: <strong>{ticket.userName}</strong> ({ticket.userPhone}) · Aberto em: {new Date(ticket.createdAt).toLocaleString('pt-MZ')}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <a
+                          className="h-8 px-2.5 rounded-[8px] bg-emerald-100 text-emerald-800 text-[11.5px] font-bold flex items-center gap-1.5 hover:bg-emerald-200 transition-colors"
+                          href={`https://wa.me/${ticket.userPhone.replace(/\D/g, '')}?text=Olá%20${encodeURIComponent(ticket.userName)},%20suporte%20FinTrack%20sobre%20o%20chamado%20${ticket.code}:%20${encodeURIComponent(ticket.subject)}`}
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
+                          <AppIcon name="chat" className="text-[15px]" />
+                          <span>Atender no WhatsApp</span>
+                        </a>
+
+                        {ticket.status !== 'resolvido' && (
+                          <button
+                            className="h-8 px-2.5 rounded-[8px] bg-surface-container hover:bg-surface-container-high text-on-surface text-[11.5px] font-bold cursor-pointer"
+                            onClick={() => handleUpdateTicketStatus(ticket.id, 'resolvido')}
+                            type="button"
+                          >
+                            Marcar Resolvido
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
 
-          {/* TAB: CONFIGURAÇÕES DA PLATAFORMA */}
+          {/* TAB 8: CONFIGURAÇÕES (CRUD de Planos & Infraestrutura) */}
           {activeTab === 'settings' && (
-            <div className="p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs space-y-4 animate-fade-in">
-              <div>
-                <h2 className="text-[18px] font-black text-on-surface tracking-tight">
-                  Infraestrutura & Configurações da Plataforma
-                </h2>
-                <p className="text-[11.5px] text-on-surface-variant">
-                  Status de saúde dos servidores, limites operacionais e base de dados.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div className="p-3.5 rounded-[10px] bg-surface-container-low flex items-center justify-between">
-                  <div>
-                    <span className="text-[12.5px] font-bold text-on-surface block">Neon Postgres Database</span>
-                    <span className="text-[11px] text-emerald-700 font-semibold">Conectado · Latência 42ms</span>
-                  </div>
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="p-4 sm:p-5 rounded-[10px] bg-surface-container-lowest border border-surface-container shadow-xs space-y-5 animate-fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-[18px] font-black text-on-surface tracking-tight">
+                    Configurações & Planos de Subscrição
+                  </h2>
+                  <p className="text-[11.5px] text-on-surface-variant">
+                    Personalize os planos de subscrição comercializados na Landing Page e confira a saúde dos servidores.
+                  </p>
                 </div>
 
-                <div className="p-3.5 rounded-[10px] bg-surface-container-low flex items-center justify-between">
-                  <div>
-                    <span className="text-[12.5px] font-bold text-on-surface block">S3 Object Storage (Neon)</span>
-                    <span className="text-[11px] text-emerald-700 font-semibold">Comprovativos e Avatares OK</span>
+                <button
+                  className="h-9 px-4 rounded-[8px] bg-primary text-on-primary text-[12px] font-bold flex items-center gap-1.5 shadow-xs cursor-pointer hover:bg-primary-container"
+                  onClick={() => handleOpenPlanModal()}
+                  type="button"
+                >
+                  <AppIcon name="add" className="text-[16px]" />
+                  <span>Novo Plano de Subscrição</span>
+                </button>
+              </div>
+
+              {/* Grade de Planos com CRUD */}
+              <div>
+                <h3 className="text-[14px] font-bold text-on-surface mb-2.5">
+                  Planos Ativos no Site Público ({plans.length})
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {plans.map((p) => (
+                    <div
+                      key={p.id}
+                      className={`p-4 rounded-[10px] border flex flex-col justify-between transition-all ${
+                        p.isActive
+                          ? p.isPopular
+                            ? 'border-2 border-primary bg-surface-container-lowest shadow-md'
+                            : 'border-surface-container bg-surface-container-lowest shadow-xs'
+                          : 'border-surface-container/60 bg-surface-container-low/50 opacity-75'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[14px] font-black text-on-surface">
+                            {p.name}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {p.isPopular && (
+                              <span className="px-2 py-0.5 rounded-[6px] bg-primary-fixed text-primary text-[10px] font-bold">
+                                Destaque ⭐
+                              </span>
+                            )}
+                            <span
+                              className={`px-2 py-0.5 rounded-[6px] text-[10px] font-bold ${
+                                p.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-surface-container text-on-surface-variant'
+                              }`}
+                            >
+                              {p.isActive ? 'Ativo no Site' : 'Inativo'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="my-2.5">
+                          <span className="text-[22px] font-black text-on-surface">
+                            {Number(p.priceMonthly).toLocaleString('pt-MZ')} MT
+                          </span>
+                          <span className="text-[11px] text-on-surface-variant ml-1 font-semibold">/ mês</span>
+                          {Number(p.priceYearly) > 0 && (
+                            <span className="text-[10.5px] text-secondary font-bold block mt-0.5">
+                              {Number(p.priceYearly).toLocaleString('pt-MZ')} MT / ano
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-[11.5px] text-on-surface-variant mb-3 leading-snug">
+                          {p.description || 'Sem descrição cadastrada.'}
+                        </p>
+
+                        <div className="space-y-1.5 border-t border-surface-container/60 pt-2.5">
+                          <span className="text-[10.5px] font-bold text-on-surface uppercase tracking-wider block">
+                            Funcionalidades ({p.features.length})
+                          </span>
+                          <ul className="space-y-1 text-[11.5px] text-on-surface-variant">
+                            {p.features.map((feat, idx) => (
+                              <li key={idx} className="flex items-center gap-1.5">
+                                <AppIcon name="check" className="text-secondary text-[14px] shrink-0" />
+                                <span className="truncate">{feat}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-surface-container/60 flex items-center justify-between gap-2">
+                        <button
+                          className="flex-1 h-8 px-2.5 rounded-[6px] bg-surface-container hover:bg-surface-container-high text-on-surface text-[11px] font-bold cursor-pointer"
+                          onClick={() => handleOpenPlanModal(p)}
+                          type="button"
+                        >
+                          Editar
+                        </button>
+
+                        <button
+                          className={`h-8 px-2.5 rounded-[6px] text-[11px] font-bold cursor-pointer ${
+                            p.isActive
+                              ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                              : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                          }`}
+                          onClick={() => handleTogglePlanActive(p)}
+                          type="button"
+                        >
+                          {p.isActive ? 'Desativar' : 'Ativar'}
+                        </button>
+
+                        {p.slug !== 'free' && (
+                          <button
+                            className="w-8 h-8 rounded-[6px] bg-error-container text-on-error-container flex items-center justify-center hover:opacity-90 cursor-pointer"
+                            onClick={() => handleDeletePlan(p.id, p.name)}
+                            title="Eliminar este plano"
+                            type="button"
+                          >
+                            <AppIcon name="delete" className="text-[15px]" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Status de Infraestrutura */}
+              <div className="pt-2 border-t border-surface-container/60">
+                <h3 className="text-[14px] font-bold text-on-surface mb-2.5">
+                  Estado da Infraestrutura Cloud
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="p-3.5 rounded-[10px] bg-surface-container-low flex items-center justify-between">
+                    <div>
+                      <span className="text-[12.5px] font-bold text-on-surface block">Neon Postgres Database</span>
+                      <span className="text-[11px] text-emerald-700 font-semibold">Conectado · Latência 38ms</span>
+                    </div>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                   </div>
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+
+                  <div className="p-3.5 rounded-[10px] bg-surface-container-low flex items-center justify-between">
+                    <div>
+                      <span className="text-[12.5px] font-bold text-on-surface block">S3 Object Storage (Neon)</span>
+                      <span className="text-[11px] text-emerald-700 font-semibold">Comprovativos e Avatares OK</span>
+                    </div>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1630,7 +2034,7 @@ export function AdminScreen({
         </main>
       </div>
 
-      {/* MODAL: CRIAR OU EDITAR PLANO DE SUBSCRIÇÃO (CRUD COMPLETO) */}
+      {/* MODAL: CRIAR OU EDITAR PLANO DE SUBSCRIÇÃO */}
       {planModalOpen && (
         <div className="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-surface-container-lowest p-5 rounded-[10px] shadow-2xl border border-surface-container space-y-3.5 max-h-[90vh] overflow-y-auto">
@@ -1807,7 +2211,7 @@ export function AdminScreen({
               Publicar Comunicado Global
             </h3>
             <p className="text-[11.5px] text-on-surface-variant">
-              Esta mensagem aparecerá para todos os utilizadores no topo dos aplicativos.
+              Esta mensagem aparecerá para todos os utilizadores no topo dos seus aplicativos.
             </p>
 
             <form onSubmit={handleCreateAnnouncement} className="space-y-3">

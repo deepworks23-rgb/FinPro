@@ -281,25 +281,41 @@ export default function App() {
     };
   }, [applyWorkspace]);
 
-  // Load SaaS Subscription when authenticated
+  // Load & Sync SaaS Subscription in real time when authenticated
   useEffect(() => {
-    if (!authToken) {
+    if (!authToken || currentUser?.isAdmin) {
       setSubscription(null);
       return;
     }
     let cancelled = false;
-    subscriptionApi
-      .getSubscription(authToken)
-      .then((res) => {
-        if (!cancelled && res.ok) {
-          setSubscription(res.subscription);
-        }
-      })
-      .catch(() => {});
+
+    const checkSubscription = () => {
+      subscriptionApi
+        .getSubscription(authToken)
+        .then((res) => {
+          if (!cancelled && res.ok) {
+            setSubscription((prev) => {
+              if (prev && prev.status === 'trialing' && res.subscription.status === 'active') {
+                showToast(`🎉 Parabéns! O seu plano ${res.subscription.plan.toUpperCase()} foi ativado com sucesso!`);
+              }
+              return res.subscription;
+            });
+          }
+        })
+        .catch(() => {});
+    };
+
+    checkSubscription();
+    const interval = window.setInterval(checkSubscription, 8000);
+    const onFocus = () => checkSubscription();
+    window.addEventListener('focus', onFocus);
+
     return () => {
       cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
     };
-  }, [authToken]);
+  }, [authToken, currentUser?.isAdmin, showToast]);
 
   const handleAuthenticated = useCallback(
     (auth: AuthResponse, mode: 'login' | 'register') => {
