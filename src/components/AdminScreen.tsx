@@ -273,7 +273,12 @@ export function AdminScreen({
     try {
       const planToApprove = sub.plan === 'business' ? 'business' : 'pro';
       const targetUserId = sub.userId || sub.id;
-      const res = await adminApi.approveSubscription(authToken, targetUserId, planToApprove);
+      const res = await adminApi.approveSubscription(
+        authToken,
+        targetUserId,
+        planToApprove,
+        sub.billingCycle === 'yearly' ? 'yearly' : 'monthly'
+      );
       onNotify(res.message);
       void loadData(true);
     } catch (err) {

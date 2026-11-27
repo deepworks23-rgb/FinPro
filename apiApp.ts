@@ -48,7 +48,7 @@ interface StoredSupportTicket {
 }
 
 export type SubscriptionPlan = 'free' | 'pro' | 'business';
-export type SubscriptionStatus = 'trialing' | 'pending_approval' | 'active' | 'past_due' | 'canceled';
+export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled';
 
 export interface StoredSubscription {
   id: string;
@@ -65,8 +65,6 @@ export interface StoredSubscription {
   expiresAt: string | null;
   createdAt: string;
   updatedAt: string;
-  isTrialExpired?: boolean;
-  daysRemaining?: number;
 }
 
 export interface PlanLimits {
@@ -217,43 +215,13 @@ function rowToSupportTicket(row: Record<string, unknown>): StoredSupportTicket {
 }
 
 function rowToSubscription(row: Record<string, unknown>): StoredSubscription {
-  const plan = (row.plan === 'pro' || row.plan === 'business' ? row.plan : 'free') as SubscriptionPlan;
-  let status = String(row.status ?? 'trialing') as SubscriptionStatus;
-  if (!['trialing', 'pending_approval', 'active', 'past_due', 'canceled'].includes(status)) {
-    status = 'trialing';
-  }
-
-  const expiresAt = row.expires_at ? new Date(String(row.expires_at)).toISOString() : null;
-  const now = Date.now();
-  let isTrialExpired = false;
-  let daysRemaining = 0;
-
-  if (expiresAt) {
-    const expireTime = new Date(expiresAt).getTime();
-    const diffMs = expireTime - now;
-    daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-    if (plan === 'free') {
-      if (expireTime < now) {
-        isTrialExpired = true;
-        status = 'past_due';
-      } else {
-        status = 'trialing';
-      }
-    } else {
-      if (status === 'active' && expireTime < now) {
-        status = 'past_due';
-      }
-    }
-  } else if (plan === 'free') {
-    isTrialExpired = true;
-    status = 'past_due';
-  }
-
   return {
     id: String(row.id),
     userId: String(row.user_id),
-    plan,
-    status,
+    plan: (row.plan === 'pro' || row.plan === 'business' ? row.plan : 'free') as SubscriptionPlan,
+    status: (row.status === 'canceled' || row.status === 'past_due' || row.status === 'trialing'
+      ? row.status
+      : 'active') as SubscriptionStatus,
     billingCycle: row.billing_cycle === 'yearly' ? 'yearly' : 'monthly',
     currency: row.currency === 'USD' ? 'USD' : 'MZN',
     pricePaid: Number(row.price_paid ?? 0),
@@ -261,29 +229,23 @@ function rowToSubscription(row: Record<string, unknown>): StoredSubscription {
     paymentPhone: String(row.payment_phone ?? ''),
     paymentReference: String(row.payment_reference ?? ''),
     startedAt: new Date(String(row.started_at)).toISOString(),
-    expiresAt,
+    expiresAt: row.expires_at ? new Date(String(row.expires_at)).toISOString() : null,
     createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at)).toISOString(),
-    isTrialExpired,
-    daysRemaining,
   };
 }
 
 async function ensureSubscription(userId: string): Promise<StoredSubscription> {
   const pool = getPool();
   const defaultSubId = `sub_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
-  const now = new Date();
-  const nowIso = now.toISOString();
-  // 7-day trial for free plan
-  const trialEnds = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const trialEndsIso = trialEnds.toISOString();
+  const nowIso = new Date().toISOString();
 
   await pool.query(
     `INSERT INTO subscriptions (
       id, user_id, plan, status, billing_cycle, currency, price_paid, payment_method, payment_phone, payment_reference, started_at, expires_at, created_at, updated_at
-    ) VALUES ($1, $2, 'free', 'trialing', 'monthly', 'MZN', 0, 'free', '', '', $3, $4, $3, $3)
+    ) VALUES ($1, $2, 'free', 'active', 'monthly', 'MZN', 0, 'free', '', '', $3, NULL, $3, $3)
     ON CONFLICT (user_id) DO NOTHING`,
-    [defaultSubId, userId, nowIso, trialEndsIso]
+    [defaultSubId, userId, nowIso]
   );
 
   const res = await pool.query(`SELECT * FROM subscriptions WHERE user_id = $1`, [userId]);
@@ -294,7 +256,7 @@ async function ensureSubscription(userId: string): Promise<StoredSubscription> {
     id: defaultSubId,
     userId,
     plan: 'free',
-    status: 'trialing',
+    status: 'active',
     billingCycle: 'monthly',
     currency: 'MZN',
     pricePaid: 0,
@@ -302,11 +264,9 @@ async function ensureSubscription(userId: string): Promise<StoredSubscription> {
     paymentPhone: '',
     paymentReference: '',
     startedAt: nowIso,
-    expiresAt: trialEndsIso,
+    expiresAt: null,
     createdAt: nowIso,
     updatedAt: nowIso,
-    isTrialExpired: false,
-    daysRemaining: 7,
   };
 }
 
@@ -994,18 +954,6 @@ export function createApiApp(): express.Express {
       const user = req.authUser!;
       const body = req.body as Record<string, unknown>;
 
-      // Block workspace write operations if 7-day trial has expired and user has no active paid plan
-      if (!user.isAdmin) {
-        const sub = await ensureSubscription(user.id);
-        if (sub.isTrialExpired && sub.status !== 'active') {
-          res.status(403).json({
-            error: 'O seu período de teste de 7 dias terminou. Ative o Plano Pro para continuar.',
-            trialExpired: true,
-          });
-          return;
-        }
-      }
-
       const existing = await ensureWorkspace(user.id);
 
       const nextWorkspace: StoredWorkspace = {
@@ -1194,21 +1142,20 @@ export function createApiApp(): express.Express {
       }
 
       const plan: SubscriptionPlan = rawPlan;
-      if (plan === 'free') {
-        const currentSub = await ensureSubscription(user.id);
-        if (currentSub.isTrialExpired) {
-          res.status(400).json({
-            error: 'O seu período de teste gratuito de 7 dias já expirou. Selecione um plano Pro ou Business para continuar.',
-          });
-          return;
-        }
-      }
-
       let price = 0;
       if (plan === 'pro') {
         price = billingCycle === 'yearly' ? 2490 : 299;
       } else if (plan === 'business') {
         price = billingCycle === 'yearly' ? 6990 : 799;
+      }
+
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const expiresAt = new Date(now);
+      if (billingCycle === 'yearly') {
+        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+      } else {
+        expiresAt.setMonth(expiresAt.getMonth() + 1);
       }
 
       const prefix = paymentMethod === 'emola' ? 'EM' : paymentMethod === 'card' ? 'CARD' : 'MP';
@@ -1217,29 +1164,29 @@ export function createApiApp(): express.Express {
       const pool = getPool();
       await ensureSubscription(user.id);
 
-      // Paid plans require Admin manual approval: status is set to 'pending_approval' (no auto-approval!)
-      const targetStatus: SubscriptionStatus = plan === 'free' ? 'trialing' : 'pending_approval';
-
       const updateRes = await pool.query(
         `UPDATE subscriptions
          SET plan = $1,
-             status = $2,
-             billing_cycle = $3,
-             price_paid = $4,
-             payment_method = $5,
-             payment_phone = $6,
-             payment_reference = $7,
-             updated_at = NOW()
-         WHERE user_id = $8
+             status = 'active',
+             billing_cycle = $2,
+             price_paid = $3,
+             payment_method = $4,
+             payment_phone = $5,
+             payment_reference = $6,
+             started_at = $7,
+             expires_at = $8,
+             updated_at = $7
+         WHERE user_id = $9
          RETURNING *`,
         [
           plan,
-          targetStatus,
           billingCycle,
           price,
           paymentMethod,
           rawPhone,
           reference,
+          nowIso,
+          plan === 'free' ? null : expiresAt.toISOString(),
           user.id,
         ]
       );
@@ -1253,8 +1200,8 @@ export function createApiApp(): express.Express {
         subscription: updated,
         message:
           plan === 'free'
-            ? 'Plano Gratuito de teste ativo.'
-            : `Pedido de subscrição ${plan.toUpperCase()} enviado com sucesso via ${paymentMethod.toUpperCase()} (Ref: ${reference})! O seu plano será ativado após validação do administrador.`,
+            ? 'Plano Gratuito ativo com sucesso.'
+            : `Assinatura ${plan.toUpperCase()} ativada com sucesso via ${paymentMethod.toUpperCase()} (Ref: ${reference})!`,
       });
     })
   );
@@ -1550,25 +1497,47 @@ export function createApiApp(): express.Express {
       const days = cycle === 'yearly' ? 365 : 30;
 
       if (!targetId) {
-        res.status(400).json({ error: 'ID de utilizador alvo não informado.' });
+        res.status(400).json({ error: 'ID de utilizador ou subscrição não informado.' });
         return;
       }
 
-      await ensureSubscription(targetId);
+      // Check if targetId is a subscription ID or user ID
+      const existingSub = await pool.query(
+        `SELECT id, user_id FROM subscriptions WHERE id = $1 OR user_id = $1 LIMIT 1`,
+        [targetId]
+      );
+
+      let actualUserId = targetId;
+      if (existingSub.rows[0]) {
+        actualUserId = String(existingSub.rows[0].user_id);
+      } else {
+        const userCheck = await pool.query(`SELECT id FROM users WHERE id = $1`, [targetId]);
+        if (!userCheck.rows[0]) {
+          res.status(404).json({ error: 'Utilizador ou subscrição não encontrada.' });
+          return;
+        }
+        actualUserId = String(userCheck.rows[0].id);
+      }
+
+      await ensureSubscription(actualUserId);
+
+      // Deterministic expiration calculation in JavaScript (eliminates PostgreSQL interval cast errors)
+      const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
       await pool.query(
         `UPDATE subscriptions
          SET plan = $1,
              status = 'active',
              billing_cycle = $2,
-             expires_at = NOW() + ($3 || ' days')::interval,
+             expires_at = $3,
              updated_at = NOW()
          WHERE user_id = $4`,
-        [plan, cycle, String(days), targetId]
+        [plan, cycle, expiresAt, actualUserId]
       );
 
       res.json({
         ok: true,
-        message: `Subscrição aprovada! Plano ${plan.toUpperCase()} ativado por ${days} dias.`,
+        message: `Subscrição aprovada com sucesso! Plano ${plan.toUpperCase()} ativado por ${days} dias.`,
       });
     })
   );
@@ -1709,6 +1678,81 @@ export function createApiApp(): express.Express {
       );
 
       res.json({ ok: true, message: 'Senha do utilizador redefinida com sucesso!' });
+    })
+  );
+
+  // SaaS Admin: List all subscriptions & M-Pesa payments
+  app.get(
+    '/api/admin/subscriptions',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (_req, res) => {
+      const pool = getPool();
+      const rows = await pool.query(
+        `SELECT s.id, s.user_id, s.plan, s.status, s.billing_cycle, s.currency, s.price_paid,
+                s.payment_method, s.payment_phone, s.payment_reference, s.started_at, s.expires_at,
+                u.name AS user_name, u.phone AS user_phone, u.email AS user_email
+         FROM subscriptions s
+         JOIN users u ON s.user_id = u.id
+         ORDER BY s.updated_at DESC
+         LIMIT 100`
+      );
+
+      const subscriptions = rows.rows.map((r) => ({
+        id: String(r.id),
+        targetId: String(r.user_id),
+        userName: String(r.user_name),
+        userPhone: String(r.user_phone),
+        userEmail: String(r.user_email ?? ''),
+        plan: String(r.plan),
+        status: String(r.status),
+        billingCycle: String(r.billing_cycle),
+        currency: String(r.currency),
+        pricePaid: Number(r.price_paid ?? 0),
+        paymentMethod: String(r.payment_method),
+        paymentPhone: String(r.payment_phone ?? ''),
+        paymentReference: String(r.payment_reference ?? ''),
+        startedAt: new Date(String(r.started_at)).toISOString(),
+        expiresAt: r.expires_at ? new Date(String(r.expires_at)).toISOString() : null,
+      }));
+
+      res.json({ ok: true, subscriptions });
+    })
+  );
+
+  // SaaS Admin: Approve M-Pesa / e-Mola Payment & Activate Plan
+  app.post(
+    '/api/admin/subscriptions/approve',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const targetId = String(req.body?.targetId ?? '').trim();
+      const plan = String(req.body?.plan ?? 'pro').toLowerCase();
+      const cycle = String(req.body?.billingCycle ?? 'monthly').toLowerCase();
+      const days = cycle === 'yearly' ? 365 : 30;
+
+      if (!targetId) {
+        res.status(400).json({ error: 'ID de utilizador alvo não informado.' });
+        return;
+      }
+
+      await ensureSubscription(targetId);
+      await pool.query(
+        `UPDATE subscriptions
+         SET plan = $1,
+             status = 'active',
+             billing_cycle = $2,
+             expires_at = NOW() + ($3 || ' days')::interval,
+             updated_at = NOW()
+         WHERE user_id = $4`,
+        [plan, cycle, String(days), targetId]
+      );
+
+      res.json({
+        ok: true,
+        message: `Pagamento aprovado! Plano ${plan.toUpperCase()} ativo por ${days} dias.`,
+      });
     })
   );
 
