@@ -48,6 +48,14 @@ export function Sidebar({
     { screen: 'perfil', label: 'Meu Perfil & Conta', icon: 'person' },
   ];
 
+  if (user.isAdmin || user.isDemo) {
+    navItems.push({
+      screen: 'admin',
+      label: 'Painel Admin SaaS',
+      icon: 'admin_panel_settings',
+    });
+  }
+
   const initials = getUserInitials(user.name);
 
   return (

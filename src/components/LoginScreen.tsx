@@ -7,12 +7,14 @@ interface LoginScreenProps {
   initialIdentifier?: string;
   onAuthenticated: (auth: AuthResponse, mode: 'login' | 'register') => void;
   onOpenPricing?: () => void;
+  onGoToLanding?: () => void;
 }
 
 export function LoginScreen({
   initialIdentifier = '',
   onAuthenticated,
   onOpenPricing,
+  onGoToLanding,
 }: LoginScreenProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
 
@@ -116,6 +118,16 @@ export function LoginScreen({
 
   return (
     <div className="flex-1 flex flex-col w-full px-4 py-8 items-center justify-center">
+      {onGoToLanding && (
+        <button
+          className="mb-4 inline-flex items-center gap-1.5 text-[12px] font-semibold text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+          onClick={onGoToLanding}
+          type="button"
+        >
+          <AppIcon name="arrow_back" className="text-[16px]" />
+          <span>Voltar à Página Inicial</span>
+        </button>
+      )}
       <div className="w-full max-w-[420px] m-auto flex flex-col items-center sm:bg-surface-container-lowest sm:p-7 sm:rounded-3xl sm:shadow-lg sm:border sm:border-surface-container/60">
         {/* Header / Brand Mark */}
         <div className="flex flex-col items-center text-center mb-5">

@@ -10,6 +10,8 @@ export type AppScreen =
   | 'orcamentos'
   | 'relatorios'
   | 'perfil'
+  | 'admin'
+  | 'landing'
   | 'login';
 
 export type ReportPeriod = 'mes' | 'trimestre' | 'ano' | 'custom';
@@ -22,6 +24,7 @@ export interface UserProfile {
   address: string;
   avatarDataUrl: string;
   isDemo: boolean;
+  isAdmin?: boolean;
   hasPassword: boolean;
   createdAt: string;
 }
@@ -161,4 +164,28 @@ export interface SubscriptionResponse {
     budgetsCount: number;
     goalsCount: number;
   };
+}
+
+export interface AdminOverviewStats {
+  totalUsers: number;
+  totalSubscriptions: number;
+  proUsersCount: number;
+  businessUsersCount: number;
+  freeUsersCount: number;
+  mrrMzn: number;
+  openTicketsCount: number;
+}
+
+export interface AdminUserItem {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  isAdmin: boolean;
+  createdAt: string;
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  paymentMethod: string;
+  paymentReference: string;
+  billingCycle: 'monthly' | 'yearly';
 }

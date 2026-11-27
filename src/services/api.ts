@@ -1,4 +1,6 @@
 import type {
+  AdminOverviewStats,
+  AdminUserItem,
   SubscriptionResponse,
   SupportTicket,
   UserProfile,
@@ -174,4 +176,41 @@ export const subscriptionApi = {
         body: data,
       }
     ),
+};
+
+export const adminApi = {
+  getOverview: (token: string) =>
+    apiRequest<{ ok: boolean; stats: AdminOverviewStats }>('/api/admin/overview', {
+      method: 'GET',
+      token,
+    }),
+
+  getUsers: (token: string) =>
+    apiRequest<{ ok: boolean; users: AdminUserItem[] }>('/api/admin/users', {
+      method: 'GET',
+      token,
+    }),
+
+  updateUserPlan: (token: string, targetId: string, plan: 'free' | 'pro' | 'business') =>
+    apiRequest<{ ok: boolean; subscription: UserSubscription; message: string }>(
+      '/api/admin/users/plan',
+      {
+        method: 'POST',
+        token,
+        body: { targetId, plan },
+      }
+    ),
+
+  getTickets: (token: string) =>
+    apiRequest<{ ok: boolean; tickets: SupportTicket[] }>('/api/admin/tickets', {
+      method: 'GET',
+      token,
+    }),
+
+  updateTicketStatus: (token: string, ticketId: string, status: string) =>
+    apiRequest<{ ok: boolean; message: string }>('/api/admin/tickets/status', {
+      method: 'POST',
+      token,
+      body: { ticketId, status },
+    }),
 };

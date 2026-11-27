@@ -22,12 +22,14 @@ interface HeaderProps {
 }
 
 const SCREEN_TITLES: Record<AppScreen, string> = {
+  landing: 'Página Inicial FinTrack',
   login: 'Autenticação',
   'dashboard-inicio': 'Painel Geral',
   transacoes: 'Extrato de Transações',
   orcamentos: 'Metas e Orçamentos',
   relatorios: 'Relatórios Financeiros',
   perfil: 'Meu Perfil',
+  admin: 'Painel Administrativo SaaS',
 };
 
 export function Header({

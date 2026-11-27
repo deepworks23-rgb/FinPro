@@ -26,6 +26,7 @@ interface StoredUser {
   passwordHash: string;
   acceptedTermsAt: string;
   isDemo: boolean;
+  isAdmin: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -166,6 +167,7 @@ function rowToUser(row: Record<string, unknown>): StoredUser {
     passwordHash: String(row.password_hash),
     acceptedTermsAt: new Date(String(row.accepted_terms_at)).toISOString(),
     isDemo: Boolean(row.is_demo),
+    isAdmin: Boolean(row.is_admin),
     createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at)).toISOString(),
   };
@@ -393,6 +395,7 @@ async function sanitizeUser(user: StoredUser) {
     address: user.address,
     avatarDataUrl,
     isDemo: user.isDemo,
+    isAdmin: user.isAdmin,
     hasPassword: Boolean(user.passwordHash),
     createdAt: user.createdAt,
   };
@@ -437,6 +440,28 @@ const requireAuth = asyncHandler(async (req, res, next) => {
   }
   req.authUser = verified.user;
   req.authTokenId = verified.tokenId;
+  next();
+});
+
+const requireAdmin = asyncHandler(async (req, res, next) => {
+  const user = req.authUser;
+  if (!user) {
+    res.status(401).json({ error: 'Autenticação necessária.' });
+    return;
+  }
+  const adminPhone = (process.env.ADMIN_PHONE ?? '').replace(/\D/g, '');
+  const adminEmail = (process.env.ADMIN_EMAIL ?? '').trim().toLowerCase();
+  const isEnvAdmin =
+    (adminPhone && user.phoneNormalized === adminPhone) ||
+    (adminEmail && user.emailNormalized === adminEmail);
+
+  // If user is explicitly flagged as admin or matches admin env or is a local developer/demo admin
+  if (!user.isAdmin && !isEnvAdmin && !user.isDemo) {
+    res.status(403).json({
+      error: 'Acesso negado. Apenas administradores do FinTrack SaaS podem aceder a esta área.',
+    });
+    return;
+  }
   next();
 });
 
@@ -1152,6 +1177,159 @@ export function createApiApp(): express.Express {
             ? 'Plano Gratuito ativo com sucesso.'
             : `Assinatura ${plan.toUpperCase()} ativada com sucesso via ${paymentMethod.toUpperCase()} (Ref: ${reference})!`,
       });
+    })
+  );
+
+  // SaaS Admin: Overview Metrics
+  app.get(
+    '/api/admin/overview',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (_req, res) => {
+      const pool = getPool();
+      const usersCountRes = await pool.query('SELECT COUNT(*) AS count FROM users');
+      const subsRes = await pool.query(
+        `SELECT plan, status, COUNT(*) AS count FROM subscriptions GROUP BY plan, status`
+      );
+      const openTicketsRes = await pool.query(
+        `SELECT COUNT(*) AS count FROM support_tickets WHERE status = 'aberto'`
+      );
+
+      let proCount = 0;
+      let businessCount = 0;
+      let freeCount = 0;
+
+      for (const row of subsRes.rows) {
+        const count = Number(row.count ?? 0);
+        if (row.plan === 'pro') proCount += count;
+        else if (row.plan === 'business') businessCount += count;
+        else freeCount += count;
+      }
+
+      const totalUsers = Number(usersCountRes.rows[0]?.count ?? 0);
+      const mrrMzn = proCount * 299 + businessCount * 799;
+
+      res.json({
+        ok: true,
+        stats: {
+          totalUsers,
+          totalSubscriptions: proCount + businessCount + freeCount,
+          proUsersCount: proCount,
+          businessUsersCount: businessCount,
+          freeUsersCount: freeCount,
+          mrrMzn,
+          openTicketsCount: Number(openTicketsRes.rows[0]?.count ?? 0),
+        },
+      });
+    })
+  );
+
+  // SaaS Admin: Users & Subscriptions List
+  app.get(
+    '/api/admin/users',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (_req, res) => {
+      const pool = getPool();
+      const rowsRes = await pool.query(
+        `SELECT u.id, u.name, u.phone, u.email, u.is_admin, u.created_at,
+                COALESCE(s.plan, 'free') AS plan,
+                COALESCE(s.status, 'active') AS status,
+                COALESCE(s.payment_method, 'free') AS payment_method,
+                COALESCE(s.payment_reference, '') AS payment_reference,
+                COALESCE(s.billing_cycle, 'monthly') AS billing_cycle
+         FROM users u
+         LEFT JOIN subscriptions s ON u.id = s.user_id
+         ORDER BY u.created_at DESC
+         LIMIT 100`
+      );
+
+      const users = rowsRes.rows.map((r) => ({
+        id: String(r.id),
+        name: String(r.name),
+        phone: String(r.phone),
+        email: String(r.email ?? ''),
+        isAdmin: Boolean(r.is_admin),
+        createdAt: new Date(String(r.created_at)).toISOString(),
+        plan: String(r.plan),
+        status: String(r.status),
+        paymentMethod: String(r.payment_method),
+        paymentReference: String(r.payment_reference),
+        billingCycle: String(r.billing_cycle),
+      }));
+
+      res.json({ ok: true, users });
+    })
+  );
+
+  // SaaS Admin: Update a User's Plan Manually
+  app.post(
+    '/api/admin/users/plan',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const targetId = String(req.body?.targetId ?? '').trim();
+      const nextPlan = String(req.body?.plan ?? 'free').toLowerCase();
+
+      if (!targetId) {
+        res.status(400).json({ error: 'ID de utilizador alvo não informado.' });
+        return;
+      }
+      if (nextPlan !== 'free' && nextPlan !== 'pro' && nextPlan !== 'business') {
+        res.status(400).json({ error: 'Plano inválido.' });
+        return;
+      }
+
+      await ensureSubscription(targetId);
+      const updateRes = await pool.query(
+        `UPDATE subscriptions
+         SET plan = $1, status = 'active', updated_at = NOW()
+         WHERE user_id = $2
+         RETURNING *`,
+        [nextPlan, targetId]
+      );
+
+      res.json({
+        ok: true,
+        subscription: updateRes.rows[0] ? rowToSubscription(updateRes.rows[0]) : null,
+        message: `Plano do utilizador alterado para ${nextPlan.toUpperCase()}.`,
+      });
+    })
+  );
+
+  // SaaS Admin: List all support tickets
+  app.get(
+    '/api/admin/tickets',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (_req, res) => {
+      const pool = getPool();
+      const resTickets = await pool.query(
+        `SELECT * FROM support_tickets ORDER BY created_at DESC LIMIT 100`
+      );
+      res.json({ ok: true, tickets: resTickets.rows.map(rowToSupportTicket) });
+    })
+  );
+
+  // SaaS Admin: Update support ticket status
+  app.post(
+    '/api/admin/tickets/status',
+    requireAuth,
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+      const pool = getPool();
+      const ticketId = String(req.body?.ticketId ?? '').trim();
+      const status = String(req.body?.status ?? 'fechado').trim();
+      if (!ticketId) {
+        res.status(400).json({ error: 'ID do bilhete em falta.' });
+        return;
+      }
+      await pool.query(
+        `UPDATE support_tickets SET status = $1 WHERE id = $2`,
+        [status, ticketId]
+      );
+      res.json({ ok: true, message: `Estado do bilhete atualizado para ${status}.` });
     })
   );
 

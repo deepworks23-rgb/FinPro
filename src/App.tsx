@@ -1,3 +1,4 @@
+import { AdminScreen } from './components/AdminScreen';
 import { AppIcon } from './components/AppIcon';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
@@ -5,6 +6,7 @@ import { BudgetsScreen } from './components/BudgetsScreen';
 import { ConfirmDialog, type ConfirmDialogRequest } from './components/ConfirmDialog';
 import { DashboardScreen } from './components/DashboardScreen';
 import { Header } from './components/Header';
+import { LandingPage } from './components/LandingPage';
 import { LoginScreen } from './components/LoginScreen';
 import { NotificationsModal } from './components/Overlays';
 import { PricingModal } from './components/PricingModal';
@@ -583,7 +585,35 @@ export default function App() {
   }, [transactions.length, alertSettings, summary.netBalance]);
 
   const isAuthenticated = Boolean(authToken && currentUser);
-  const activeScreen: AppScreen = isAuthenticated ? screen : 'login';
+  const activeScreen: AppScreen = isAuthenticated
+    ? screen
+    : screen === 'login'
+      ? 'login'
+      : 'landing';
+
+  // If visitor is unauthenticated and viewing Landing Page, render full public landing page
+  if (!isAuthenticated && !isRestoringSession && activeScreen === 'landing') {
+    return (
+      <>
+        <LandingPage
+          onGoToLogin={() => setScreen('login')}
+          onGoToRegister={() => setScreen('login')}
+          onSelectPlan={() => {
+            setScreen('login');
+            setPricingModalOpen(true);
+          }}
+        />
+        <PricingModal
+          authToken={null}
+          currency={currency}
+          currentSubscription={null}
+          isOpen={pricingModalOpen}
+          onClose={() => setPricingModalOpen(false)}
+          onNotify={showToast}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen md:h-screen md:overflow-hidden w-full bg-surface-container-low/40 flex flex-col md:flex-row text-on-surface">
@@ -682,6 +712,7 @@ export default function App() {
             activeScreen === 'login' && (
               <LoginScreen
                 onAuthenticated={handleAuthenticated}
+                onGoToLanding={() => setScreen('landing')}
                 onOpenPricing={() => setPricingModalOpen(true)}
               />
             )
@@ -763,6 +794,14 @@ export default function App() {
               onUpdateProfile={handleUpdateProfile}
               subscription={subscription}
               user={currentUser}
+            />
+          )}
+
+          {isAuthenticated && activeScreen === 'admin' && currentUser && authToken && (
+            <AdminScreen
+              authToken={authToken}
+              currency={currency}
+              onNotify={showToast}
             />
           )}
         </main>
